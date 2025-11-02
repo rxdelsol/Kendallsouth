@@ -51,6 +51,60 @@
   guardarLogo();
   cargarLogo();
 </script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+  // Configuración de tu proyecto Firebase
+  const firebaseConfig = {
+    apiKey: "TU_API_KEY",
+    authDomain: "TU_PROYECTO.firebaseapp.com",
+    projectId: "TU_PROYECTO",
+    storageBucket: "TU_PROYECTO.appspot.com",
+    messagingSenderId: "1234567890",
+    appId: "1:1234567890:web:abcdef123456"
+  };
+
+  // Inicializar Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // Guardar información de usuario (puede ser formulario, logo, configuraciones, etc.)
+  async function guardarInfo(usuarioId, datos) {
+    // Puedes usar setDoc para sobreescribir datos
+    await setDoc(doc(db, "usuarios", usuarioId), datos);
+    console.log("Información guardada");
+  }
+
+  // Leer información del usuario
+  async function cargarInfo(usuarioId) {
+    const docRef = doc(db, "usuarios", usuarioId);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      console.log("Datos:", docSnap.data());
+      return docSnap.data();
+    } else {
+      console.log("No hay datos guardados");
+      return null;
+    }
+  }
+
+  // Ejemplo de uso: guardar logo y nombre
+  guardarInfo("roxana", {
+    logo: "/icons/logo.png",
+    nombre: "Roxana",
+    email: "roxana@example.com"
+  });
+
+  // Ejemplo de uso: cargar información
+  cargarInfo("roxana").then(data => {
+    if(data){
+      document.querySelector("#logo").src = data.logo;
+      document.querySelector("#nombre").textContent = data.nombre;
+    }
+  });
+</script>
 
   <body>
     <div id="root"></div>
