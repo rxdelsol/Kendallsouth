@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-import { doctors } from "../data/doctors";
+import React, { useState, useEffect } from "react";
 import "./DoctorsByInsurance.css";
 
 const insurances = [
@@ -16,45 +15,83 @@ const insurances = [
 
 export default function DoctorsByInsurance() {
   const [activeInsurance, setActiveInsurance] = useState(null);
+  const [doctors, setDoctors] = useState({});
+  const [newDoctor, setNewDoctor] = useState("");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("doctorsByInsurance");
+    if (saved) {
+      setDoctors(JSON.parse(saved));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("doctorsByInsurance", JSON.stringify(doctors));
+  }, [doctors]);
 
   const toggleInsurance = (insurance) => {
     setActiveInsurance(activeInsurance === insurance ? null : insurance);
+  };
+
+  const handleAddDoctor = (insurance) => {
+    if (!newDoctor.trim()) return;
+    setDoctors((prev) => ({
+      ...prev,
+      [insurance]: [...(prev[insurance] || []), newDoctor],
+    }));
+    setNewDoctor("");
+  };
+
+  const handleDeleteDoctor = (insurance, index) => {
+    const updated = { ...doctors };
+    updated[insurance].splice(index, 1);
+    setDoctors(updated);
   };
 
   return (
     <div className="container">
       <h1 className="title">Doctors by Insurance (Miami FL 2026)</h1>
       <div className="accordion">
-        {insurances.map((insurance) => {
-          const filtered = doctors.filter(
-            (doc) => doc.insurance === insurance
-          );
+        {insurances.map((insurance) => (
+          <div key={insurance} className="accordion-item">
+            <button
+              className="accordion-button"
+              onClick={() => toggleInsurance(insurance)}
+            >
+              {insurance}
+            </button>
 
-          return (
-            <div key={insurance} className="accordion-item">
-              <button
-                className="accordion-button"
-                onClick={() => toggleInsurance(insurance)}
-              >
-                {insurance}
-              </button>
+            {activeInsurance === insurance && (
+              <div className="accordion-content">
+                <ul>
+                  {(doctors[insurance] || []).map((doc, index) => (
+                    <li key={index} className="doctor-item">
+                      <span>{doc}</span>
+                      <button
+                        className="delete-btn"
+                        onClick={() => handleDeleteDoctor(insurance, index)}
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  ))}
+                </ul>
 
-              {activeInsurance === insurance && (
-                <div className="accordion-content">
-                  {filtered.length > 0 ? (
-                    <ul>
-                      {filtered.map((doc) => (
-                        <li key={doc.id}>{doc.name}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>No doctors listed for this insurance yet.</p>
-                  )}
+                <div className="add-doctor-form">
+                  <input
+                    type="text"
+                    placeholder="Add active doctor..."
+                    value={newDoctor}
+                    onChange={(e) => setNewDoctor(e.target.value)}
+                  />
+                  <button onClick={() => handleAddDoctor(insurance)}>
+                    Add
+                  </button>
                 </div>
-              )}
-            </div>
-          );
-        })}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
