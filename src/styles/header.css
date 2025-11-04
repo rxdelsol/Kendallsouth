@@ -1,0 +1,19 @@
+.ks-header{ background: #0a0f25; padding: 18px 24px; display:flex; flex-direction:column; gap:12px; color:#fff; }
+.ks-header-inner{ display:flex; align-items:center; gap:16px; }
+.ks-logo{ height:44px; }
+.ks-title{ font-size:20px; font-weight:700; }
+.ks-actions{ display:flex; gap:8px; align-items:center; }
+.ks-btn{ background:#1d2b4e; color:#fff; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; }
+.ks-modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:1200; }
+.ks-modal-full{ width:92%; height:86%; background:#071021; border-radius:8px; overflow:auto; display:flex; flex-direction:column; }
+.ks-modal-header{ display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid rgba(255,255,255,0.03); }
+.ks-modal-body{ padding:16px; flex:1; overflow:auto; color:#dbe9ff; }
+.ks-ins-panel{ display:flex; gap:16px; }
+.ks-ins-left{ width:260px; background:rgba(255,255,255,0.02); padding:12px; border-radius:6px; }
+.ks-ins-list{ list-style:none; padding:0; margin:0; max-height:60vh; overflow:auto; color:#a7c6e8; }
+.ks-ins-card{ background:rgba(255,255,255,0.02); padding:10px; border-radius:6px; margin-bottom:8px; }
+.ks-add-doc input, .ks-ins-add input{ padding:8px; border-radius:6px; background:transparent; border:1px solid rgba(255,255,255,0.04); color:#e6eef6; }
+.ks-add-doc button, .ks-ins-add button{ padding:8px 10px; margin-left:6px; }
+.ks-docs-controls{ display:flex; gap:8px; margin-bottom:8px; }
+.ks-docs-controls input{ padding:8px; border-radius:6px; background:transparent; border:1px solid rgba(255,255,255,0.04); color:#e6eef6; }
+.ks-docs-list{ background:rgba(255,255,255,0.02); padding:12px; border-radius:6px; max-height:60vh; overflow:auto; }
