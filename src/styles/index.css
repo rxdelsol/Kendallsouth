@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* additional small helpers */
+body { @apply bg-navy; }
+.table-placeholder { @apply bg-card text-slate-200 rounded-lg p-6 m-6; }
