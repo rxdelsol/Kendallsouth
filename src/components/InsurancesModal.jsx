@@ -4,7 +4,7 @@ export default function InsurancesModal({ open, onClose }){
   const defaultIns = ["Aetna","Florida Blue","Cigna","Ambetter","UnitedHealthcare","Molina Healthcare","AmeriHealth Caritas","Florida Health Care Plan","Oscar"];
   const [insList, setInsList] = useState(defaultIns);
   const [doctorsByIns, setDoctorsByIns] = useState({});
-  const [activeIns, setActiveIns] = useState(insList[0]);
+  const [activeIns, setActiveIns] = useState(defaultIns[0]);
   const [docName, setDocName] = useState('');
   const [expiration, setExpiration] = useState('');
   const [notes, setNotes] = useState('');
