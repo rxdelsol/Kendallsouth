@@ -1,59 +1,50 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import ModalFull from './ModalFull.jsx';
-import './styles/doctors.css';
+import React, { useEffect, useMemo, useState } from "react";
 
-export default function DoctorsModal({open, onClose}){
+export default function DoctorsModal({ open, onClose }){
   const [doctors, setDoctors] = useState([]);
-  const [q, setQ] = useState('');
-  const [specialty, setSpecialty] = useState('');
+  const [q, setQ] = useState("");
+  const [specialty, setSpecialty] = useState("");
 
   useEffect(()=>{
-    const s = localStorage.getItem('doctorsByInsurance');
-    if(s){
-      const obj = JSON.parse(s);
+    const d = localStorage.getItem("doctorsByInsurance");
+    if(d){
+      const obj = JSON.parse(d);
       const list = [];
-      Object.keys(obj).forEach(ins=> obj[ins].forEach(name=> list.push({name, insurance:ins})));
+      Object.keys(obj).forEach(ins=> obj[ins].forEach(name=> list.push({name, insurance: ins})));
       setDoctors(list);
     }
   },[open]);
 
-  useEffect(()=>{
-    // keep doctors synced if user updates in Insurances modal
-    const onStorage = ()=>{
-      const s = localStorage.getItem('doctorsByInsurance') || '{}';
-      const obj = JSON.parse(s);
-      const list = [];
-      Object.keys(obj).forEach(ins=> obj[ins].forEach(name=> list.push({name, insurance:ins})));
-      setDoctors(list);
-    };
-    window.addEventListener('storage', onStorage);
-    return ()=>window.removeEventListener('storage', onStorage);
-  },[]);
-
   const filtered = useMemo(()=>{
     const term = q.trim().toLowerCase();
-    return doctors.filter(d=> (d.name.toLowerCase().includes(term) || d.insurance.toLowerCase().includes(term)) && (specialty? (d.specialty||'').toLowerCase().includes(specialty.toLowerCase()): true));
+    return doctors.filter(d=> (d.name.toLowerCase().includes(term) || d.insurance.toLowerCase().includes(term)) && (specialty? (d.specialty||'').toLowerCase().includes(specialty.toLowerCase()) : true));
   },[doctors,q,specialty]);
 
+  if(!open) return null;
   return (
-    <ModalFull open={open} onClose={onClose} title="Doctors Directory">
-      <div className="docs-panel">
-        <div className="docs-controls">
-          <input placeholder="Search by name or insurance..." value={q} onChange={e=>setQ(e.target.value)} />
-          <input placeholder="Filter by specialty (optional)..." value={specialty} onChange={e=>setSpecialty(e.target.value)} />
+    <div className="ks-modal-overlay">
+      <div className="ks-modal-full">
+        <div className="ks-modal-header">
+          <h2>Doctors Directory</h2>
+          <button className="ks-close" onClick={onClose}>✕</button>
         </div>
-
-        <div className="docs-list">
-          {filtered.length===0 ? <div className="empty">No doctors found</div> : (
-            <table className="docs-table">
-              <thead><tr><th>Name</th><th>Insurance</th></tr></thead>
-              <tbody>
-                {filtered.map((d,i)=> <tr key={i}><td>{d.name}</td><td>{d.insurance}</td></tr>)}
-              </tbody>
-            </table>
-          )}
+        <div className="ks-modal-body">
+          <div style={{display:"flex", gap:8, marginBottom:10}}>
+            <input placeholder="Search by name or insurance..." value={q} onChange={e=>setQ(e.target.value)} />
+            <input placeholder="Filter by specialty (optional)..." value={specialty} onChange={e=>setSpecialty(e.target.value)} />
+          </div>
+          <div className="ks-docs-list">
+            {filtered.length===0 ? <div className="ks-empty">No doctors found</div> : (
+              <table className="ks-docs-table" style={{width:"100%", borderCollapse:"collapse"}}>
+                <thead><tr><th style={{textAlign:"left", padding:8}}>Name</th><th style={{textAlign:"left", padding:8}}>Insurance</th></tr></thead>
+                <tbody>
+                  {filtered.map((d,i)=> <tr key={i}><td style={{padding:8}}>{d.name}</td><td style={{padding:8}}>{d.insurance}</td></tr>)}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </div>
-    </ModalFull>
+    </div>
   );
 }

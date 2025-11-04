@@ -1,94 +1,72 @@
-import React, { useEffect, useState } from 'react';
-import ModalFull from './ModalFull.jsx';
-import './styles/insurance.css';
+import React, { useEffect, useState } from "react";
 
-const DEFAULT_INS = [
-  "Aetna","Florida Blue","Cigna","Ambetter","UnitedHealthcare",
-  "Molina Healthcare","AmeriHealth Caritas","Florida Health Care Plan","Oscar"
-];
-
-export default function InsurancesModal({open, onClose}){
-  const [insurances, setInsurances] = useState(DEFAULT_INS);
+export default function InsurancesModal({ open, onClose }){
+  const [insList, setInsList] = useState([]);
   const [doctorsByIns, setDoctorsByIns] = useState({});
-  const [newIns, setNewIns] = useState('');
+  const [newIns, setNewIns] = useState("");
+  const [newDocName, setNewDocName] = useState("");
+  const [active, setActive] = useState(null);
 
   useEffect(()=>{
-    const s = localStorage.getItem('doctorsByInsurance');
-    if(s) setDoctorsByIns(JSON.parse(s));
-    const i = localStorage.getItem('insuranceList');
-    if(i) setInsurances(JSON.parse(i));
+    const i = localStorage.getItem("insuranceList");
+    if(i) setInsList(JSON.parse(i));
+    const d = localStorage.getItem("doctorsByInsurance");
+    if(d) setDoctorsByIns(JSON.parse(d));
   },[]);
 
   useEffect(()=>{
-    localStorage.setItem('doctorsByInsurance', JSON.stringify(doctorsByIns));
-  },[doctorsByIns]);
+    localStorage.setItem("insuranceList", JSON.stringify(insList));
+  },[insList]);
 
   useEffect(()=>{
-    localStorage.setItem('insuranceList', JSON.stringify(insurances));
-  },[insurances]);
+    localStorage.setItem("doctorsByInsurance", JSON.stringify(doctorsByIns));
+  },[doctorsByIns]);
 
-  const addInsurance = ()=>{
-    const v = newIns.trim();
-    if(!v) return;
-    if(insurances.includes(v)) return setNewIns('');
-    setInsurances(prev=>[...prev, v]);
-    setNewIns('');
-  };
-
-  const addDoctor = (ins, name)=>{
-    setDoctorsByIns(prev=>({...prev, [ins]: [...(prev[ins]||[]), name]}));
-  };
-
-  const removeDoctor = (ins, idx)=>{
-    setDoctorsByIns(prev=>{ const copy={...prev}; copy[ins].splice(idx,1); return copy; });
-  };
-
+  if(!open) return null;
   return (
-    <ModalFull open={open} onClose={onClose} title="Manage Insurances">
-      <div className="ins-panel">
-        <div className="ins-left">
-          <h3>Insurances</h3>
-          <ul className="ins-list">
-            {insurances.map(i=> <li key={i}>{i}</li>)}
-          </ul>
-          <div className="ins-add">
-            <input placeholder="New insurance..." value={newIns} onChange={e=>setNewIns(e.target.value)} />
-            <button className="btn" onClick={addInsurance}>Add</button>
-          </div>
+    <div className="ks-modal-overlay">
+      <div className="ks-modal-full">
+        <div className="ks-modal-header">
+          <h2>Manage Insurances</h2>
+          <button className="ks-close" onClick={onClose}>✕</button>
         </div>
-
-        <div className="ins-right">
-          <h3>Doctors per Insurance</h3>
-          <div className="ins-right-grid">
-            {insurances.map(ins=> (
-              <div className="ins-card" key={ins}>
-                <div className="ins-card-title">{ins}</div>
-                <div className="ins-card-body">
+        <div className="ks-modal-body">
+          <div className="ks-ins-panel">
+            <div className="ks-ins-left">
+              <h3>Insurances</h3>
+              <ul className="ks-ins-list">
+                {insList.map((ins) => (
+                  <li key={ins} onClick={() => setActive(ins)} style={{cursor:"pointer", padding:"6px 4px", background: active===ins? "rgba(255,255,255,0.02)":"transparent"}}>{ins}</li>
+                ))}
+              </ul>
+              <div style={{display:"flex", gap:8, marginTop:10}}>
+                <input value={newIns} onChange={e=>setNewIns(e.target.value)} placeholder="New insurance..." />
+                <button onClick={()=>{ const v=newIns.trim(); if(!v) return; if(insList.includes(v)){ setNewIns(''); return;} setInsList(prev=>[...prev,v]); setNewIns(''); }}>Add</button>
+              </div>
+            </div>
+            <div className="ks-ins-right">
+              <h3>Doctors per Insurance</h3>
+              {active ? (
+                <div className="ks-ins-card">
+                  <div style={{marginBottom:8, fontWeight:700}}>{active}</div>
                   <ul>
-                    {(doctorsByIns[ins]||[]).map((d,idx)=> (
-                      <li key={idx}>
+                    {(doctorsByIns[active]||[]).map((d,idx)=>(
+                      <li key={idx} style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 4px"}}>
                         <span>{d}</span>
-                        <button className="del" onClick={()=>removeDoctor(ins,idx)}>✕</button>
+                        <button onClick={()=>{ const copy={...doctorsByIns}; copy[active].splice(idx,1); setDoctorsByIns(copy); }}>✕</button>
                       </li>
                     ))}
                   </ul>
-                  <AddDoctorForm onAdd={(name)=>addDoctor(ins,name)} />
+                  <div style={{display:"flex", gap:8, marginTop:8}}>
+                    <input value={newDocName} onChange={e=>setNewDocName(e.target.value)} placeholder="Doctor name..." />
+                    <button onClick={()=>{ const name=newDocName.trim(); if(!name) return; setDoctorsByIns(prev=>({...prev, [active]: [...(prev[active]||[]), name]})); setNewDocName(''); }}>Add</button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ) : <div>Select an insurance to view or add doctors.</div>}
+            </div>
           </div>
         </div>
       </div>
-    </ModalFull>
-  );
-}
-
-function AddDoctorForm({onAdd}){
-  const [v,setV]=React.useState('');
-  return (
-    <div className="add-doctor-form">
-      <input value={v} onChange={e=>setV(e.target.value)} placeholder="Doctor name..." />
-      <button className="btn" onClick={()=>{ if(v.trim()){ onAdd(v.trim()); setV(''); } }}>Add</button>
     </div>
   );
 }
