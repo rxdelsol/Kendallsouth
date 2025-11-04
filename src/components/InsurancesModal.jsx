@@ -1,109 +1,95 @@
-import React, { useState, useEffect } from "react";
-import "./modal.css";
+import React, { useEffect, useState } from "react";
 
-export default function InsurancesModal({ open, onClose }) {
-  const [insurances, setInsurances] = useState([]);
-  const [newInsurance, setNewInsurance] = useState({
-    insuranceName: "",
-    expirationDate: "",
-    contactInfo: "",
-  });
+export default function InsurancesModal({ open, onClose }){
+  const defaultIns = ["Aetna","Florida Blue","Cigna","Ambetter","UnitedHealthcare","Molina Healthcare","AmeriHealth Caritas","Florida Health Care Plan","Oscar"];
+  const [insList, setInsList] = useState(defaultIns);
+  const [doctorsByIns, setDoctorsByIns] = useState({});
+  const [activeIns, setActiveIns] = useState(insList[0]);
+  const [docName, setDocName] = useState('');
+  const [expiration, setExpiration] = useState('');
+  const [notes, setNotes] = useState('');
 
-  useEffect(() => {
-    const saved = localStorage.getItem("insurances");
-    if (saved) setInsurances(JSON.parse(saved));
-  }, []);
+  useEffect(()=>{
+    const i = localStorage.getItem('insuranceList');
+    if(i) setInsList(JSON.parse(i));
+    const d = localStorage.getItem('doctorsByInsurance');
+    if(d) setDoctorsByIns(JSON.parse(d));
+  },[]);
 
-  const saveToStorage = (list) => {
-    localStorage.setItem("insurances", JSON.stringify(list));
-  };
+  useEffect(()=>{
+    localStorage.setItem('insuranceList', JSON.stringify(insList));
+  },[insList]);
 
-  const handleAdd = () => {
-    if (!newInsurance.insuranceName.trim()) return;
-    const updated = [...insurances, newInsurance];
-    setInsurances(updated);
-    saveToStorage(updated);
-    setNewInsurance({ insuranceName: "", expirationDate: "", contactInfo: "" });
-  };
+  useEffect(()=>{
+    localStorage.setItem('doctorsByInsurance', JSON.stringify(doctorsByIns));
+  },[doctorsByIns]);
 
-  const handleDelete = (index) => {
-    const updated = insurances.filter((_, i) => i !== index);
-    setInsurances(updated);
-    saveToStorage(updated);
-  };
+  useEffect(()=>{
+    if(!insList.includes(activeIns)) setActiveIns(insList[0]||'');
+  },[insList]);
 
-  if (!open) return null;
-
+  if(!open) return null;
   return (
-    <div className="modal-overlay">
-      <div className="modal">
-        <h2>Insurance Management</h2>
-        <div className="form-section">
-          <input
-            type="text"
-            placeholder="Insurance Name"
-            value={newInsurance.insuranceName}
-            onChange={(e) =>
-              setNewInsurance({ ...newInsurance, insuranceName: e.target.value })
-            }
-          />
-          <input
-            type="date"
-            value={newInsurance.expirationDate}
-            onChange={(e) =>
-              setNewInsurance({ ...newInsurance, expirationDate: e.target.value })
-            }
-          />
-          <textarea
-            placeholder="Contact info or notes"
-            value={newInsurance.contactInfo}
-            onChange={(e) =>
-              setNewInsurance({ ...newInsurance, contactInfo: e.target.value })
-            }
-          />
-          <button className="btn-add" onClick={handleAdd}>
-            Add Insurance
-          </button>
-          <button className="btn-close" onClick={onClose}>
-            Close
-          </button>
+    <div className="ks-modal-overlay">
+      <div className="ks-modal-full">
+        <div className="ks-modal-header">
+          <h2>Manage Insurances</h2>
+          <button className="ks-close" onClick={onClose}>✕</button>
         </div>
+        <div className="ks-modal-body">
+          <div className="ks-ins-panel">
+            <div className="ks-ins-left">
+              <h3>Insurances</h3>
+              <ul className="ks-ins-list">
+                {insList.map(i=> <li key={i} onClick={()=>setActiveIns(i)} style={{cursor:'pointer', padding:'6px 4px', background: activeIns===i? 'rgba(255,255,255,0.02)':'transparent'}}>{i}</li>)}
+              </ul>
+              <div style={{display:'flex', gap:8, marginTop:10}}>
+                <input placeholder="New insurance..." onKeyDown={(e)=>{ if(e.key==='Enter'){ const v=e.target.value.trim(); if(v){ setInsList(prev=>[...prev,v]); e.target.value=''; } } }} />
+                <button onClick={()=>{ const el=document.querySelector('.ks-ins-left input'); const v=el&&el.value.trim(); if(v){ setInsList(prev=>[...prev,v]); if(el) el.value=''; } }}>Add</button>
+              </div>
+            </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Insurance Name</th>
-              <th>Expiration Date</th>
-              <th>Contact / Notes</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {insurances.length > 0 ? (
-              insurances.map((ins, index) => (
-                <tr key={index}>
-                  <td>{ins.insuranceName}</td>
-                  <td>{ins.expirationDate || "—"}</td>
-                  <td>{ins.contactInfo || "—"}</td>
-                  <td>
-                    <button
-                      className="btn-delete"
-                      onClick={() => handleDelete(index)}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="4" style={{ textAlign: "center", opacity: 0.6 }}>
-                  No insurances added yet
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            <div className="ks-ins-right">
+              <h3>Doctors per Insurance</h3>
+              <div className="ks-ins-right-grid">
+                {(insList||[]).map(ins=> (
+                  <div className="ks-card" key={ins}>
+                    <div className="ks-card-title">{ins}</div>
+                    <div className="ks-card-body">
+                      <ul>
+                        {(doctorsByIns[ins]||[]).map((d,idx)=>(
+                          <li key={idx} style={{display:'flex', justifyContent:'space-between', padding:'6px 4px'}}>
+                            <div>
+                              <div style={{fontWeight:700}}>{d.name}</div>
+                              <div style={{fontSize:12, color:'#9aa4b2'}}>{d.expiration ? d.expiration : 'No expiration'}</div>
+                              <div style={{fontSize:12, color:'#9aa4b2'}}>{d.notes}</div>
+                            </div>
+                            <button onClick={()=>{ const copy={...doctorsByIns}; copy[ins].splice(idx,1); setDoctorsByIns(copy); }}>✕</button>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <div style={{display:'flex', gap:8, marginTop:8, alignItems:'center'}}>
+                        <input placeholder="Doctor name..." value={activeIns===ins?docName:''} onChange={(e)=>setDocName(e.target.value)} style={{flex:1}} />
+                        <input type="date" value={activeIns===ins?expiration:''} onChange={(e)=>setExpiration(e.target.value)} />
+                        <input placeholder="Notes" value={activeIns===ins?notes:''} onChange={(e)=>setNotes(e.target.value)} />
+                        <button onClick={()=>{
+                          if(!docName.trim()) return;
+                          setDoctorsByIns(prev=> ({
+                            ...prev,
+                            [ins]: [...(prev[ins]||[]), { name: docName.trim(), expiration: expiration||null, notes: notes||'' }]
+                          }));
+                          setDocName(''); setExpiration(''); setNotes('');
+                        }}>Add</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
       </div>
     </div>
   );

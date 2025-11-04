@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function Header({ onOpenIns, onOpenDocs }){
+export default function Header(){ 
   return (
     <header className="ks-header">
       <div className="ks-header-inner">
