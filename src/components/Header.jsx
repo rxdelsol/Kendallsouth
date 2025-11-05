@@ -1,5 +1,4 @@
 import React from 'react'
-
 export default function Header({ onNav }){
   return (
     <header className="w-full bg-navy/80 border-b border-slate-800">

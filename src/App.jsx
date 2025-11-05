@@ -3,22 +3,17 @@ import Header from './components/Header.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import DoctorsTable from './components/DoctorsTable.jsx'
 import InsurancesTable from './components/InsurancesTable.jsx'
-import InsurancesModal from './components/InsurancesModal.jsx'
-import DoctorsModal from './components/DoctorsModal.jsx'
 import FileManager from './components/FileManager.jsx'
 
 export default function App(){
   const [route, setRoute] = useState('dashboard')
-  const [showIns, setShowIns] = useState(false)
-  const [showDocsModal, setShowDocsModal] = useState(false)
-
   return (
     <div className="min-h-screen">
       <Header onNav={setRoute} />
       <div className="max-w-6xl mx-auto px-6">
         <div className="flex gap-3 mt-4 items-center">
-          <button className="px-3 py-2 rounded bg-card text-sky-300" onClick={()=>setShowIns(true)}>Insurances</button>
-          <button className="px-3 py-2 rounded bg-card text-sky-300" onClick={()=>setShowDocsModal(true)}>Doctors</button>
+          <button className="px-3 py-2 rounded bg-card text-sky-300" onClick={()=>document.getElementById('ins-modal-btn')?.click()}>Insurances</button>
+          <button className="px-3 py-2 rounded bg-card text-sky-300" onClick={()=>document.getElementById('doc-modal-btn')?.click()}>Doctors</button>
           <div style={{flex:1}} />
           <FileManager />
         </div>
@@ -28,9 +23,6 @@ export default function App(){
           {route==='insurances' && <InsurancesTable />}
         </main>
       </div>
-
-      <InsurancesModal open={showIns} onClose={()=>setShowIns(false)} />
-      <DoctorsModal open={showDocsModal} onClose={()=>setShowDocsModal(false)} />
     </div>
   )
 }

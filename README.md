@@ -1,4 +1,4 @@
-# Kendall South Credential Tracker v2
+# Kendall South Credential Tracker - Final
 
 React + Vite + Tailwind project ready for Vercel.
 
@@ -18,14 +18,12 @@ npm install
 npm run dev
 ```
 
-## Deploy to Vercel
+5. Build for production:
 
-1. Push this repo to GitHub.
-2. Connect the repo in Vercel.
-3. Vercel will detect Vite and run `npm run build` automatically.
+```powershell
+npm run build
+```
 
-## Data storage
-
-- `base.json` at project root is used as the empty starter DB.
-- In the app you can **Download Database** to export a JSON file and **Upload Database** to restore.
-
+## Notes
+- `base.json` contains the empty starter DB. Use the app Download/Upload to export/import data.
+- Deletions ask for confirmation and show a success toast.

@@ -1,16 +1,21 @@
 import React, { useEffect, useState } from 'react'
-
 export default function DoctorsTable(){
   const emptyDoctor = ()=>({ id:null, name:'', npi:'', license:'', caqh:'', medicaid:'', medicare:'', dob:'', taxonomy:'' })
   const [doctors, setDoctors] = useState([])
   const [newDoc, setNewDoc] = useState(emptyDoctor())
+  const [confirm, setConfirm] = useState({open:false, id:null})
+  const [toast, setToast] = useState('')
+
   useEffect(()=> setDoctors(JSON.parse(localStorage.getItem('doctorsList')||'[]')), [])
   useEffect(()=> localStorage.setItem('doctorsList', JSON.stringify(doctors)), [doctors])
-  const add = ()=>{ if(!newDoc.name.trim()) return alert('Enter name'); const id=Date.now().toString(); setDoctors(prev=> [...prev, {...newDoc,id}]); setNewDoc(emptyDoctor()) }
+
+  const add = ()=>{ if(!newDoc.name.trim()) return alert('Enter name'); const id=Date.now().toString(); setDoctors(prev=> [...prev, {...newDoc,id}]); setNewDoc(emptyDoctor()); setToast('Doctor added'); setTimeout(()=>setToast(''),2500) }
   const update = (id, field, value)=> setDoctors(prev=> prev.map(d=> d.id===id? {...d, [field]: value}: d))
-  const remove = id=>{ if(!confirm('Delete doctor?')) return; setDoctors(prev=> prev.filter(d=> d.id!==id)) }
+  const askDelete = (id)=> setConfirm({open:true, id})
+  const doDelete = ()=>{ setDoctors(prev=> prev.filter(d=> d.id!==confirm.id)); setConfirm({open:false, id:null}); setToast('Doctor deleted'); setTimeout(()=>setToast(''),2500) }
+
   return (
-    <div className="bg-card rounded p-4">
+    <div className="bg-card rounded p-4 relative">
       <h2 className="text-sky-200 font-semibold mb-2">Doctors</h2>
       <div className="overflow-auto">
         <table className="min-w-full text-sm">
@@ -24,7 +29,7 @@ export default function DoctorsTable(){
                 <td className="p-2"><input className="bg-transparent w-full" value={d.caqh} onChange={e=>update(d.id,'caqh',e.target.value)} /></td>
                 <td className="p-2"><input type="date" className="bg-transparent" value={d.dob||''} onChange={e=>update(d.id,'dob',e.target.value)} /></td>
                 <td className="p-2"><input className="bg-transparent w-full" value={d.taxonomy} onChange={e=>update(d.id,'taxonomy',e.target.value)} /></td>
-                <td className="p-2"><button className="px-2 py-1 rounded border" onClick={()=>remove(d.id)}>Delete</button></td>
+                <td className="p-2"><button className="px-3 py-1 rounded btn-red" onClick={()=>askDelete(d.id)}>Delete Doctor</button></td>
               </tr>
             ))}
             <tr className="border-t border-slate-800">
@@ -39,6 +44,9 @@ export default function DoctorsTable(){
           </tbody>
         </table>
       </div>
+
+      {confirm.open && (<div className="modal-backdrop"><div className="modal"><h3>Confirm Delete</h3><p>Are you sure you want to delete this doctor?</p><div className="mt-4 flex justify-end gap-2"><button className="btn-cancel" onClick={()=>setConfirm({open:false,id:null})}>Cancel</button><button className="btn-red" onClick={doDelete}>Delete Doctor</button></div></div></div>)}
+      {toast && (<div className="toast">{toast}</div>)}
     </div>
   )
 }
