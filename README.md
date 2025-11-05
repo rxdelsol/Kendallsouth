@@ -1,6 +1,6 @@
-# Kendall South Medical Center - Provider Credential Tracker (Summary)
+# Kendall South Medical Center - Provider Credential Tracker (Final)
 
-This package includes a Dashboard summary that lists all insurances with expiration dates, assigned doctors, and days left -- plus filters.
+This package includes the Dashboard summary with Export PDF (portrait), pagination and headers/footers.
 
 Quick start:
 1. unzip

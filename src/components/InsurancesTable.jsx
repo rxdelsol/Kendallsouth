@@ -8,11 +8,7 @@ export default function InsurancesTable(){
   useEffect(()=>{ setList(JSON.parse(localStorage.getItem('insuranceList')||'[]')); setDoctors(JSON.parse(localStorage.getItem('doctorsList')||'[]')) },[])
   useEffect(()=> localStorage.setItem('insuranceList', JSON.stringify(list)), [list])
   const add = ()=>{ if(!newIns.name.trim()) return alert('Enter insurance name'); const id=Date.now().toString(); const item={...newIns,id}; if(newIns.doctor){ const doc = (JSON.parse(localStorage.getItem('doctorsList')||'[]')||[]).find(d=>d.id===newIns.doctor); if(doc) item.doctorName = doc.name } setList(prev=> [...prev,item]); const byIns = JSON.parse(localStorage.getItem('doctorsByInsurance')||'{}'); if(item.doctor){ const entry = { doctorId: item.doctor, name: item.doctorName || '', expiration: item.expiration || null, notes: item.notes || '' }; byIns[item.name] = [...(byIns[item.name]||[]), entry]; localStorage.setItem('doctorsByInsurance', JSON.stringify(byIns)) } setNewIns(empty()); setShowModal(false) }
-  const remove = id=>{
-    const toDel = list.find(i=> i.id===id)
-    setList(prev=> prev.filter(i=> i.id!==id))
-    if(toDel){ const byIns = JSON.parse(localStorage.getItem('doctorsByInsurance')||'{}'); if(byIns[toDel.name]){ delete byIns[toDel.name]; localStorage.setItem('doctorsByInsurance', JSON.stringify(byIns)) } }
-  }
+  const remove = id=>{ const toDel = list.find(i=> i.id===id); setList(prev=> prev.filter(i=> i.id!==id)); if(toDel){ const byIns = JSON.parse(localStorage.getItem('doctorsByInsurance')||'{}'); if(byIns[toDel.name]){ delete byIns[toDel.name]; localStorage.setItem('doctorsByInsurance', JSON.stringify(byIns)) } } }
   return (
     <div className="bg-card rounded p-4">
       <h2 className="text-sky-200 font-semibold mb-2">Insurances</h2>
@@ -36,7 +32,6 @@ export default function InsurancesTable(){
         </table>
       </div>
       <div className="mt-2 text-left"><button onClick={()=>setShowModal(true)} className="text-sky-300 hover:underline text-sm">+ Add Insurance</button></div>
-
       {showModal && (
         <div className="modal-backdrop"><div className="modal"><h3>Add Insurance</h3>
           <div className="grid grid-cols-1 gap-2 mt-2">
@@ -50,7 +45,6 @@ export default function InsurancesTable(){
           <div className="mt-4 flex justify-end gap-2"><button className="btn-cancel" onClick={()=>setShowModal(false)}>Cancel</button><button className="btn-red" onClick={add}>Save Insurance</button></div>
         </div></div>
       )}
-
     </div>
   )
 }
