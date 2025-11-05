@@ -4,27 +4,15 @@ export default function InsurancesTable(){
   const [list, setList] = useState([])
   const [doctors, setDoctors] = useState([])
   const [newIns, setNewIns] = useState(empty())
+  const [showModal, setShowModal] = useState(false)
   useEffect(()=>{ setList(JSON.parse(localStorage.getItem('insuranceList')||'[]')); setDoctors(JSON.parse(localStorage.getItem('doctorsList')||'[]')) },[])
   useEffect(()=> localStorage.setItem('insuranceList', JSON.stringify(list)), [list])
-  const add = ()=>{
-    if(!newIns.name.trim()) return alert('Enter insurance name')
-    const id=Date.now().toString()
-    const item={...newIns,id}
-    // if doctor selected, store doctorName
-    if(newIns.doctor){ const doc = (JSON.parse(localStorage.getItem('doctorsList')||'[]')||[]).find(d=>d.id===newIns.doctor); if(doc) item.doctorName = doc.name }
-    setList(prev=> [...prev,item])
-    // add to doctorsByInsurance
-    const byIns = JSON.parse(localStorage.getItem('doctorsByInsurance')||'{}')
-    if(item.doctor){ const entry = { doctorId: item.doctor, name: item.doctorName || '', expiration: item.expiration || null, notes: item.notes || '' }; byIns[item.name] = [...(byIns[item.name]||[]), entry]; localStorage.setItem('doctorsByInsurance', JSON.stringify(byIns)) }
-    setNewIns(empty())
-  }
-  const update = (id, field, value)=> setList(prev=> prev.map(i=> i.id===id? {...i, [field]: value}: i))
+  const add = ()=>{ if(!newIns.name.trim()) return alert('Enter insurance name'); const id=Date.now().toString(); const item={...newIns,id}; if(newIns.doctor){ const doc = (JSON.parse(localStorage.getItem('doctorsList')||'[]')||[]).find(d=>d.id===newIns.doctor); if(doc) item.doctorName = doc.name } setList(prev=> [...prev,item]); const byIns = JSON.parse(localStorage.getItem('doctorsByInsurance')||'{}'); if(item.doctor){ const entry = { doctorId: item.doctor, name: item.doctorName || '', expiration: item.expiration || null, notes: item.notes || '' }; byIns[item.name] = [...(byIns[item.name]||[]), entry]; localStorage.setItem('doctorsByInsurance', JSON.stringify(byIns)) } setNewIns(empty()); setShowModal(false) }
   const remove = id=>{
     const toDel = list.find(i=> i.id===id)
     setList(prev=> prev.filter(i=> i.id!==id))
     if(toDel){ const byIns = JSON.parse(localStorage.getItem('doctorsByInsurance')||'{}'); if(byIns[toDel.name]){ delete byIns[toDel.name]; localStorage.setItem('doctorsByInsurance', JSON.stringify(byIns)) } }
   }
-  const assignDoctor = (docId)=>{ setNewIns({...newIns, doctor: docId}) }
   return (
     <div className="bg-card rounded p-4">
       <h2 className="text-sky-200 font-semibold mb-2">Insurances</h2>
@@ -34,37 +22,35 @@ export default function InsurancesTable(){
           <tbody className="text-slate-200">
             {list.map(i=> (
               <tr key={i.id} className="border-t border-slate-800">
-                <td className="p-2"><input className="bg-transparent w-full" value={i.name} onChange={e=>update(i.id,'name',e.target.value)} /></td>
-                <td className="p-2"><select value={i.type} onChange={e=>update(i.id,'type',e.target.value)} className="bg-transparent"><option>HMO</option><option>PPO</option><option>Medicare</option><option>Medicaid</option><option>Other</option></select></td>
-                <td className="p-2"><input className="bg-transparent w-full" value={i.doctorName||''} readOnly /></td>
-                <td className="p-2"><select value={i.network||'In Network'} onChange={e=>update(i.id,'network',e.target.value)} className="bg-transparent"><option>In Network</option><option>Out of Network</option></select></td>
-                <td className="p-2"><input type="date" className="bg-transparent" value={i.expiration||''} onChange={e=>update(i.id,'expiration',e.target.value)} /></td>
-                <td className="p-2"><input className="bg-transparent w-full" value={i.notes||''} onChange={e=>update(i.id,'notes',e.target.value)} /></td>
-                <td className="p-2"><button className="px-3 py-1 rounded btn-red" onClick={()=>remove(i.id)}>Delete Insurance</button></td>
+                <td className="p-2">{i.name}</td>
+                <td className="p-2">{i.type}</td>
+                <td className="p-2">{i.doctorName||''}</td>
+                <td className="p-2">{i.network==='In Network'? <span className="badge-in">In Network</span> : <span className="badge-out">Out of Network</span>}</td>
+                <td className="p-2">{i.expiration? (new Date(i.expiration)).toLocaleDateString() : ''}</td>
+                <td className="p-2">{i.notes}</td>
+                <td className="p-2"><button className="text-red-500 hover:underline" onClick={()=>remove(i.id)}>Delete Insurance</button></td>
               </tr>
             ))}
             {list.length===0 && <tr><td colSpan="7" className="p-4 text-slate-400">No insurances yet</td></tr>}
           </tbody>
         </table>
       </div>
+      <div className="mt-2 text-left"><button onClick={()=>setShowModal(true)} className="text-sky-300 hover:underline text-sm">+ Add Insurance</button></div>
 
-      <div className="border-t border-slate-800 pt-4">
-        <h3 className="text-sky-200 mb-2">Add Insurance</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input placeholder="Insurance name" value={newIns.name} onChange={e=>setNewIns({...newIns, name:e.target.value})} className="bg-transparent p-2" />
-          <select value={newIns.type} onChange={e=>setNewIns({...newIns, type:e.target.value})} className="bg-transparent p-2"><option>HMO</option><option>PPO</option><option>Medicare</option><option>Medicaid</option><option>Other</option></select>
-          <select value={newIns.doctor||''} onChange={e=>assignDoctor(e.target.value)} className="bg-transparent p-2">
-            <option value="">Assign Doctor...</option>
-            {doctors.map(d=> <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-          <select value={newIns.network} onChange={e=>setNewIns({...newIns, network:e.target.value})} className="bg-transparent p-2"><option>In Network</option><option>Out of Network</option></select>
-          <input type="date" value={newIns.expiration} onChange={e=>setNewIns({...newIns, expiration:e.target.value})} className="bg-transparent p-2" />
-          <input placeholder="Notes" value={newIns.notes} onChange={e=>setNewIns({...newIns, notes:e.target.value})} className="bg-transparent p-2" />
-        </div>
-        <div className="mt-4"><button className="px-3 py-2 rounded bg-sky-400 text-navy-900 font-semibold" onClick={add}>+ Add Insurance</button></div>
-      </div>
+      {showModal && (
+        <div className="modal-backdrop"><div className="modal"><h3>Add Insurance</h3>
+          <div className="grid grid-cols-1 gap-2 mt-2">
+            <input placeholder="Insurance Name" value={newIns.name} onChange={e=>setNewIns({...newIns, name:e.target.value})} className="p-2 rounded bg-[#081424]" />
+            <select value={newIns.type} onChange={e=>setNewIns({...newIns, type:e.target.value})} className="p-2 rounded bg-[#081424]"><option>HMO</option><option>PPO</option><option>Medicare</option><option>Medicaid</option><option>Other</option></select>
+            <select value={newIns.doctor||''} onChange={e=>setNewIns({...newIns, doctor:e.target.value})} className="p-2 rounded bg-[#081424]"><option value="">Assign Doctor...</option>{doctors.map(d=> <option key={d.id} value={d.id}>{d.name}</option>)}</select>
+            <select value={newIns.network} onChange={e=>setNewIns({...newIns, network:e.target.value})} className="p-2 rounded bg-[#081424]"><option>In Network</option><option>Out of Network</option></select>
+            <input type="date" value={newIns.expiration||''} onChange={e=>setNewIns({...newIns, expiration:e.target.value})} className="p-2 rounded bg-[#081424]" />
+            <textarea placeholder="Notes" value={newIns.notes} onChange={e=>setNewIns({...newIns, notes:e.target.value})} className="p-2 rounded bg-[#081424]" />
+          </div>
+          <div className="mt-4 flex justify-end gap-2"><button className="btn-cancel" onClick={()=>setShowModal(false)}>Cancel</button><button className="btn-red" onClick={add}>Save Insurance</button></div>
+        </div></div>
+      )}
+
     </div>
   )
 }

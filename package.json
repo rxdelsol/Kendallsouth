@@ -1,6 +1,6 @@
 {
-  "name": "kendall-south-dashboard",
-  "version": "1.0.1",
+  "name": "kendall-south-final",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "vite",

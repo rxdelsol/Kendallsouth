@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard.jsx'
 import DoctorsTable from './components/DoctorsTable.jsx'
 import InsurancesTable from './components/InsurancesTable.jsx'
 import FileManager from './components/FileManager.jsx'
+
 export default function App(){
   const [route, setRoute] = useState('dashboard')
   return (

@@ -6,8 +6,7 @@ body { @apply bg-navy; }
 select{ background-color:#0b1a33; color:#fff; border:1px solid #2e4a75; border-radius:8px; padding:8px 36px 8px 12px; appearance:none; background-image: url("data:image/svg+xml;utf8,<svg fill='%2300bfa6' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>"); background-repeat:no-repeat; background-position: right 10px center; }
 .toast{ position:fixed; right:20px; bottom:20px; background:#063447; color:#d6fff3; padding:10px 14px; border-radius:8px; box-shadow:0 6px 18px rgba(2,6,23,0.6); z-index:9999 }
 .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:2000 }
-.modal{ background:var(--card); padding:18px; border-radius:10px; width:420px; color:#e6f6ff }
-.modal h3{ margin:0 0 8px 0 }
+.modal{ background:var(--card); padding:18px; border-radius:10px; width:520px; color:#e6f6ff }
 .btn-red{ background:#c53030; color:white; padding:8px 12px; border-radius:8px }
 .btn-cancel{ background:transparent; border:1px solid rgba(255,255,255,0.06); color:#dbefff; padding:8px 12px; border-radius:8px }
 .badge-in{ background:#2563eb; color:white; padding:4px 8px; border-radius:999px; font-size:12px }
