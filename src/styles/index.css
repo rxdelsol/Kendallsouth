@@ -1,19 +1,15 @@
-:root{ --navy:#081028; --card:#0d1b33; --soft-blue:#60a5fa }
-body{ background:var(--navy); color:#e6f6ff; font-family:Arial,Helvetica,sans-serif }
-.container{ max-width:1100px; margin:0 auto; padding:20px }
-.header{ display:flex; align-items:center; justify-content:space-between; padding:16px 0 }
-.logo{ height:44px }
-.btn{ padding:8px 12px; border-radius:8px; background:#1f2937; color:#e6f6ff; border:none }
-.last-updated{ color:var(--soft-blue); font-size:0.95rem }
-.table{ width:100%; border-collapse:collapse }
-.table th{ background:#0b1a33; padding:8px; text-align:left }
-.table td{ padding:8px; border-top:1px solid rgba(255,255,255,0.04) }
-.modal-backdrop{ position:fixed; inset:0; background:rgba(4,6,12,0.7); display:flex; align-items:center; justify-content:center }
-.modal{ background:var(--card); padding:18px; border-radius:10px; width:720px; max-width:95%; color:#e6f6ff }
-.input{ width:100%; padding:8px; border-radius:6px; background:#071426; border:1px solid rgba(255,255,255,0.06); color:#e6f6ff }
-.toast{ position:fixed; right:20px; bottom:20px; background:var(--soft-blue); color:#04202a; padding:10px 14px; border-radius:8px }
-.expired-cell{ background:#7f1d1d; color:#fff; font-weight:700 }
-.expiring-cell{ background:#78350f; color:#fff; font-weight:700 }
-.active-cell{ background:#14532d; color:#fff; font-weight:700 }
-.status-summary{ display:flex; gap:18px; justify-content:center; color:#e6f6ff; margin-bottom:12px }
-.status-pill{ padding:6px 10px; border-radius:8px; background:rgba(255,255,255,0.03) }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root{ --navy:#081028; --card:#0d1b33; }
+body { @apply bg-navy; }
+select{ background-color:#0b1a33; color:#fff; border:1px solid #2e4a75; border-radius:8px; padding:8px 36px 8px 12px; appearance:none; background-image: url("data:image/svg+xml;utf8,<svg fill='%2300bfa6' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>"); background-repeat:no-repeat; background-position: right 10px center; }
+.toast{ position:fixed; right:20px; bottom:20px; background:#063447; color:#d6fff3; padding:10px 14px; border-radius:8px; box-shadow:0 6px 18px rgba(2,6,23,0.6); z-index:9999 }
+.modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:2000 }
+.modal{ background:var(--card); padding:18px; border-radius:10px; width:520px; color:#e6f6ff }
+.btn-red{ background:#c53030; color:white; padding:8px 12px; border-radius:8px }
+.btn-cancel{ background:transparent; border:1px solid rgba(255,255,255,0.06); color:#dbefff; padding:8px 12px; border-radius:8px }
+.badge-in{ background:#2563eb; color:white; padding:4px 8px; border-radius:999px; font-size:12px }
+.badge-out{ background:#6b7280; color:white; padding:4px 8px; border-radius:999px; font-size:12px }
+.highlight-yellow{ background:#7c5e2e }
+.highlight-red{ background:#4b1e1e }
