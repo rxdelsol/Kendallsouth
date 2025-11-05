@@ -1,2 +1,15 @@
-/* minimal css for project */
-body{font-family:Arial,Helvetica,sans-serif;}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root{ --navy:#081028; --card:#0d1b33; }
+body{ background:var(--navy); color:#e6f6ff; font-family:Inter,ui-sans-serif,system-ui,Arial,Helvetica,sans-serif }
+.container{ max-width:1100px; margin:0 auto; padding:20px }
+.header{ display:flex; align-items:center; justify-content:space-between; padding:16px 0 }
+.logo{ height:44px }
+.btn{ padding:8px 12px; border-radius:8px; background:#1f2937; color:#e6f6ff; border:none }
+.last-updated{ color:#60a5fa }
+.table{ width:100%; border-collapse:collapse }
+.table th{ background:#0b1a33; padding:8px; text-align:left }
+.table td{ padding:8px; border-top:1px solid rgba(255,255,255,0.04) }
+.modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center }
+.modal{ background:var(--card); padding:18px; border-radius:10px }

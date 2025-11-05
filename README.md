@@ -1,1 +1,1 @@
-Kendall South package - includes Export PDF portrait with timestamp in footer. Unzip, npm install, npm run dev.
+Kendall South Medical Center - Provider Credential Tracker. Unzip, npm install, npm run dev.
