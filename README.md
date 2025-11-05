@@ -1,24 +1,37 @@
-Kendall South Credentialing - Final package (navy theme, Tailwind)
+# Kendall South Credential Tracker
 
-What it includes:
-- React + Vite + Tailwind project ready for Vercel
-- LocalStorage persistence for doctors and insurance assignments
-- Doctors table (inline editable) with fields: name, npi, license, caqh, medicaid, medicare, dob, taxonomy
-- Insurances modal: assign existing doctor to insurance with expiration and notes
-- Expiration dashboard with color alerts (<=90 days warning)
-- Buttons: Apply, Clear, Reload, CSV, Backup, Restore
+React + Vite + Tailwind project ready for Vercel.
 
-How to run locally:
-1. unzip the package
-2. npm install
-3. npm run dev
+## Quick start (Windows)
 
-Deploy to Vercel:
-- Push to GitHub and connect project to Vercel (auto-detects Vite)
-- Make sure Vercel installs devDependencies (it does by default).
+1. Unzip the project folder.
+2. Open PowerShell in the project root.
+3. Install dependencies:
 
-LocalStorage keys:
-- doctorsList
-- doctorsByInsurance
-- insuranceList
+```powershell
+npm install
+```
+
+4. Run development server:
+
+```powershell
+npm run dev
+```
+
+5. Build for production:
+
+```powershell
+npm run build
+```
+
+## Deploy to Vercel
+
+1. Push this repo to GitHub.
+2. Connect the repo in Vercel.
+3. Vercel will detect Vite and run `npm run build` automatically.
+
+## Data storage
+
+- `base.json` at project root is used as the empty starter DB.
+- In the app you can **Download Database** to export a JSON file and **Upload Database** to restore.
 
