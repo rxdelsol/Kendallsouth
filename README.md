@@ -1,1 +1,1 @@
-Kendall South Medical Center - Provider Credential Tracker. Unzip, npm install, npm run dev.
+Kendall South Medical Center - Final with color status and delete confirmation. Unzip, npm install, npm run dev.
