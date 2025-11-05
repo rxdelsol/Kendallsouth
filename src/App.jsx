@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import Header from './components/Header.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import DoctorsTable from './components/DoctorsTable.jsx'
+import InsurancesTable from './components/InsurancesTable.jsx'
 import InsurancesModal from './components/InsurancesModal.jsx'
 import DoctorsModal from './components/DoctorsModal.jsx'
 import FileManager from './components/FileManager.jsx'
@@ -24,7 +25,7 @@ export default function App(){
         <main className="mt-6">
           {route==='dashboard' && <Dashboard />}
           {route==='doctors' && <DoctorsTable />}
-          {route==='insurances' && <div className="bg-card p-4 rounded text-slate-300">Manage insurances using the Insurances modal.</div>}
+          {route==='insurances' && <InsurancesTable />}
         </main>
       </div>
 

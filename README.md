@@ -1,4 +1,4 @@
-# Kendall South Credential Tracker
+# Kendall South Credential Tracker v2
 
 React + Vite + Tailwind project ready for Vercel.
 
@@ -16,12 +16,6 @@ npm install
 
 ```powershell
 npm run dev
-```
-
-5. Build for production:
-
-```powershell
-npm run build
 ```
 
 ## Deploy to Vercel

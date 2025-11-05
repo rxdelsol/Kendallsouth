@@ -9,16 +9,11 @@ export default function InsurancesModal({ open, onClose }){
   const [expiration, setExpiration] = useState('')
   const [notes, setNotes] = useState('')
 
-  useEffect(()=>{
-    const i = localStorage.getItem('insuranceList'); if(i) setInsList(JSON.parse(i))
-    const d = localStorage.getItem('doctorsByInsurance'); if(d) setDoctorsByIns(JSON.parse(d))
-  },[])
-
-  useEffect(()=>{ localStorage.setItem('insuranceList', JSON.stringify(insList)) },[insList])
-  useEffect(()=>{ localStorage.setItem('doctorsByInsurance', JSON.stringify(doctorsByIns)) },[doctorsByIns])
+  useEffect(()=>{ const i=localStorage.getItem('insuranceList'); if(i) setInsList(JSON.parse(i)); const d=localStorage.getItem('doctorsByInsurance'); if(d) setDoctorsByIns(JSON.parse(d)) },[])
+  useEffect(()=> localStorage.setItem('insuranceList', JSON.stringify(insList)), [insList])
+  useEffect(()=> localStorage.setItem('doctorsByInsurance', JSON.stringify(doctorsByIns)), [doctorsByIns])
 
   const doctors = JSON.parse(localStorage.getItem('doctorsList')||'[]')
-
   if(!open) return null
   return (
     <div className="ks-modal-overlay">
@@ -43,24 +38,11 @@ export default function InsurancesModal({ open, onClose }){
                 </select>
                 <input type="date" value={expiration} onChange={e=>setExpiration(e.target.value)} />
                 <input placeholder="Notes" value={notes} onChange={e=>setNotes(e.target.value)} />
-                <button onClick={()=>{
-                  if(!selectedDoc) return alert('Select a doctor');
-                  const doc = doctors.find(x=> x.id===selectedDoc); if(!doc) return;
-                  const entry = { doctorId: selectedDoc, name: doc.name, expiration: expiration||null, notes: notes||'' }
-                  setDoctorsByIns(prev=> ({ ...prev, [active]: [...(prev[active]||[]), entry ] }))
-                  setSelectedDoc(''); setExpiration(''); setNotes('')
-                }}>Add</button>
+                <button onClick={()=>{ if(!selectedDoc) return alert('Select a doctor'); const doc = doctors.find(x=> x.id===selectedDoc); if(!doc) return; const entry = { doctorId: selectedDoc, name: doc.name, expiration: expiration||null, notes: notes||'' }; setDoctorsByIns(prev=> ({ ...prev, [active]: [...(prev[active]||[]), entry ] })); setSelectedDoc(''); setExpiration(''); setNotes('') }}>Add</button>
               </div>
 
               <h4 style={{marginTop:12}}>Doctors for {active}</h4>
-              <ul>
-                {(doctorsByIns[active]||[]).map((d,idx)=>(
-                  <li key={idx} style={{display:'flex', justifyContent:'space-between', padding:'6px 4px'}}>
-                    <div><strong>{d.name}</strong><div style={{fontSize:12, color:'#9aa4b2'}}>{d.expiration||'No expiration'}</div></div>
-                    <button onClick={()=>{ const copy={...doctorsByIns}; copy[active].splice(idx,1); setDoctorsByIns(copy); }}>✕</button>
-                  </li>
-                ))}
-              </ul>
+              <ul>{(doctorsByIns[active]||[]).map((d,idx)=>(<li key={idx} style={{display:'flex', justifyContent:'space-between', padding:'6px 4px'}}><div><strong>{d.name}</strong><div style={{fontSize:12, color:'#9aa4b2'}}>{d.expiration||'No expiration'}</div></div><button onClick={()=>{ const copy={...doctorsByIns}; copy[active].splice(idx,1); setDoctorsByIns(copy); }}>✕</button></li>))}</ul>
 
             </div>
           </div>

@@ -1,6 +1,5 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 :root{ --navy:#081028; --card:#0d1b33; }
 body { @apply bg-navy; }
