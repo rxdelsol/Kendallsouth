@@ -1,87 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { exportDashboardPDF } from '../utils/pdfExport'
-
 export default function Dashboard(){
-  const [doctors, setDoctors] = useState([])
-  const [insurances, setInsurances] = useState([])
-  const [filterDoctor, setFilterDoctor] = useState('All')
-  const [filterInsurance, setFilterInsurance] = useState('All')
-  const [filterType, setFilterType] = useState('All')
-
-  useEffect(()=>{ setDoctors(JSON.parse(localStorage.getItem('doctorsList')||'[]')); setInsurances(JSON.parse(localStorage.getItem('insuranceList')||'[]')) },[])
-  useEffect(()=>{ const onStorage=()=>{ setDoctors(JSON.parse(localStorage.getItem('doctorsList')||'[]')); setInsurances(JSON.parse(localStorage.getItem('insuranceList')||'[]')) }; window.addEventListener('storage', onStorage); return ()=> window.removeEventListener('storage', onStorage) },[])
-
-  const getDaysLeft = (date)=>{ if(!date) return null; const diff = Math.ceil((new Date(date) - new Date())/(1000*60*60*24)); return diff }
-
-  const allDoctors = ['All', ...doctors.map(d=>d.name)]
-  const allInsurances = ['All', ...insurances.map(i=>i.name)]
-  const allTypes = ['All', ...Array.from(new Set(insurances.map(i=>i.type).filter(Boolean)))]
-
-  const rows = insurances.map(i=>{
-    const docName = i.doctorName || ((doctors.find(d=>d.id===i.doctor)||{}).name||'')
-    const days = getDaysLeft(i.expiration)
-    return { doctor: docName, insurance: i.name, type: i.type, expiration: i.expiration, days, notes: i.notes }
-  }).filter(r=> (filterDoctor==='All' || r.doctor===filterDoctor) && (filterInsurance==='All' || r.insurance===filterInsurance) && (filterType==='All' || r.type===filterType))
-
-  rows.sort((a,b)=>{ if(a.days===null) return 1; if(b.days===null) return -1; return a.days - b.days })
-
-  const exportAll = ()=>{
-    const all = insurances.map(i=>{
-      const docName = i.doctorName || ((doctors.find(d=>d.id===i.doctor)||{}).name||'')
-      const days = getDaysLeft(i.expiration)
-      return { doctor: docName, insurance: i.name, type: i.type, expiration: i.expiration, days, notes: i.notes }
-    })
-    exportDashboardPDF(all)
-  }
-
-  return (
-    <div className="max-w-6xl mx-auto">
-      <section className="mt-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sky-200 text-lg font-semibold">Insurance Expiration Summary</h2>
-          <div className="flex gap-2">
-            <button className="btn btn-navy" onClick={exportAll}>Export PDF</button>
-          </div>
-        </div>
-
-        <div className="bg-card rounded p-4 mb-4">
-          <div className="flex gap-3 mb-4">
-            <select value={filterDoctor} onChange={e=>setFilterDoctor(e.target.value)} className="p-2">
-              {allDoctors.map((d,idx)=>(<option key={idx} value={d}>{d}</option>))}
-            </select>
-            <select value={filterInsurance} onChange={e=>setFilterInsurance(e.target.value)} className="p-2">
-              {allInsurances.map((i,idx)=>(<option key={idx} value={i}>{i}</option>))}
-            </select>
-            <select value={filterType} onChange={e=>setFilterType(e.target.value)} className="p-2">
-              {allTypes.map((t,idx)=>(<option key={idx} value={t}>{t}</option>))}
-            </select>
-            <div style={{flex:1}} />
-            <div className="text-sm text-slate-400">Showing {rows.length} records</div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="text-slate-300"><tr><th className="p-2 text-left">Doctor Name</th><th className="p-2 text-left">Insurance Name</th><th className="p-2 text-left">Type</th><th className="p-2 text-left">Expiration Date</th><th className="p-2 text-left">Days Left</th><th className="p-2 text-left">Notes</th></tr></thead>
-              <tbody className="text-slate-200">
-                {rows.length===0 && (<tr><td colSpan={6} className="p-4 text-slate-400">No records found</td></tr>)}
-                {rows.map((r,idx)=>{
-                  const cls = r.days===null? '' : (r.days<0? 'highlight-red' : (r.days<=30? 'highlight-red' : (r.days<=90? 'highlight-yellow' : '')))
-                  return (
-                    <tr key={idx} className={`border-t border-slate-800 ${cls}`}>
-                      <td className="p-2">{r.doctor || 'Unassigned'}</td>
-                      <td className="p-2">{r.insurance}</td>
-                      <td className="p-2">{r.type}</td>
-                      <td className="p-2">{r.expiration? (new Date(r.expiration)).toLocaleDateString() : 'No date'}</td>
-                      <td className="p-2">{r.days===null? 'No date' : (r.days<0? 'Expired' : `${r.days} days`)}</td>
-                      <td className="p-2">{r.notes}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-    </div>
-  )
+  const [doctors,setDoctors]=useState([]); const [insurances,setInsurances]=useState([]);
+  const [filterDoctor,setFilterDoctor]=useState('All'); const [filterInsurance,setFilterInsurance]=useState('All'); const [filterType,setFilterType]=useState('All');
+  useEffect(()=>{ setDoctors(JSON.parse(localStorage.getItem('doctorsList')||'[]')); setInsurances(JSON.parse(localStorage.getItem('insuranceList')||'[]')); },[]);
+  useEffect(()=>{ localStorage.setItem('doctorsList', JSON.stringify(doctors)); },[doctors]);
+  useEffect(()=>{ localStorage.setItem('insuranceList', JSON.stringify(insurances)); },[insurances]);
+  const getDays=(d)=>{ if(!d) return null; return Math.ceil((new Date(d)-new Date())/(1000*60*60*24)); }
+  const rows = insurances.map(i=>{ const docName = i.doctorName || ((doctors.find(d=>d.id===i.doctor)||{}).name||''); return { doctor:docName, insurance:i.name, type:i.type, expiration:i.expiration, days:getDays(i.expiration), notes:i.notes||'' } }).filter(r=> (filterDoctor==='All'||r.doctor===filterDoctor)&&(filterInsurance==='All'||r.insurance===filterInsurance)&&(filterType==='All'||r.type===filterType));
+  const exportVisible=()=> exportDashboardPDF(rows);
+  return (<div><div className='flex justify-between items-center'><h2>Insurance Expiration Summary</h2><button onClick={exportVisible}>Export PDF</button></div><div className='mt-4'><table><thead><tr><th>Doctor</th><th>Insurance</th><th>Type</th><th>Expiration</th><th>Days</th><th>Notes</th></tr></thead><tbody>{rows.length===0&&<tr><td colSpan=6>No records</td></tr>}{rows.map((r,i)=>(<tr key={i}><td>{r.doctor}</td><td>{r.insurance}</td><td>{r.type}</td><td>{r.expiration? new Date(r.expiration).toLocaleDateString(): 'No date'}</td><td>{r.days===null? 'No date': r.days+' days'}</td><td>{r.notes}</td></tr>))}</tbody></table></div></div>);
 }
