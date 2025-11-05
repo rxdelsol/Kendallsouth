@@ -1,17 +1,10 @@
-# Kendall South Medical Center - Provider Credential Tracker
+# Kendall South Medical Center - Provider Credential Tracker (Summary)
 
-This package is a minimal React + Vite + Tailwind project preconfigured for Vercel.
-
-Features:
-- Doctors & Insurances management
-- Add Doctor (modal) — fields: Name, NPI, License, CAQH, Medicaid, Medicare, DOB, Taxonomy
-- Add Insurance (modal) — fields: Insurance Name, Type, Assign Doctor, Network Status, Expiration Date, Notes
-- LocalStorage persistence
-- Download / Upload base.json for backup
+This package includes a Dashboard summary that lists all insurances with expiration dates, assigned doctors, and days left -- plus filters.
 
 Quick start:
 1. unzip
 2. npm install
-3. npm run dev (for local) or npm run build (for production)
+3. npm run dev (for local) or npm run build
 
-Note: This is a starter package tailored to your requested UI and functionality.
+Data persistence: localStorage. Use the Upload/Download buttons in the top right to import/export the database (base.json).

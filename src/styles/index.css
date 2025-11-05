@@ -11,3 +11,5 @@ select{ background-color:#0b1a33; color:#fff; border:1px solid #2e4a75; border-r
 .btn-cancel{ background:transparent; border:1px solid rgba(255,255,255,0.06); color:#dbefff; padding:8px 12px; border-radius:8px }
 .badge-in{ background:#2563eb; color:white; padding:4px 8px; border-radius:999px; font-size:12px }
 .badge-out{ background:#6b7280; color:white; padding:4px 8px; border-radius:999px; font-size:12px }
+.highlight-yellow{ background:#7c5e2e }
+.highlight-red{ background:#4b1e1e }

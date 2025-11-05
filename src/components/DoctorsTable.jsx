@@ -3,7 +3,6 @@ import DoctorModal from './DoctorModal.jsx'
 export default function DoctorsTable(){
   const emptyDoctor = ()=>({ id:null, name:'', npi:'', license:'', caqh:'', medicaid:'', medicare:'', dob:'', taxonomy:'' })
   const [doctors, setDoctors] = useState([])
-  const [newDoc, setNewDoc] = useState(emptyDoctor())
   const [showModal, setShowModal] = useState(false)
   useEffect(()=> setDoctors(JSON.parse(localStorage.getItem('doctorsList')||'[]')), [])
   useEffect(()=> localStorage.setItem('doctorsList', JSON.stringify(doctors)), [doctors])
@@ -29,7 +28,7 @@ export default function DoctorsTable(){
                 <td className="p-2"><button className="text-red-500 hover:underline" onClick={()=>remove(d.id)}>Delete Doctor</button></td>
               </tr>
             ))}
-            {doctors.length===0 && <tr><td colSpan="9" className="p-4 text-slate-400">No doctors added yet</td></tr>}
+            {doctors.length===0 && <tr><td colSpan={9} className="p-4 text-slate-400">No doctors added yet</td></tr>}
           </tbody>
         </table>
       </div>

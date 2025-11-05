@@ -31,7 +31,7 @@ export default function InsurancesTable(){
                 <td className="p-2"><button className="text-red-500 hover:underline" onClick={()=>remove(i.id)}>Delete Insurance</button></td>
               </tr>
             ))}
-            {list.length===0 && <tr><td colSpan="7" className="p-4 text-slate-400">No insurances yet</td></tr>}
+            {list.length===0 && <tr><td colSpan={7} className="p-4 text-slate-400">No insurances yet</td></tr>}
           </tbody>
         </table>
       </div>
