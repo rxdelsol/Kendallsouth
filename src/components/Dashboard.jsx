@@ -7,29 +7,77 @@ export default function Dashboard(){
   const [filterInsurance, setFilterInsurance] = useState('All')
   const [filterType, setFilterType] = useState('All')
 
-  useEffect(()=>{ setDoctors(JSON.parse(localStorage.getItem('doctorsList')||'[]')); setInsurances(JSON.parse(localStorage.getItem('insuranceList')||'[]')) },[])
-  useEffect(()=>{ const onStorage=()=>{ setDoctors(JSON.parse(localStorage.getItem('doctorsList')||'[]')); setInsurances(JSON.parse(localStorage.getItem('insuranceList')||'[]')) }; window.addEventListener('storage', onStorage); return ()=> window.removeEventListener('storage', onStorage) },[])
+  useEffect(()=>{ 
+    setDoctors(JSON.parse(localStorage.getItem('doctorsList')||'[]')) 
+    setInsurances(JSON.parse(localStorage.getItem('insuranceList')||'[]')) 
+  },[])
 
-  const getDaysLeft = (date)=>{ if(!date) return null; const diff = Math.ceil((new Date(date) - new Date())/(1000*60*60*24)); return diff }
+  useEffect(()=>{ 
+    const onStorage=()=>{ 
+      setDoctors(JSON.parse(localStorage.getItem('doctorsList')||'[]')) 
+      setInsurances(JSON.parse(localStorage.getItem('insuranceList')||'[]')) 
+    } 
+    window.addEventListener('storage', onStorage) 
+    return ()=> window.removeEventListener('storage', onStorage) 
+  },[])
+
+  const getDaysLeft = (date)=>{ 
+    if(!date) return null; 
+    const diff = Math.ceil((new Date(date) - new Date())/(1000*60*60*24)); 
+    return diff 
+  }
 
   const allDoctors = ['All', ...doctors.map(d=>d.name)]
   const allInsurances = ['All', ...insurances.map(i=>i.name)]
   const allTypes = ['All', ...Array.from(new Set(insurances.map(i=>i.type).filter(Boolean)))]
 
+  // filas de la tabla
   const rows = insurances.map(i=>{
     const docName = i.doctorName || ((doctors.find(d=>d.id===i.doctor)||{}).name||'')
     const days = getDaysLeft(i.expiration)
     return { doctor: docName, insurance: i.name, type: i.type, expiration: i.expiration, days }
-  }).filter(r=> (filterDoctor==='All' || r.doctor===filterDoctor) && (filterInsurance==='All' || r.insurance===filterInsurance) && (filterType==='All' || r.type===filterType))
+  }).filter(r=> 
+    (filterDoctor==='All' || r.doctor===filterDoctor) && 
+    (filterInsurance==='All' || r.insurance===filterInsurance) && 
+    (filterType==='All' || r.type===filterType)
+  )
 
-  // sort by days ascending (expiring soon first), placing 'No date' at end
-  rows.sort((a,b)=>{ if(a.days===null) return 1; if(b.days===null) return -1; return a.days - b.days })
+  // ordenar por días (los que vencen primero arriba)
+  rows.sort((a,b)=>{ 
+    if(a.days===null) return 1; 
+    if(b.days===null) return -1; 
+    return a.days - b.days 
+  })
+
+  // 👉 contadores In / Out of Network (para el dashboard)
+  const inNetworkCount = insurances.filter(i => i.network === 'In Network').length
+  const outNetworkCount = insurances.filter(i => i.network === 'Out of Network').length
 
   return (
     <div className="max-w-6xl mx-auto">
       <section className="mt-6">
-        <h2 className="text-sky-200 text-lg font-semibold mb-2">Insurance Expiration Summary</h2>
+        <h2 className="text-sky-200 text-lg font-semibold mb-2">
+          Insurance Expiration Summary
+        </h2>
+
         <div className="bg-card rounded p-4 mb-4">
+
+          {/* 🔹 RESUMEN IN / OUT OF NETWORK */}
+          <div className="flex gap-6 mb-4">
+            <div className="flex-1">
+              <p className="text-xs text-slate-400 mb-1">In Network</p>
+              <p className="text-2xl font-bold text-emerald-400">
+                {inNetworkCount}
+              </p>
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-slate-400 mb-1">Out of Network</p>
+              <p className="text-2xl font-bold text-red-400">
+                {outNetworkCount}
+              </p>
+            </div>
+          </div>
+
           <div className="flex gap-3 mb-4">
             <select value={filterDoctor} onChange={e=>setFilterDoctor(e.target.value)} className="p-2">
               {allDoctors.map((d,idx)=>(<option key={idx} value={d}>{d}</option>))}
@@ -46,18 +94,48 @@ export default function Dashboard(){
 
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="text-slate-300"><tr><th className="p-2 text-left">Doctor Name</th><th className="p-2 text-left">Insurance Name</th><th className="p-2 text-left">Type</th><th className="p-2 text-left">Expiration Date</th><th className="p-2 text-left">Days Left</th></tr></thead>
+              <thead className="text-slate-300">
+                <tr>
+                  <th className="p-2 text-left">Doctor Name</th>
+                  <th className="p-2 text-left">Insurance Name</th>
+                  <th className="p-2 text-left">Type</th>
+                  <th className="p-2 text-left">Expiration Date</th>
+                  <th className="p-2 text-left">Days Left</th>
+                </tr>
+              </thead>
               <tbody className="text-slate-200">
-                {rows.length===0 && (<tr><td colSpan={5} className="p-4 text-slate-400">No records found</td></tr>)}
+                {rows.length===0 && (
+                  <tr>
+                    <td colSpan={5} className="p-4 text-slate-400">
+                      No records found
+                    </td>
+                  </tr>
+                )}
                 {rows.map((r,idx)=>{
-                  const cls = r.days===null? '' : (r.days<0? 'highlight-red' : (r.days<=30? 'highlight-red' : (r.days<=90? 'highlight-yellow' : '')))
+                  const cls = r.days===null
+                    ? ''
+                    : (r.days<0
+                      ? 'highlight-red'
+                      : (r.days<=30
+                        ? 'highlight-red'
+                        : (r.days<=90
+                          ? 'highlight-yellow'
+                          : ''
+                        )))
                   return (
                     <tr key={idx} className={`border-t border-slate-800 ${cls}`}>
                       <td className="p-2">{r.doctor || 'Unassigned'}</td>
                       <td className="p-2">{r.insurance}</td>
                       <td className="p-2">{r.type}</td>
-                      <td className="p-2">{r.expiration? (new Date(r.expiration)).toLocaleDateString() : 'No date'}</td>
-                      <td className="p-2">{r.days===null? 'No date' : (r.days<0? 'Expired' : `${r.days} days`)}</td>
+                      <td className="p-2">
+                        {r.expiration ? (new Date(r.expiration)).toLocaleDateString() : 'No date'}
+                      </td>
+                      <td className="p-2">
+                        {r.days===null
+                          ? 'No date'
+                          : (r.days<0 ? 'Expired' : `${r.days} days`)
+                        }
+                      </td>
                     </tr>
                   )
                 })}
