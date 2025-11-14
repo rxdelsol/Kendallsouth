@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --background: #f3f4f6; /* light */
-  --foreground: #111827;
+  --background: #dff3ff; /* azul cielo */
+  --foreground: #0f172a; /* texto oscuro */
 }
 
 .dark {
@@ -17,10 +17,10 @@ body {
   color: var(--foreground);
 }
 
-/* Optional scrollbar styling */
+/* Scrollbar opcional */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5f5 transparent;
+  scrollbar-color: #93c5fd transparent;
 }
 
 ::-webkit-scrollbar {
