@@ -1,1 +1,7 @@
-export default { plugins: { tailwindcss: {}, autoprefixer: {} } }\n
+// postcss.config.js (CommonJS, compatible con Vercel)
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
