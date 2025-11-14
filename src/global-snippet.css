@@ -1,0 +1,30 @@
+/* Global background + text */
+body {
+  background-color: #13294b;
+  color: #eaf2ff;
+}
+
+/* Card background */
+.bg-card {
+  background-color: #19375f;
+  border: 1px solid rgba(255,255,255,0.04);
+}
+
+/* Optional: badge styles if not defined */
+.badge-in {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #6ee7b7;
+}
+
+.badge-out {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background-color: rgba(248, 113, 113, 0.1);
+  color: #fecaca;
+}
