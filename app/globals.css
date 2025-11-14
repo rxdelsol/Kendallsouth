@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { --background:#f3f4f6; --foreground:#111827; }
-.dark { --background:#020617; --foreground:#f9fafb; }
-body { background:var(--background); color:var(--foreground); }
+:root {
+  --background: #f3f4f6; /* light */
+  --foreground: #111827;
+}
+
+.dark {
+  --background: #020617; /* slate-950 */
+  --foreground: #f9fafb;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Optional scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5f5 transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+}
