@@ -1,8 +1,0 @@
-.docs-panel{ display:flex; flex-direction:column; gap:12px; }
-.docs-controls{ display:flex; gap:8px; margin-bottom:8px; }
-.docs-controls input{ padding:8px; border-radius:6px; background:transparent; border:1px solid rgba(255,255,255,0.04); color:#e6eef6; }
-.docs-list{ background:rgba(255,255,255,0.02); padding:12px; border-radius:8px; max-height:60vh; overflow:auto; }
-.docs-table{ width:100%; border-collapse:collapse; }
-.docs-table th{ text-align:left; padding:8px; color:#9fbddf; font-weight:700; }
-.docs-table td{ padding:8px; border-top:1px solid rgba(255,255,255,0.02); } 
-.empty{ color:var(--muted); padding:20px; }
