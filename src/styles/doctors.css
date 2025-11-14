@@ -1,0 +1,4 @@
+.doctors-table{ width:100%; border-collapse:collapse; margin:8px 24px 0 24px; }
+.doctors-table th{ text-align:left; padding:8px; color:#9fbddf; background:transparent; }
+.doctors-table td{ padding:8px; border-top:1px solid rgba(255,255,255,0.03); }
+.small-btn{ padding:6px 8px; border-radius:6px; background:transparent; border:1px solid rgba(255,255,255,0.04); color:#e6eef6; cursor:pointer; }
