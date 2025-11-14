@@ -1,0 +1,1 @@
+<InsurancesTable.jsx placeholder>
