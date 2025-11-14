@@ -1,116 +1,15 @@
-/* =============================
-   TAILWIND BASE
-============================= */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* =============================
-   THEME COLORS
-============================= */
-:root{
-  --navy: #13294b;   /* Fondo principal */
-  --card: #19375f;   /* Tarjetas */
-  --text-light: #eaf2ff;
-}
-
-/* =============================
-   GLOBAL STYLES
-============================= */
-body{
-  background-color: var(--navy);
-  color: var(--text-light);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  margin: 0;
-}
-
-/* =============================
-   CARD BACKGROUNDS
-============================= */
-.bg-card{
-  background-color: var(--card);
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255,255,255,0.08);
-  padding: 1rem;
-}
-
-/* =============================
-   BADGES
-============================= */
-.badge-in{
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  background-color: rgba(16,185,129,0.15);
-  color: #6ee7b7;
-}
-
-.badge-out{
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  background-color: rgba(248,113,113,0.15);
-  color: #fca5a5;
-}
-
-/* =============================
-   TABLE HIGHLIGHTS
-============================= */
-.highlight-red{
-  background-color: rgba(239,68,68,0.25);
-}
-
-.highlight-yellow{
-  background-color: rgba(234,179,8,0.25);
-}
-
-/* =============================
-   MODALS
-============================= */
-.modal-backdrop{
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 50;
-}
-
-.modal{
-  background-color: var(--card);
-  padding: 1.5rem;
-  border-radius: 0.75rem;
-  max-width: 450px;
-  width: 90%;
-  color: var(--text-light);
-}
-
-/* =============================
-   BUTTONS
-============================= */
-.btn-red{
-  background-color: #dc2626;
-  padding: 8px 14px;
-  border-radius: 6px;
-  font-size: 14px;
-  color: white;
-}
-
-.btn-red:hover{
-  background-color: #b91c1c;
-}
-
-.btn-cancel{
-  background-color: #475569;
-  padding: 8px 14px;
-  border-radius: 6px;
-  font-size: 14px;
-  color: white;
-}
-
-.btn-cancel:hover{
-  background-color: #334155;
-}
+:root{ --navy:#081028; --card:#0d1b33; }
+body { @apply bg-navy; }
+select{ background-color:#0b1a33; color:#fff; border:1px solid #2e4a75; border-radius:8px; padding:8px 36px 8px 12px; appearance:none; background-image: url("data:image/svg+xml;utf8,<svg fill='%2300bfa6' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>"); background-repeat:no-repeat; background-position: right 10px center; }
+.toast{ position:fixed; right:20px; bottom:20px; background:#063447; color:#d6fff3; padding:10px 14px; border-radius:8px; box-shadow:0 6px 18px rgba(2,6,23,0.6); z-index:9999 }
+.modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:2000 }
+.modal{ background:var(--card); padding:18px; border-radius:10px; width:520px; color:#e6f6ff }
+.btn-red{ background:#c53030; color:white; padding:8px 12px; border-radius:8px }
+.btn-cancel{ background:transparent; border:1px solid rgba(255,255,255,0.06); color:#dbefff; padding:8px 12px; border-radius:8px }
+.badge-in{ background:#2563eb; color:white; padding:4px 8px; border-radius:999px; font-size:12px }
+.badge-out{ background:#6b7280; color:white; padding:4px 8px; border-radius:999px; font-size:12px }
+.highlight-yellow{ background:#7c5e2e }
+.highlight-red{ background:#4b1e1e }
