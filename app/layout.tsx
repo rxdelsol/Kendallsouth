@@ -1,8 +1,9 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 import Image from "next/image";
-import { ThemeProvider } from "@/components/theme-provider";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeProvider } from "../components/theme-provider";
+import { ThemeToggle } from "../components/theme-toggle";
+
 
 export const metadata = {
   title: "Kendall South Medical Center — Provider Credential Tracker",
