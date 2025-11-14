@@ -99,7 +99,7 @@ export default function InsurancesTable() {
       <h2 className="text-sky-200 font-semibold mb-2">Insurances</h2>
       <div className="overflow-auto mb-4">
         <table className="min-w-full text-sm">
-          <thead className="text-slate-300">
+          <thead className="text-slate-100 bg-[#1b355a]">
             <tr>
               <th className="p-2">Name</th>
               <th className="p-2">Type</th>
@@ -110,9 +110,9 @@ export default function InsurancesTable() {
               <th className="p-2">Actions</th>
             </tr>
           </thead>
-          <tbody className="text-slate-200">
+          <tbody className="text-slate-100">
             {list.map((i) => (
-              <tr key={i.id} className="border-t border-slate-800">
+              <tr key={i.id} className="border-t border-slate-600">
                 <td className="p-2">{i.name}</td>
                 <td className="p-2">{i.type}</td>
                 <td className="p-2">{i.doctorName || ""}</td>
@@ -147,7 +147,7 @@ export default function InsurancesTable() {
             ))}
             {list.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-4 text-slate-400">
+                <td colSpan={7} className="p-4 text-slate-200">
                   No insurances yet
                 </td>
               </tr>
@@ -167,16 +167,16 @@ export default function InsurancesTable() {
 
       {showModal && (
         <div className="modal-backdrop">
-          <div className="modal">
+          <div className="modal bg-[#19375f]">
             <h3>{isEditing ? "Edit Insurance" : "Add Insurance"}</h3>
-            <div className="grid grid-cols-1 gap-2 mt-2">
+            <div className="grid grid-cols-1 gap-2 mt-2 text-sm">
               <input
                 placeholder="Insurance Name"
                 value={newIns.name}
                 onChange={(e) =>
                   setNewIns({ ...newIns, name: e.target.value })
                 }
-                className="p-2 rounded bg-[#081424]"
+                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
               />
 
               <select
@@ -184,7 +184,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setNewIns({ ...newIns, type: e.target.value })
                 }
-                className="p-2 rounded bg-[#081424]"
+                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
               >
                 <option>HMO</option>
                 <option>PPO</option>
@@ -198,7 +198,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setNewIns({ ...newIns, doctor: e.target.value })
                 }
-                className="p-2 rounded bg-[#081424]"
+                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
               >
                 <option value="">Assign Doctor...</option>
                 {doctors.map((d) => (
@@ -213,7 +213,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setNewIns({ ...newIns, network: e.target.value })
                 }
-                className="p-2 rounded bg-[#081424]"
+                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
               >
                 <option>In Network</option>
                 <option>Out of Network</option>
@@ -225,7 +225,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setNewIns({ ...newIns, expiration: e.target.value })
                 }
-                className="p-2 rounded bg-[#081424]"
+                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
               />
 
               <textarea
@@ -234,7 +234,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setNewIns({ ...newIns, notes: e.target.value })
                 }
-                className="p-2 rounded bg-[#081424]"
+                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
               />
             </div>
 
