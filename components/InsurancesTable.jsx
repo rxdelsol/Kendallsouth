@@ -4,9 +4,8 @@ export default function InsurancesTable() {
   const empty = () => ({
     id: null,
     name: "",
-    type: "HMO",        // valor que se guardará en Supabase
-    typeSelect: "HMO",  // valor que se muestra en el select (HMO/PPO/Medicare/Medicaid/Other)
-    otherType: "",      // texto cuando el usuario escribe un tipo personalizado
+    type: "HMO",          // valor que se guardará en Supabase
+    typeSelect: "HMO",    // valor del <select>
     doctorName: "",
     network: "In Network",
     expiration: "",
@@ -54,17 +53,32 @@ export default function InsurancesTable() {
     return Array.from(set).sort();
   }, [doctors]);
 
+  const daysLeft = (expiration) => {
+    if (!expiration) return "";
+    const exp = new Date(expiration);
+    const today = new Date();
+    const diffMs = exp.getTime() - today.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
   const saveInsurance = async () => {
     if (!item.name.trim()) return alert("Enter insurance name");
+
+    // si seleccionó Other, usamos lo que escribió en otherType
+    const finalType =
+      item.typeSelect === "Other" && item.otherType?.trim()
+        ? item.otherType.trim()
+        : item.typeSelect;
 
     try {
       const bodyToSend = {
         id: item.id,
-        name: item.name,
-        type: item.type,            // aquí ya viene HMO / PPO / lo que escribió en Other
+        name: item.name.trim(),
+        type: finalType,
         doctorName: item.doctorName,
         network: item.network,
-        expiration: item.expiration,
+        expiration: item.expiration || null,
         notes: item.notes,
       };
 
@@ -118,14 +132,13 @@ export default function InsurancesTable() {
   };
 
   const openEditModal = (ins) => {
-    const standardTypes = ["HMO", "PPO", "Medicare", "Medicaid"];
+    const standard = ["HMO", "PPO", "Medicare", "Medicaid"];
     const t = ins.type || "HMO";
-    const isStandard = standardTypes.includes(t);
+    const isStandard = standard.includes(t);
 
     setItem({
       id: ins.id,
       name: ins.name || "",
-      type: t,
       typeSelect: isStandard ? t : "Other",
       otherType: isStandard ? "" : t,
       doctorName: ins.doctorName || "",
@@ -136,15 +149,6 @@ export default function InsurancesTable() {
 
     setIsEditing(true);
     setShowModal(true);
-  };
-
-  const daysLeft = (expiration) => {
-    if (!expiration) return "";
-    const exp = new Date(expiration);
-    const today = new Date();
-    const diffMs = exp.getTime() - today.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    return diffDays;
   };
 
   return (
@@ -240,27 +244,12 @@ export default function InsurancesTable() {
                 className="p-2 rounded bg-[#081424]"
               />
 
-              {/* Type (select + Other) */}
+              {/* TYPE SELECT */}
               <select
                 value={item.typeSelect}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === "Other") {
-                    setItem({
-                      ...item,
-                      typeSelect: "Other",
-                      otherType: "",
-                      type: "", // se llenará con lo que escriba el usuario
-                    });
-                  } else {
-                    setItem({
-                      ...item,
-                      typeSelect: v,
-                      type: v,
-                      otherType: "",
-                    });
-                  }
-                }}
+                onChange={(e) =>
+                  setItem({ ...item, typeSelect: e.target.value })
+                }
                 className="p-2 rounded bg-[#081424]"
               >
                 <option value="HMO">HMO</option>
@@ -270,22 +259,19 @@ export default function InsurancesTable() {
                 <option value="Other">Other</option>
               </select>
 
+              {/* INPUT PARA OTHER */}
               {item.typeSelect === "Other" && (
                 <input
-                  placeholder="Enter insurance type"
-                  value={item.otherType}
+                  placeholder="Write custom insurance type"
+                  value={item.otherType || ""}
                   onChange={(e) =>
-                    setItem({
-                      ...item,
-                      otherType: e.target.value,
-                      type: e.target.value,
-                    })
+                    setItem({ ...item, otherType: e.target.value })
                   }
                   className="p-2 rounded bg-[#081424]"
                 />
               )}
 
-              {/* Doctor Name (drop-down) */}
+              {/* Doctor Name (dropdown) */}
               <select
                 value={item.doctorName}
                 onChange={(e) =>
