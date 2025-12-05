@@ -10,10 +10,11 @@ export default function Dashboard() {
     expired: 0,
   });
 
-  async function load() {
+  async function loadData() {
     try {
       const res = await fetch("/api/get-insurances");
       const data = await res.json();
+
       if (!data.ok) {
         console.error(data.error);
         setLoading(false);
@@ -25,23 +26,20 @@ export default function Dashboard() {
 
       let inNetwork = 0;
       let outNetwork = 0;
-      let expiringSoon = 0; // próximos 60 días
+      let expiringSoon = 0;
       let expired = 0;
 
-      list.forEach((i) => {
-        if (i.network === "In Network") inNetwork++;
-        else if (i.network === "Out of Network") outNetwork++;
+      list.forEach((insurance) => {
+        if (insurance.network === "In Network") inNetwork++;
+        else if (insurance.network === "Out of Network") outNetwork++;
 
-        if (i.expiration) {
-          const expDate = new Date(i.expiration);
+        if (insurance.expiration) {
+          const expDate = new Date(insurance.expiration);
           const diffMs = expDate.getTime() - today.getTime();
           const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-          if (diffDays < 0) {
-            expired++;
-          } else if (diffDays <= 60) {
-            expiringSoon++;
-          }
+          if (diffDays < 0) expired++;
+          else if (diffDays <= 60) expiringSoon++;
         }
       });
 
@@ -52,15 +50,16 @@ export default function Dashboard() {
         expiringSoon,
         expired,
       });
+
       setLoading(false);
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error("Error loading dashboard:", error);
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
+    loadData();
   }, []);
 
   return (
@@ -70,52 +69,47 @@ export default function Dashboard() {
       </h2>
 
       {loading ? (
-        <p className="text-slate-400 text-sm">Loading...</p>
+        <p className="text-slate-400">Loading...</p>
       ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="rounded-xl bg-[#081424] p-4">
-              <p className="text-slate-400 text-xs uppercase">Total</p>
-              <p className="text-3xl font-semibold text-sky-200">
-                {stats.total}
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-[#081424] p-4">
-              <p className="text-slate-400 text-xs uppercase">In Network</p>
-              <p className="text-3xl font-semibold text-emerald-300">
-                {stats.inNetwork}
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-[#081424] p-4">
-              <p className="text-slate-400 text-xs uppercase">Out of Network</p>
-              <p className="text-3xl font-semibold text-rose-300">
-                {stats.outNetwork}
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-[#081424] p-4">
-              <p className="text-slate-400 text-xs uppercase">
-                Expiring &lt;= 60 days
-              </p>
-              <p className="text-3xl font-semibold text-amber-300">
-                {stats.expiringSoon}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">
-                Expired:{" "}
-                <span className="text-rose-300 font-semibold">
-                  {stats.expired}
-                </span>
-              </p>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Total */}
+          <div className="bg-[#081424] p-4 rounded-xl">
+            <p className="text-slate-400 text-xs uppercase">Total</p>
+            <p className="text-4xl text-sky-300 font-semibold">{stats.total}</p>
           </div>
 
-          <p className="text-slate-400 text-xs">
-            (Datos calculados en vivo desde la tabla <code>insurances</code> en
-            Supabase)
-          </p>
-        </>
+          {/* In Network */}
+          <div className="bg-[#081424] p-4 rounded-xl">
+            <p className="text-slate-400 text-xs uppercase">In Network</p>
+            <p className="text-4xl text-emerald-300 font-semibold">
+              {stats.inNetwork}
+            </p>
+          </div>
+
+          {/* Out of Network */}
+          <div className="bg-[#081424] p-4 rounded-xl">
+            <p className="text-slate-400 text-xs uppercase">Out of Network</p>
+            <p className="text-4xl text-rose-300 font-semibold">
+              {stats.outNetwork}
+            </p>
+          </div>
+
+          {/* Expiring Soon */}
+          <div className="bg-[#081424] p-4 rounded-xl">
+            <p className="text-slate-400 text-xs uppercase">
+              Expiring (Next 60 Days)
+            </p>
+            <p className="text-4xl text-amber-300 font-semibold">
+              {stats.expiringSoon}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Expired:{" "}
+              <span className="text-rose-300 font-semibold">
+                {stats.expired}
+              </span>
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );
