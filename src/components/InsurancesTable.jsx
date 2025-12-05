@@ -207,5 +207,70 @@ export default function InsurancesTable() {
                 }
                 className="p-2 rounded bg-[#081424]"
               >
+                <option>HMO</option>
+                <option>PPO</option>
+                <option>Medicare</option>
+                <option>Medicaid</option>
+                <option>Other</option>
+              </select>
 
-::contentReference[oaicite:0]{index=0}
+              <input
+                placeholder="Doctor Name"
+                value={item.doctorName}
+                onChange={(e) =>
+                  setItem({ ...item, doctorName: e.target.value })
+                }
+                className="p-2 rounded bg-[#081424]"
+              />
+
+              <select
+                value={item.network}
+                onChange={(e) =>
+                  setItem({ ...item, network: e.target.value })
+                }
+                className="p-2 rounded bg-[#081424]"
+              >
+                <option>In Network</option>
+                <option>Out of Network</option>
+              </select>
+
+              <input
+                type="date"
+                value={item.expiration || ""}
+                onChange={(e) =>
+                  setItem({ ...item, expiration: e.target.value })
+                }
+                className="p-2 rounded bg-[#081424]"
+              />
+
+              <textarea
+                placeholder="Notes"
+                value={item.notes}
+                onChange={(e) =>
+                  setItem({ ...item, notes: e.target.value })
+                }
+                className="p-2 rounded bg-[#081424]"
+              />
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                className="btn-cancel"
+                onClick={() => {
+                  setShowModal(false);
+                  setIsEditing(false);
+                  setItem(empty());
+                }}
+              >
+                Cancel
+              </button>
+              <button className="btn-red" onClick={saveInsurance}>
+                {isEditing ? "Save Changes" : "Save Insurance"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
