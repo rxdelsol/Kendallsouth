@@ -8,54 +8,64 @@ const supabase = createClient(
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ ok: false, error: 'Invalid method' });
+    return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  const ins = req.body;
+  const body = req.body || {};
+  const {
+    id,
+    name,
+    type,
+    doctorName,
+    network,
+    expiration,
+    notes,
+  } = body;
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ ok: false, error: 'Name is required' });
+  }
 
   const payload = {
-    name: ins.name,
-    type: ins.type,
-    doctor_name: ins.doctorName || null,
-    network: ins.network,
-    expiration: ins.expiration || null,
-    notes: ins.notes || null,
+    name: name.trim(),
+    type: type || null,
+    doctor_name: doctorName || null,
+    network: network || null,
+    expiration: expiration || null, // 'YYYY-MM-DD' o null
+    notes: notes || null,
   };
 
   try {
-    let response;
+    let result;
 
-    if (ins.id) {
-      response = await supabase
+    if (id) {
+      // UPDATE
+      const { data, error } = await supabase
         .from('insurances')
         .update(payload)
-        .eq('id', ins.id)
-        .select();
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      result = data;
     } else {
-      response = await supabase
+      // INSERT
+      const { data, error } = await supabase
         .from('insurances')
         .insert(payload)
-        .select();
+        .select()
+        .single();
+
+      if (error) throw error;
+      result = data;
     }
 
-    if (response.error) throw response.error;
-
-    const row = response.data[0];
-
-    return res.status(200).json({
-      ok: true,
-      data: {
-        id: row.id,
-        name: row.name,
-        type: row.type,
-        doctorName: row.doctor_name,
-        network: row.network,
-        expiration: row.expiration,
-        notes: row.notes,
-      },
-    });
+    return res.status(200).json({ ok: true, data: result });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ ok: false, error: 'DB save error' });
+    console.error('save-insurance error:', err);
+    return res
+      .status(500)
+      .json({ ok: false, error: 'Database error while saving insurance' });
   }
 }
