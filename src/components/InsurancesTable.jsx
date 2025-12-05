@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 export default function InsurancesTable() {
   const empty = () => ({
     id: null,
     name: "",
-    type: "HMO",
+    type: "HMO",          // valor que se guardará en Supabase
+    typeSelect: "HMO",    // valor del <select>
     doctorName: "",
     network: "In Network",
     expiration: "",
@@ -15,13 +16,24 @@ export default function InsurancesTable() {
   const [item, setItem] = useState(empty());
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [doctors, setDoctors] = useState([]);
 
   async function loadInsurances() {
     try {
       const res = await fetch("/api/get-insurances");
       const data = await res.json();
-      console.log("API /api/get-insurances →", data);
       if (data.ok) setList(data.data || []);
+      else console.error(data.error);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function loadDoctors() {
+    try {
+      const res = await fetch("/api/get-doctors");
+      const data = await res.json();
+      if (data.ok) setDoctors(data.data || []);
       else console.error(data.error);
     } catch (e) {
       console.error(e);
@@ -30,16 +42,50 @@ export default function InsurancesTable() {
 
   useEffect(() => {
     loadInsurances();
+    loadDoctors();
   }, []);
+
+  const doctorOptions = useMemo(() => {
+    const set = new Set();
+    doctors.forEach((d) => {
+      if (d.name && d.name.trim() !== "") set.add(d.name.trim());
+    });
+    return Array.from(set).sort();
+  }, [doctors]);
+
+  const daysLeft = (expiration) => {
+    if (!expiration) return "";
+    const exp = new Date(expiration);
+    const today = new Date();
+    const diffMs = exp.getTime() - today.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
 
   const saveInsurance = async () => {
     if (!item.name.trim()) return alert("Enter insurance name");
 
+    // si seleccionó Other, usamos lo que escribió en otherType
+    const finalType =
+      item.typeSelect === "Other" && item.otherType?.trim()
+        ? item.otherType.trim()
+        : item.typeSelect;
+
     try {
+      const bodyToSend = {
+        id: item.id,
+        name: item.name.trim(),
+        type: finalType,
+        doctorName: item.doctorName,
+        network: item.network,
+        expiration: item.expiration || null,
+        notes: item.notes,
+      };
+
       const res = await fetch("/api/save-insurance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item),
+        body: JSON.stringify(bodyToSend),
       });
 
       const data = await res.json();
@@ -86,26 +132,23 @@ export default function InsurancesTable() {
   };
 
   const openEditModal = (ins) => {
+    const standard = ["HMO", "PPO", "Medicare", "Medicaid"];
+    const t = ins.type || "HMO";
+    const isStandard = standard.includes(t);
+
     setItem({
       id: ins.id,
-      name: ins.name,
-      type: ins.type,
+      name: ins.name || "",
+      typeSelect: isStandard ? t : "Other",
+      otherType: isStandard ? "" : t,
       doctorName: ins.doctorName || "",
-      network: ins.network,
+      network: ins.network || "In Network",
       expiration: ins.expiration ? ins.expiration.slice(0, 10) : "",
       notes: ins.notes || "",
     });
+
     setIsEditing(true);
     setShowModal(true);
-  };
-
-  const daysLeft = (expiration) => {
-    if (!expiration) return "";
-    const exp = new Date(expiration);
-    const today = new Date();
-    const diffMs = exp.getTime() - today.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    return diffDays;
   };
 
   return (
@@ -137,10 +180,10 @@ export default function InsurancesTable() {
                 <td className="p-2">{ins.type}</td>
                 <td className="p-2">{ins.doctorName || ""}</td>
                 <td className="p-2">
-                  {ins.network === "In Network" ? (
-                    <span className="badge-in">In Network</span>
-                  ) : (
+                  {ins.network === "Out of Network" ? (
                     <span className="badge-out">Out of Network</span>
+                  ) : (
+                    <span className="badge-in">In Network</span>
                   )}
                 </td>
                 <td className="p-2">
@@ -191,6 +234,7 @@ export default function InsurancesTable() {
           <div className="modal">
             <h3>{isEditing ? "Edit Insurance" : "Add Insurance"}</h3>
             <div className="grid grid-cols-1 gap-2 mt-2">
+              {/* Insurance Name */}
               <input
                 placeholder="Insurance Name"
                 value={item.name}
@@ -200,29 +244,50 @@ export default function InsurancesTable() {
                 className="p-2 rounded bg-[#081424]"
               />
 
+              {/* TYPE SELECT */}
               <select
-                value={item.type}
+                value={item.typeSelect}
                 onChange={(e) =>
-                  setItem({ ...item, type: e.target.value })
+                  setItem({ ...item, typeSelect: e.target.value })
                 }
                 className="p-2 rounded bg-[#081424]"
               >
-                <option>HMO</option>
-                <option>PPO</option>
-                <option>Medicare</option>
-                <option>Medicaid</option>
-                <option>Other</option>
+                <option value="HMO">HMO</option>
+                <option value="PPO">PPO</option>
+                <option value="Medicare">Medicare</option>
+                <option value="Medicaid">Medicaid</option>
+                <option value="Other">Other</option>
               </select>
 
-              <input
-                placeholder="Doctor Name"
+              {/* INPUT PARA OTHER */}
+              {item.typeSelect === "Other" && (
+                <input
+                  placeholder="Write custom insurance type"
+                  value={item.otherType || ""}
+                  onChange={(e) =>
+                    setItem({ ...item, otherType: e.target.value })
+                  }
+                  className="p-2 rounded bg-[#081424]"
+                />
+              )}
+
+              {/* Doctor Name (dropdown) */}
+              <select
                 value={item.doctorName}
                 onChange={(e) =>
                   setItem({ ...item, doctorName: e.target.value })
                 }
                 className="p-2 rounded bg-[#081424]"
-              />
+              >
+                <option value="">Unassigned</option>
+                {doctorOptions.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
 
+              {/* Network */}
               <select
                 value={item.network}
                 onChange={(e) =>
@@ -234,6 +299,7 @@ export default function InsurancesTable() {
                 <option>Out of Network</option>
               </select>
 
+              {/* Expiration */}
               <input
                 type="date"
                 value={item.expiration || ""}
@@ -243,6 +309,7 @@ export default function InsurancesTable() {
                 className="p-2 rounded bg-[#081424]"
               />
 
+              {/* Notes */}
               <textarea
                 placeholder="Notes"
                 value={item.notes}
