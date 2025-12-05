@@ -4,8 +4,7 @@ export default function InsurancesTable() {
   const empty = () => ({
     id: null,
     name: "",
-    type: "PPO",
-    doctor: "",
+    type: "HMO",
     doctorName: "",
     network: "In Network",
     expiration: "",
@@ -13,141 +12,163 @@ export default function InsurancesTable() {
   });
 
   const [list, setList] = useState([]);
-  const [doctors, setDoctors] = useState([]);
-  const [newIns, setNewIns] = useState(empty());
+  const [item, setItem] = useState(empty());
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
+  async function loadInsurances() {
+    try {
+      const res = await fetch("/api/get-insurances");
+      const data = await res.json();
+      console.log("API /api/get-insurances →", data);
+      if (data.ok) setList(data.data || []);
+      else console.error(data.error);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   useEffect(() => {
-    setList(JSON.parse(localStorage.getItem("insuranceList") || "[]"));
-    setDoctors(JSON.parse(localStorage.getItem("doctorsList") || "[]"));
+    loadInsurances();
   }, []);
 
-  useEffect(
-    () => localStorage.setItem("insuranceList", JSON.stringify(list)),
-    [list]
-  );
+  const saveInsurance = async () => {
+    if (!item.name.trim()) return alert("Enter insurance name");
 
-  const rebuildDoctorsByInsurance = (currentList) => {
-    const byIns = {};
+    try {
+      const res = await fetch("/api/save-insurance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
 
-    currentList.forEach((item) => {
-      if (item.doctor) {
-        if (!byIns[item.name]) byIns[item.name] = [];
-        byIns[item.name].push({
-          doctorId: item.doctor,
-          name: item.doctorName || "",
-          expiration: item.expiration || null,
-          notes: item.notes || "",
-        });
+      const data = await res.json();
+      if (data.ok) {
+        setShowModal(false);
+        setItem(empty());
+        setIsEditing(false);
+        loadInsurances();
+      } else {
+        alert("Error saving insurance");
       }
-    });
-
-    localStorage.setItem("doctorsByInsurance", JSON.stringify(byIns));
+    } catch (e) {
+      console.error(e);
+      alert("Error saving insurance");
+    }
   };
 
-  const saveInsurance = () => {
-    if (!newIns.name.trim()) return alert("Enter insurance name");
+  const remove = async (id) => {
+    if (!window.confirm("Delete this insurance?")) return;
 
-    const storedDocs =
-      JSON.parse(localStorage.getItem("doctorsList") || "[]") || [];
+    try {
+      const res = await fetch("/api/delete-insurance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
 
-    const id = newIns.id || Date.now().toString();
-    const item = { ...newIns, id };
-
-    if (item.doctor) {
-      const doc = storedDocs.find((d) => d.id === item.doctor);
-      if (doc) item.doctorName = doc.name;
+      const data = await res.json();
+      if (data.ok) {
+        loadInsurances();
+      } else {
+        alert("Error deleting");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error deleting");
     }
-
-    let updatedList;
-
-    if (isEditing && newIns.id) {
-      updatedList = list.map((ins) => (ins.id === newIns.id ? item : ins));
-    } else {
-      updatedList = [...list, item];
-    }
-
-    setList(updatedList);
-    rebuildDoctorsByInsurance(updatedList);
-
-    setNewIns(empty());
-    setIsEditing(false);
-    setShowModal(false);
-  };
-
-  const remove = (id) => {
-    const newList = list.filter((i) => i.id !== id);
-    setList(newList);
-    rebuildDoctorsByInsurance(newList);
   };
 
   const openAddModal = () => {
-    setNewIns(empty());
+    setItem(empty());
     setIsEditing(false);
     setShowModal(true);
   };
 
-  const openEditModal = (item) => {
-    setNewIns(item);
+  const openEditModal = (ins) => {
+    setItem({
+      id: ins.id,
+      name: ins.name,
+      type: ins.type,
+      doctorName: ins.doctorName || "",
+      network: ins.network,
+      expiration: ins.expiration ? ins.expiration.slice(0, 10) : "",
+      notes: ins.notes || "",
+    });
     setIsEditing(true);
     setShowModal(true);
+  };
+
+  const daysLeft = (expiration) => {
+    if (!expiration) return "";
+    const exp = new Date(expiration);
+    const today = new Date();
+    const diffMs = exp.getTime() - today.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    return diffDays;
   };
 
   return (
     <div className="bg-card rounded p-4">
       <h2 className="text-sky-200 font-semibold mb-2">Insurances</h2>
+
+      <p className="text-slate-400 text-xs mb-2">
+        (Debug) Insurances cargados: {list.length}
+      </p>
+
       <div className="overflow-auto mb-4">
         <table className="min-w-full text-sm">
-          <thead className="text-slate-100 bg-[#1b355a]">
+          <thead className="text-slate-300">
             <tr>
-              <th className="p-2">Name</th>
+              <th className="p-2">Insurance Name</th>
               <th className="p-2">Type</th>
               <th className="p-2">Doctor</th>
               <th className="p-2">Network</th>
               <th className="p-2">Expiration</th>
+              <th className="p-2">Days Left</th>
               <th className="p-2">Notes</th>
               <th className="p-2">Actions</th>
             </tr>
           </thead>
-          <tbody className="text-slate-100">
-            {list.map((i) => (
-              <tr key={i.id} className="border-t border-slate-600">
-                <td className="p-2">{i.name}</td>
-                <td className="p-2">{i.type}</td>
-                <td className="p-2">{i.doctorName || ""}</td>
+          <tbody className="text-slate-200">
+            {list.map((ins) => (
+              <tr key={ins.id} className="border-t border-slate-800">
+                <td className="p-2">{ins.name}</td>
+                <td className="p-2">{ins.type}</td>
+                <td className="p-2">{ins.doctorName || ""}</td>
                 <td className="p-2">
-                  {i.network === "In Network" ? (
+                  {ins.network === "In Network" ? (
                     <span className="badge-in">In Network</span>
                   ) : (
                     <span className="badge-out">Out of Network</span>
                   )}
                 </td>
                 <td className="p-2">
-                  {i.expiration
-                    ? new Date(i.expiration).toLocaleDateString()
+                  {ins.expiration
+                    ? new Date(ins.expiration).toLocaleDateString()
                     : ""}
                 </td>
-                <td className="p-2">{i.notes}</td>
+                <td className="p-2">{daysLeft(ins.expiration)}</td>
+                <td className="p-2">{ins.notes}</td>
                 <td className="p-2 space-x-3">
                   <button
                     className="text-sky-300 hover:underline"
-                    onClick={() => openEditModal(i)}
+                    onClick={() => openEditModal(ins)}
                   >
                     Edit
                   </button>
                   <button
                     className="text-red-500 hover:underline"
-                    onClick={() => remove(i.id)}
+                    onClick={() => remove(ins.id)}
                   >
-                    Delete Insurance
+                    Delete
                   </button>
                 </td>
               </tr>
             ))}
             {list.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-4 text-slate-200">
+                <td colSpan={8} className="p-4 text-slate-400">
                   No insurances yet
                 </td>
               </tr>
@@ -167,95 +188,24 @@ export default function InsurancesTable() {
 
       {showModal && (
         <div className="modal-backdrop">
-          <div className="modal bg-[#19375f]">
+          <div className="modal">
             <h3>{isEditing ? "Edit Insurance" : "Add Insurance"}</h3>
-            <div className="grid grid-cols-1 gap-2 mt-2 text-sm">
+            <div className="grid grid-cols-1 gap-2 mt-2">
               <input
                 placeholder="Insurance Name"
-                value={newIns.name}
+                value={item.name}
                 onChange={(e) =>
-                  setNewIns({ ...newIns, name: e.target.value })
+                  setItem({ ...item, name: e.target.value })
                 }
-                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
+                className="p-2 rounded bg-[#081424]"
               />
 
               <select
-                value={newIns.type}
+                value={item.type}
                 onChange={(e) =>
-                  setNewIns({ ...newIns, type: e.target.value })
+                  setItem({ ...item, type: e.target.value })
                 }
-                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
+                className="p-2 rounded bg-[#081424]"
               >
-                <option>HMO</option>
-                <option>PPO</option>
-                <option>Medicare</option>
-                <option>Medicaid</option>
-                <option>Other</option>
-              </select>
 
-              <select
-                value={newIns.doctor || ""}
-                onChange={(e) =>
-                  setNewIns({ ...newIns, doctor: e.target.value })
-                }
-                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
-              >
-                <option value="">Assign Doctor...</option>
-                {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={newIns.network}
-                onChange={(e) =>
-                  setNewIns({ ...newIns, network: e.target.value })
-                }
-                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
-              >
-                <option>In Network</option>
-                <option>Out of Network</option>
-              </select>
-
-              <input
-                type="date"
-                value={newIns.expiration || ""}
-                onChange={(e) =>
-                  setNewIns({ ...newIns, expiration: e.target.value })
-                }
-                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
-              />
-
-              <textarea
-                placeholder="Notes"
-                value={newIns.notes}
-                onChange={(e) =>
-                  setNewIns({ ...newIns, notes: e.target.value })
-                }
-                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
-              />
-            </div>
-
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                className="btn-cancel"
-                onClick={() => {
-                  setShowModal(false);
-                  setIsEditing(false);
-                  setNewIns(empty());
-                }}
-              >
-                Cancel
-              </button>
-              <button className="btn-red" onClick={saveInsurance}>
-                {isEditing ? "Save Changes" : "Save Insurance"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+::contentReference[oaicite:0]{index=0}
