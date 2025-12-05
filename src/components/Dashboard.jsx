@@ -1,210 +1,122 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from "react";
 
-export default function Dashboard(){
-  const [doctors, setDoctors] = useState([])
-  const [insurances, setInsurances] = useState([])
-  const [filterDoctor, setFilterDoctor] = useState('All')
-  const [filterInsurance, setFilterInsurance] = useState('All')
-  const [filterType, setFilterType] = useState('All')
-  const [filterNetwork, setFilterNetwork] = useState('All')   // 👈 nuevo filtro
+export default function Dashboard() {
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    total: 0,
+    inNetwork: 0,
+    outNetwork: 0,
+    expiringSoon: 0,
+    expired: 0,
+  });
 
-  useEffect(() => { 
-    setDoctors(JSON.parse(localStorage.getItem('doctorsList') || '[]')) 
-    setInsurances(JSON.parse(localStorage.getItem('insuranceList') || '[]')) 
-  }, [])
+  async function load() {
+    try {
+      const res = await fetch("/api/get-insurances");
+      const data = await res.json();
+      if (!data.ok) {
+        console.error(data.error);
+        setLoading(false);
+        return;
+      }
 
-  useEffect(() => { 
-    const onStorage = () => { 
-      setDoctors(JSON.parse(localStorage.getItem('doctorsList') || '[]')) 
-      setInsurances(JSON.parse(localStorage.getItem('insuranceList') || '[]')) 
-    } 
-    window.addEventListener('storage', onStorage) 
-    return () => window.removeEventListener('storage', onStorage) 
-  }, [])
+      const list = data.data || [];
+      const today = new Date();
 
-  const getDaysLeft = (date) => { 
-    if (!date) return null 
-    const diff = Math.ceil((new Date(date) - new Date()) / (1000 * 60 * 60 * 24)) 
-    return diff 
+      let inNetwork = 0;
+      let outNetwork = 0;
+      let expiringSoon = 0; // próximos 60 días
+      let expired = 0;
+
+      list.forEach((i) => {
+        if (i.network === "In Network") inNetwork++;
+        else if (i.network === "Out of Network") outNetwork++;
+
+        if (i.expiration) {
+          const expDate = new Date(i.expiration);
+          const diffMs = expDate.getTime() - today.getTime();
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+          if (diffDays < 0) {
+            expired++;
+          } else if (diffDays <= 60) {
+            expiringSoon++;
+          }
+        }
+      });
+
+      setStats({
+        total: list.length,
+        inNetwork,
+        outNetwork,
+        expiringSoon,
+        expired,
+      });
+      setLoading(false);
+    } catch (e) {
+      console.error(e);
+      setLoading(false);
+    }
   }
 
-  const allDoctors = ['All', ...doctors.map(d => d.name)]
-  const allInsurances = ['All', ...insurances.map(i => i.name)]
-  const allTypes = ['All', ...Array.from(new Set(insurances.map(i => i.type).filter(Boolean)))]
-  const allNetworks = ['All', 'In Network', 'Out of Network']   // 👈 opciones del filtro
-
-  // filas de la tabla (incluye network)
-  const rows = insurances.map(i => {
-    const docName = i.doctorName || ((doctors.find(d => d.id === i.doctor) || {}).name || '')
-    const days = getDaysLeft(i.expiration)
-    return { 
-      doctor: docName, 
-      insurance: i.name, 
-      type: i.type, 
-      network: i.network, 
-      expiration: i.expiration, 
-      days 
-    }
-  }).filter(r => 
-    (filterDoctor === 'All' || r.doctor === filterDoctor) && 
-    (filterInsurance === 'All' || r.insurance === filterInsurance) && 
-    (filterType === 'All' || r.type === filterType) &&
-    (filterNetwork === 'All' || r.network === filterNetwork)      // 👈 aplica filtro network
-  )
-
-  // ordenar por días (los que vencen primero arriba)
-  rows.sort((a, b) => { 
-    if (a.days === null) return 1 
-    if (b.days === null) return -1 
-    return a.days - b.days 
-  })
-
-  // contadores In / Out of Network
-  const inNetworkCount = insurances.filter(i => i.network === 'In Network').length
-  const outNetworkCount = insurances.filter(i => i.network === 'Out of Network').length
+  useEffect(() => {
+    load();
+  }, []);
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <section className="mt-6">
-        <h2 className="text-sky-200 text-lg font-semibold mb-2">
-          Insurance Expiration Summary
-        </h2>
+    <div className="bg-card rounded p-4">
+      <h2 className="text-sky-200 font-semibold mb-4">
+        Insurance Expiration Summary
+      </h2>
 
-        <div className="bg-card rounded p-4 mb-4">
-
-          {/* Resumen In / Out of Network */}
-          <div className="flex gap-6 mb-4">
-            <div className="flex-1">
-              <p className="text-xs text-slate-400 mb-1">In Network</p>
-              <p className="text-2xl font-bold text-emerald-400">
-                {inNetworkCount}
+      {loading ? (
+        <p className="text-slate-400 text-sm">Loading...</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="rounded-xl bg-[#081424] p-4">
+              <p className="text-slate-400 text-xs uppercase">Total</p>
+              <p className="text-3xl font-semibold text-sky-200">
+                {stats.total}
               </p>
             </div>
-            <div className="flex-1">
-              <p className="text-xs text-slate-400 mb-1">Out of Network</p>
-              <p className="text-2xl font-bold text-red-400">
-                {outNetworkCount}
+
+            <div className="rounded-xl bg-[#081424] p-4">
+              <p className="text-slate-400 text-xs uppercase">In Network</p>
+              <p className="text-3xl font-semibold text-emerald-300">
+                {stats.inNetwork}
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-[#081424] p-4">
+              <p className="text-slate-400 text-xs uppercase">Out of Network</p>
+              <p className="text-3xl font-semibold text-rose-300">
+                {stats.outNetwork}
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-[#081424] p-4">
+              <p className="text-slate-400 text-xs uppercase">
+                Expiring &lt;= 60 days
+              </p>
+              <p className="text-3xl font-semibold text-amber-300">
+                {stats.expiringSoon}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                Expired:{" "}
+                <span className="text-rose-300 font-semibold">
+                  {stats.expired}
+                </span>
               </p>
             </div>
           </div>
 
-          {/* Filtros */}
-          <div className="flex gap-3 mb-4">
-            <select 
-              value={filterDoctor} 
-              onChange={e => setFilterDoctor(e.target.value)} 
-              className="p-2"
-            >
-              {allDoctors.map((d, idx) => (
-                <option key={idx} value={d}>{d}</option>
-              ))}
-            </select>
-
-            <select 
-              value={filterInsurance} 
-              onChange={e => setFilterInsurance(e.target.value)} 
-              className="p-2"
-            >
-              {allInsurances.map((i, idx) => (
-                <option key={idx} value={i}>{i}</option>
-              ))}
-            </select>
-
-            <select 
-              value={filterType} 
-              onChange={e => setFilterType(e.target.value)} 
-              className="p-2"
-            >
-              {allTypes.map((t, idx) => (
-                <option key={idx} value={t}>{t}</option>
-              ))}
-            </select>
-
-            {/* 👇 nuevo filtro Network */}
-            <select
-              value={filterNetwork}
-              onChange={e => setFilterNetwork(e.target.value)}
-              className="p-2"
-            >
-              {allNetworks.map((n, idx) => (
-                <option key={idx} value={n}>{n}</option>
-              ))}
-            </select>
-
-            <div style={{ flex: 1 }} />
-            <div className="text-sm text-slate-400">
-              Showing {rows.length} records
-            </div>
-          </div>
-
-          {/* Tabla */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="text-slate-300">
-                <tr>
-                  <th className="p-2 text-left">Doctor Name</th>
-                  <th className="p-2 text-left">Insurance Name</th>
-                  <th className="p-2 text-left">Type</th>
-                  <th className="p-2 text-left">Network</th>
-                  <th className="p-2 text-left">Expiration Date</th>
-                  <th className="p-2 text-left">Days Left</th>
-                </tr>
-              </thead>
-              <tbody className="text-slate-200">
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="p-4 text-slate-400">
-                      No records found
-                    </td>
-                  </tr>
-                )}
-
-                {rows.map((r, idx) => {
-                  const cls = r.days === null
-                    ? ''
-                    : (r.days < 0
-                      ? 'highlight-red'
-                      : (r.days <= 30
-                        ? 'highlight-red'
-                        : (r.days <= 90
-                          ? 'highlight-yellow'
-                          : ''
-                        )))
-
-                  return (
-                    <tr key={idx} className={`border-t border-slate-800 ${cls}`}>
-                      <td className="p-2">{r.doctor || 'Unassigned'}</td>
-                      <td className="p-2">{r.insurance}</td>
-                      <td className="p-2">{r.type}</td>
-
-                      <td className="p-2">
-                        {r.network === 'In Network' ? (
-                          <span className="badge-in">In Network</span>
-                        ) : r.network === 'Out of Network' ? (
-                          <span className="badge-out">Out of Network</span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-
-                      <td className="p-2">
-                        {r.expiration
-                          ? (new Date(r.expiration)).toLocaleDateString()
-                          : 'No date'}
-                      </td>
-                      <td className="p-2">
-                        {r.days === null
-                          ? 'No date'
-                          : (r.days < 0 ? 'Expired' : `${r.days} days`)}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+          <p className="text-slate-400 text-xs">
+            (Datos calculados en vivo desde la tabla <code>insurances</code> en
+            Supabase)
+          </p>
+        </>
+      )}
     </div>
-  )
+  );
 }
