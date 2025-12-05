@@ -209,4 +209,56 @@ export default function DoctorsTable() {
               />
               <input
                 placeholder="Medicaid"
-                v
+                value={doctor.medicaid}
+                onChange={(e) =>
+                  setDoctor({ ...doctor, medicaid: e.target.value })
+                }
+                className="p-2 rounded bg-[#081424]"
+              />
+              <input
+                placeholder="Medicare"
+                value={doctor.medicare}
+                onChange={(e) =>
+                  setDoctor({ ...doctor, medicare: e.target.value })
+                }
+                className="p-2 rounded bg-[#081424]"
+              />
+              <input
+                type="date"
+                value={doctor.dob || ""}
+                onChange={(e) =>
+                  setDoctor({ ...doctor, dob: e.target.value })
+                }
+                className="p-2 rounded bg-[#081424]"
+              />
+              <input
+                placeholder="Taxonomy"
+                value={doctor.taxonomy}
+                onChange={(e) =>
+                  setDoctor({ ...doctor, taxonomy: e.target.value })
+                }
+                className="p-2 rounded bg-[#081424]"
+              />
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                className="btn-cancel"
+                onClick={() => {
+                  setShowModal(false);
+                  setIsEditing(false);
+                  setDoctor(empty());
+                }}
+              >
+                Cancel
+              </button>
+              <button className="btn-red" onClick={saveDoctor}>
+                {isEditing ? "Save Changes" : "Save Doctor"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
