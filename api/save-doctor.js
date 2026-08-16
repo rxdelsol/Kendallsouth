@@ -28,8 +28,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ ok: false, error: 'Name is required' });
   }
 
-  const payload = {
-    // external_id lo usamos para mantener tu ID original del JSON
+  // Campos base (siempre existen)
+  const base = {
     external_id: body.external_id || body.id || null,
     name: name.trim(),
     npi: npi || null,
@@ -39,7 +39,9 @@ export default async function handler(req, res) {
     medicare: medicare || null,
     dob: dob || null,        // 'YYYY-MM-DD' o null
     taxonomy: taxonomy || null,
-    // fechas de vencimiento de credenciales (requieren la migración supabase-migration.sql)
+  };
+  // Fechas de vencimiento (requieren la migración supabase-migration.sql).
+  const dateFields = {
     license_exp: body.licenseExp || null,
     dea: body.dea || null,
     dea_exp: body.deaExp || null,
@@ -48,33 +50,29 @@ export default async function handler(req, res) {
     medicare_revalidation: body.medicareRevalidation || null,
   };
 
-  try {
-    let result;
-
+  async function upsert(payload) {
     if (id) {
-      // UPDATE por id
-      const { data, error } = await supabase
-        .from('doctors')
-        .update(payload)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      result = data;
-    } else {
-      // INSERT nuevo doctor
-      const { data, error } = await supabase
-        .from('doctors')
-        .insert(payload)
-        .select()
-        .single();
-
-      if (error) throw error;
-      result = data;
+      return supabase.from('doctors').update(payload).eq('id', id).select().single();
     }
+    return supabase.from('doctors').insert(payload).select().single();
+  }
 
-    return res.status(200).json({ ok: true, data: result });
+  // ¿El error es porque faltan las columnas de fecha (migración no corrida)?
+  const missingColumns = (error) =>
+    error && /column|schema cache|does not exist|could not find/i.test(error.message || String(error));
+
+  try {
+    let datesSaved = true;
+    let { data, error } = await upsert({ ...base, ...dateFields });
+
+    if (error && missingColumns(error)) {
+      // Reintenta solo con los campos base para que agregar/guardar nunca falle.
+      datesSaved = false;
+      ({ data, error } = await upsert(base));
+    }
+    if (error) throw error;
+
+    return res.status(200).json({ ok: true, data, datesSaved });
   } catch (err) {
     console.error('save-doctor error:', err);
     return res
