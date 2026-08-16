@@ -35,6 +35,37 @@ async function fetchNppes(npi) {
   }
 }
 
+// Fecha de revalidación de Medicare (CMS "Revalidation Due Date List").
+// El UUID del dataset cambia cada mes; se puede sobreescribir con CMS_REVALIDATION_API.
+const REVAL_API = process.env.CMS_REVALIDATION_API ||
+  'https://data.cms.gov/data-api/v1/dataset/7f218c9f-be04-4bde-9503-33ce89c87424/data?filter[National%20Provider%20Identifier]={npi}';
+
+function normalizeDate(s) {
+  if (!s) return null;
+  s = String(s).trim();
+  if (!s || /tbd/i.test(s)) return null;
+  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); // MM/DD/YYYY
+  if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);   // YYYY-MM-DD
+  return null;
+}
+
+async function fetchRevalidation(npi) {
+  try {
+    const r = await fetch(REVAL_API.replace('{npi}', encodeURIComponent(npi)), { headers: { Accept: 'application/json' } });
+    if (!r.ok) return null;
+    const rows = await r.json();
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const raw = (row['Revalidation Due Date'] || '').trim() || (row['Adjusted Due Date'] || '').trim();
+      const d = normalizeDate(raw);
+      if (d) return d;
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   try {
     const { data: doctors, error } = await supabase.from('doctors').select('*');
@@ -45,21 +76,29 @@ export default async function handler(req, res) {
         const npi = (d.npi || '').toString().trim();
         if (!/^\d{10}$/.test(npi)) return { id: d.id, name: d.name, status: 'sin-npi' };
 
-        const n = await fetchNppes(npi);
+        const [n, reval] = await Promise.all([fetchNppes(npi), fetchRevalidation(npi)]);
         if (!n || !n.found) return { id: d.id, name: d.name, npi, status: 'no-encontrado' };
 
-        // Refresca taxonomía (autoritativa) y rellena huecos de licencia/nombre.
+        // Refresca taxonomía y rellena huecos de licencia/nombre.
+        // Medicare revalidación: si CMS publica una fecha, la carga automáticamente.
         const update = {
           taxonomy: n.taxonomy || d.taxonomy || null,
           license: d.license || n.license || null,
           name: d.name || n.name || null,
+          medicare_revalidation: reval || d.medicare_revalidation || null,
         };
-        const { error: upErr } = await supabase.from('doctors').update(update).eq('id', d.id);
+        // Si aún no corrieron la migración, medicare_revalidation no existe: reintenta sin esa columna.
+        let upErr = (await supabase.from('doctors').update(update).eq('id', d.id)).error;
+        if (upErr && /column|schema cache|does not exist|could not find/i.test(upErr.message || '')) {
+          const { medicare_revalidation, ...baseUpdate } = update;
+          upErr = (await supabase.from('doctors').update(baseUpdate).eq('id', d.id)).error;
+        }
         if (upErr) return { id: d.id, name: d.name, npi, status: 'error', detail: upErr.message };
 
         return {
           id: d.id, name: d.name || n.name, npi, status: 'actualizado',
           active: n.active, taxonomy: update.taxonomy, licenseState: n.licenseState,
+          medicareRevalidation: reval || null,
         };
       })
     );
@@ -70,6 +109,7 @@ export default async function handler(req, res) {
       noEncontrado: results.filter((r) => r.status === 'no-encontrado').length,
       sinNpi: results.filter((r) => r.status === 'sin-npi').length,
       error: results.filter((r) => r.status === 'error').length,
+      revalidacion: results.filter((r) => r.medicareRevalidation).length,
     };
 
     return res.status(200).json({ ok: true, summary, results });
