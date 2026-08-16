@@ -22,15 +22,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ ok: false, error: 'NPI inválido (deben ser 10 dígitos).' });
   }
 
-  const template = process.env.CMS_ENROLLMENT_API;
-  if (!template) {
-    return res.status(200).json({
-      ok: true,
-      verified: false,
-      reason: 'CMS_ENROLLMENT_API no está configurada.',
-      help: 'Configura la variable con la URL data-api del dataset "Medicare Fee-For-Service Public Provider Enrollment" (usa {npi} como marcador).',
-    });
-  }
+  // Padrón público "Medicare Fee-For-Service Public Provider Enrollment" (data.cms.gov).
+  // El UUID del dataset cambia con cada versión trimestral; si CMS lo actualiza y deja de
+  // responder, reemplaza este valor por el nuevo (o define CMS_ENROLLMENT_API en Vercel).
+  const DEFAULT_CMS_API =
+    'https://data.cms.gov/data-api/v1/dataset/7fa94d4b-12ec-4a05-a09f-572b94147179/data?filter[NPI]={npi}';
+  const template = process.env.CMS_ENROLLMENT_API || DEFAULT_CMS_API;
 
   try {
     const url = template.replace('{npi}', encodeURIComponent(npi));
