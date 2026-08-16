@@ -9,6 +9,49 @@ import { daysUntil, statusOf } from "../utils/credStatus";
 // de CMS (PECOS) para confirmar automáticamente la inscripción en Medicare de cada
 // doctor. Es dato oficial y automático; los demás seguros comerciales siguen siendo
 // verificación manual porque no tienen API pública de red.
+
+// Mapea el nombre de un seguro a su DIRECTORIO OFICIAL de proveedores (fuente
+// autoritativa para confirmar in-network). Devuelve { family, url }. Para seguros
+// no reconocidos usa una búsqueda para llegar al directorio oficial correcto.
+function directoryInfoFor(name) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("aetna"))
+    return { family: "Aetna", url: "https://www.aetna.com/individuals-families/find-a-doctor.html" };
+  if (n.includes("florida blue") || n.includes("floridablue") || n.includes("bcbs") || n.includes("blue cross"))
+    return { family: "Florida Blue", url: "https://providersearch.floridablue.com/" };
+  if (n.includes("ambetter"))
+    return { family: "Ambetter", url: "https://www.ambetterhealth.com/en/fl/find-a-provider/" };
+  if (n.includes("oscar"))
+    return { family: "Oscar", url: "https://www.hioscar.com/search" };
+  if (n.includes("molina"))
+    return { family: "Molina", url: "https://molina.sapphirethreesixtyfive.com/?ci=fl-molina" };
+  if (n.includes("sunshine"))
+    return { family: "Sunshine Health", url: "https://www.sunshinehealth.com/find-a-doctor.html" };
+  if (n.includes("simply"))
+    return { family: "Simply Healthcare", url: "https://www.simplyhealthcareplans.com/florida-medicaid/find-a-doctor.html" };
+  if (n.includes("united") || n.includes("uhc") || n.includes("optum"))
+    return { family: "UnitedHealthcare", url: "https://www.uhc.com/find-a-doctor" };
+  if (n.includes("cigna"))
+    return { family: "Cigna", url: "https://hcpdirectory.cigna.com/web/public/consumer/directory/search" };
+  if (n.includes("humana"))
+    return { family: "Humana", url: "https://finder.humana.com/" };
+  if (n.includes("wellcare"))
+    return { family: "WellCare", url: "https://www.wellcare.com/en/Florida/Members/Medicaid-Plans/Find-a-Provider" };
+  if (n.includes("curative"))
+    return { family: "Curative", url: "https://www.curative.com/find-care" };
+  if (n.includes("multiplan") || n.includes("phcs"))
+    return { family: "MultiPlan/PHCS", url: "https://www.multiplan.com/webcenter/portal/ProviderSearch" };
+  if (n.includes("devoted"))
+    return { family: "Devoted Health", url: "https://www.devoted.com/find-a-doctor/" };
+  if (n.includes("careplus"))
+    return { family: "CarePlus", url: "https://www.careplushealthplans.com/resources/find-a-doctor/" };
+  if (n.includes("medicaid"))
+    return { family: "Medicaid FL (AHCA)", url: "https://www.flmedicaidmanagedcare.com/providerSearch/" };
+  if (n.includes("medicare"))
+    return { family: "Medicare (CMS)", url: "https://www.medicare.gov/care-compare/" };
+  return { family: name, url: "https://www.google.com/search?q=" + encodeURIComponent(name + " find a provider directory Florida") };
+}
+
 export default function EligibilityCheck() {
   const [insurances, setInsurances] = useState([]);
   const [doctors, setDoctors] = useState([]);
@@ -20,6 +63,10 @@ export default function EligibilityCheck() {
   const [verifying, setVerifying] = useState(false);
   const [verifiedDone, setVerifiedDone] = useState(0);
   const [verifiedTotal, setVerifiedTotal] = useState(0);
+
+  // Directorios oficiales: doctor seleccionado (NPI) y mensaje de confirmación.
+  const [selDoc, setSelDoc] = useState("");
+  const [copiedMsg, setCopiedMsg] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -97,6 +144,48 @@ export default function EligibilityCheck() {
     if (q) arr = arr.filter((p) => p.toLowerCase().includes(q));
     return arr;
   }, [insurances, payerQ]);
+
+  // Doctores con NPI válido (para el selector de directorios).
+  const doctorsWithNpi = useMemo(
+    () => doctors.filter((d) => /^\d{10}$/.test(String(d.npi || "").trim())),
+    [doctors]
+  );
+
+  // Selecciona el primer doctor por defecto cuando cargan.
+  useEffect(() => {
+    if (!selDoc && doctorsWithNpi.length) setSelDoc(String(doctorsWithNpi[0].npi).trim());
+  }, [doctorsWithNpi, selDoc]);
+
+  // Botones de directorio: uno por "familia" de seguro (dedupe), sobre TODAS
+  // las aseguradoras que tengas registradas (sin filtrar por la búsqueda).
+  const dirButtons = useMemo(() => {
+    const all = new Set();
+    insurances.forEach((i) => { if (i.name) all.add(i.name.trim()); });
+    const byFamily = new Map();
+    Array.from(all).forEach((p) => {
+      const info = directoryInfoFor(p);
+      if (!byFamily.has(info.family)) byFamily.set(info.family, info.url);
+    });
+    return Array.from(byFamily.entries())
+      .map(([family, url]) => ({ family, url }))
+      .sort((a, b) => a.family.localeCompare(b.family));
+  }, [insurances]);
+
+  // Abre el directorio oficial del seguro y copia el NPI del doctor seleccionado.
+  async function openDirectory(family, url) {
+    const npi = selDoc;
+    if (npi) {
+      try {
+        await navigator.clipboard.writeText(npi);
+        setCopiedMsg(`NPI ${npi} copiado — pégalo en el directorio oficial de ${family}.`);
+      } catch (e) {
+        setCopiedMsg(`Abriendo ${family}. Busca el NPI ${npi} en el directorio.`);
+      }
+    } else {
+      setCopiedMsg(`Abriendo ${family}. Elige un doctor arriba para copiar su NPI.`);
+    }
+    try { window.open(url, "_blank", "noopener"); } catch (e) {}
+  }
 
   // Índice (doctor|payer) -> estado
   const cellFor = (doctor, payer) => {
@@ -181,6 +270,41 @@ export default function EligibilityCheck() {
         <span style={{ color: "#64748b", fontSize: 11 }}>
           Dato oficial de CMS, en vivo. Los seguros comerciales siguen siendo manuales.
         </span>
+      </div>
+
+      {/* Verificar en directorios oficiales (uno por seguro) */}
+      <div style={{ marginBottom: 12, padding: "10px 12px", background: "#0b1a33", borderRadius: 8, border: "1px solid #22385f" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ color: "#e6f6ff", fontWeight: 600, fontSize: 13 }}>🔗 Verificar en directorios oficiales</span>
+          <select
+            value={selDoc}
+            onChange={(e) => setSelDoc(e.target.value)}
+            style={{ background: "#0d1b33", color: "#e6f6ff", border: "1px solid #22385f", borderRadius: 6, padding: "5px 8px", fontSize: 13 }}
+          >
+            <option value="">— elige doctor —</option>
+            {doctorsWithNpi.map((d) => (
+              <option key={String(d.npi)} value={String(d.npi).trim()}>
+                {d.name} · NPI {d.npi}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+          {dirButtons.map((b) => (
+            <button
+              key={b.family}
+              onClick={() => openDirectory(b.family, b.url)}
+              style={{ background: "#132b4d", color: "#cfe6ff", border: "1px solid #22385f", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+              title={`Abrir el directorio oficial de ${b.family} y copiar el NPI`}
+            >
+              {b.family}
+            </button>
+          ))}
+        </div>
+        {copiedMsg && <div style={{ marginTop: 7, color: "#bbf7d0", fontSize: 12 }}>{copiedMsg}</div>}
+        <div style={{ marginTop: 4, color: "#64748b", fontSize: 11 }}>
+          Abre el directorio oficial del seguro y copia el NPI del doctor. Confirmas en la fuente autoritativa — sin datos inventados.
+        </div>
       </div>
 
       <div className="ins-filters">
