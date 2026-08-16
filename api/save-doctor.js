@@ -39,6 +39,13 @@ export default async function handler(req, res) {
     medicare: medicare || null,
     dob: dob || null,        // 'YYYY-MM-DD' o null
     taxonomy: taxonomy || null,
+    // fechas de vencimiento de credenciales (requieren la migración supabase-migration.sql)
+    license_exp: body.licenseExp || null,
+    dea: body.dea || null,
+    dea_exp: body.deaExp || null,
+    caqh_attested: body.caqhAttested || null,
+    malpractice_exp: body.malpracticeExp || null,
+    medicare_revalidation: body.medicareRevalidation || null,
   };
 
   try {

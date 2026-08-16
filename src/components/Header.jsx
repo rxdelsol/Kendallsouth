@@ -14,6 +14,8 @@ export default function Header({ onNav }){
           <button onClick={()=>onNav('dashboard')} className="px-3 py-2 rounded hover:bg-slate-800">Dashboard</button>
           <button onClick={()=>onNav('doctors')} className="px-3 py-2 rounded hover:bg-slate-800">Doctors</button>
           <button onClick={()=>onNav('insurances')} className="px-3 py-2 rounded hover:bg-slate-800">Insurances</button>
+          <button onClick={()=>onNav('provider')} className="px-3 py-2 rounded hover:bg-slate-800">Buscar x NPI</button>
+          <button onClick={()=>onNav('eligibility')} className="px-3 py-2 rounded hover:bg-slate-800">Elegibilidad</button>
         </nav>
       </div>
     </header>

@@ -29,6 +29,13 @@ export default async function handler(req, res) {
       medicare: row.medicare,
       dob: row.dob,
       taxonomy: row.taxonomy,
+      // fechas de vencimiento de credenciales (null si aún no corriste la migración)
+      licenseExp: row.license_exp ?? null,
+      dea: row.dea ?? null,
+      deaExp: row.dea_exp ?? null,
+      caqhAttested: row.caqh_attested ?? null,
+      malpracticeExp: row.malpractice_exp ?? null,
+      medicareRevalidation: row.medicare_revalidation ?? null,
     }));
 
     return res.status(200).json({ ok: true, data: mapped });

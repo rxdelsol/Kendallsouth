@@ -1,4 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  daysUntil,
+  statusOf,
+  STATUS_META,
+  worseStatus,
+  doctorCredentials,
+} from "../utils/credStatus";
 
 export default function DoctorsTable() {
   const empty = () => ({
@@ -11,18 +18,28 @@ export default function DoctorsTable() {
     medicare: "",
     dob: "",
     taxonomy: "",
+    // fechas de credenciales
+    licenseExp: "",
+    dea: "",
+    deaExp: "",
+    caqhAttested: "",
+    malpracticeExp: "",
+    medicareRevalidation: "",
   });
 
   const [list, setList] = useState([]);
   const [doctor, setDoctor] = useState(empty());
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [detailFor, setDetailFor] = useState(null);
+
+  const [search, setSearch] = useState("");
+  const [fExp, setFExp] = useState(""); // "", expired, d30, d60, nodate
 
   async function loadDoctors() {
     try {
       const res = await fetch("/api/get-doctors");
       const data = await res.json();
-      console.log("API /api/get-doctors →", data);
       if (data.ok) setList(data.data);
       else console.error(data.error);
     } catch (e) {
@@ -36,14 +53,12 @@ export default function DoctorsTable() {
 
   const saveDoctor = async () => {
     if (!doctor.name.trim()) return alert("Enter doctor name");
-
     try {
       const res = await fetch("/api/save-doctor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(doctor),
       });
-
       const data = await res.json();
       if (data.ok) {
         setShowModal(false);
@@ -61,20 +76,15 @@ export default function DoctorsTable() {
 
   const remove = async (id) => {
     if (!window.confirm("Delete this doctor?")) return;
-
     try {
       const res = await fetch("/api/delete-doctor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
-
       const data = await res.json();
-      if (data.ok) {
-        loadDoctors();
-      } else {
-        alert("Error deleting doctor");
-      }
+      if (data.ok) loadDoctors();
+      else alert("Error deleting doctor");
     } catch (e) {
       console.error(e);
       alert("Error deleting doctor");
@@ -98,17 +108,101 @@ export default function DoctorsTable() {
       medicare: item.medicare || "",
       dob: item.dob ? item.dob.slice(0, 10) : "",
       taxonomy: item.taxonomy || "",
+      licenseExp: item.licenseExp ? item.licenseExp.slice(0, 10) : "",
+      dea: item.dea || "",
+      deaExp: item.deaExp ? item.deaExp.slice(0, 10) : "",
+      caqhAttested: item.caqhAttested ? item.caqhAttested.slice(0, 10) : "",
+      malpracticeExp: item.malpracticeExp ? item.malpracticeExp.slice(0, 10) : "",
+      medicareRevalidation: item.medicareRevalidation ? item.medicareRevalidation.slice(0, 10) : "",
     });
     setIsEditing(true);
     setShowModal(true);
   };
 
+  const abbr = { license: "Lic", dea: "DEA", caqh: "CAQH", malpractice: "Malp", medicare: "Mcr" };
+
+  // Estado agregado por doctor + próxima credencial a vencer
+  const withStatus = useMemo(() => {
+    return list.map((d) => {
+      const creds = doctorCredentials(d).map((c) => ({ ...c, status: statusOf(c.date), days: daysUntil(c.date) }));
+      let worst = "ok";
+      let missing = false;
+      let next = null;
+      creds.forEach((c) => {
+        if (c.status === "nodate") { missing = true; return; }
+        worst = worseStatus(worst, c.status);
+        if (c.days !== null && (next === null || c.days < next.days)) next = c;
+      });
+      return { d, creds, worst, missing, next };
+    });
+  }, [list]);
+
+  const summary = useMemo(() => {
+    const s = { total: list.length, expired: 0, d30: 0, d60: 0, nodate: 0 };
+    withStatus.forEach(({ creds, missing }) => {
+      if (creds.some((c) => c.status === "expired")) s.expired++;
+      if (creds.some((c) => c.status === "d30")) s.d30++;
+      if (creds.some((c) => c.status === "d60")) s.d60++;
+      if (missing) s.nodate++;
+    });
+    return s;
+  }, [withStatus, list.length]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return withStatus.filter(({ d, creds, missing }) => {
+      if (q) {
+        const hay = [d.name, d.npi, d.license, d.caqh, d.medicaid, d.medicare, d.taxonomy]
+          .map((x) => (x || "").toString().toLowerCase())
+          .join(" ");
+        if (!hay.includes(q)) return false;
+      }
+      if (fExp === "nodate") return missing;
+      if (fExp) return creds.some((c) => c.status === fExp);
+      return true;
+    });
+  }, [withStatus, search, fExp]);
+
+  const anyFilter = search || fExp;
+
   return (
     <div className="bg-card rounded p-4">
       <h2 className="text-sky-200 font-semibold mb-2">Doctors</h2>
 
+      {/* Tarjetas resumen */}
+      <div className="ins-summary">
+        <button className={`sum-tile ${fExp === "" ? "active" : ""}`} onClick={() => setFExp("")}>
+          <span className="sum-num">{summary.total}</span><span className="sum-lbl">Doctores</span>
+        </button>
+        <button className={`sum-tile t-expired ${fExp === "expired" ? "active" : ""}`} onClick={() => setFExp(fExp === "expired" ? "" : "expired")}>
+          <span className="sum-num">{summary.expired}</span><span className="sum-lbl">Con vencido</span>
+        </button>
+        <button className={`sum-tile t-30 ${fExp === "d30" ? "active" : ""}`} onClick={() => setFExp(fExp === "d30" ? "" : "d30")}>
+          <span className="sum-num">{summary.d30}</span><span className="sum-lbl">≤ 30 días</span>
+        </button>
+        <button className={`sum-tile t-60 ${fExp === "d60" ? "active" : ""}`} onClick={() => setFExp(fExp === "d60" ? "" : "d60")}>
+          <span className="sum-num">{summary.d60}</span><span className="sum-lbl">31–60 días</span>
+        </button>
+        <button className={`sum-tile t-nodate ${fExp === "nodate" ? "active" : ""}`} onClick={() => setFExp(fExp === "nodate" ? "" : "nodate")}>
+          <span className="sum-num">{summary.nodate}</span><span className="sum-lbl">Datos incompletos</span>
+        </button>
+      </div>
+
+      {/* Filtros */}
+      <div className="ins-filters">
+        <input
+          className="flt-search"
+          placeholder="🔎 Buscar (nombre, NPI, licencia, CAQH…)"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        {anyFilter && (
+          <button className="flt-clear" onClick={() => { setSearch(""); setFExp(""); }}>✕ Limpiar</button>
+        )}
+      </div>
+
       <p className="text-slate-400 text-xs mb-2">
-        (Debug) Doctores cargados: {list.length}
+        Mostrando {filtered.length} de {list.length} doctores
       </p>
 
       <div className="overflow-auto mb-4">
@@ -119,46 +213,51 @@ export default function DoctorsTable() {
               <th className="p-2">NPI</th>
               <th className="p-2">License</th>
               <th className="p-2">CAQH</th>
-              <th className="p-2">Medicaid</th>
-              <th className="p-2">Medicare</th>
-              <th className="p-2">DOB</th>
-              <th className="p-2">Taxonomy</th>
+              <th className="p-2">Estado de credenciales</th>
+              <th className="p-2">Próx. vence</th>
               <th className="p-2">Actions</th>
             </tr>
           </thead>
           <tbody className="text-slate-200">
-            {list.map((d) => (
+            {filtered.map(({ d, creds, next }) => (
               <tr key={d.id} className="border-t border-slate-800">
                 <td className="p-2">{d.name}</td>
                 <td className="p-2">{d.npi}</td>
                 <td className="p-2">{d.license}</td>
                 <td className="p-2">{d.caqh}</td>
-                <td className="p-2">{d.medicaid}</td>
-                <td className="p-2">{d.medicare}</td>
                 <td className="p-2">
-                  {d.dob ? new Date(d.dob).toLocaleDateString() : ""}
+                  <div className="cred-pills">
+                    {creds.map((c) => (
+                      <span
+                        key={c.key}
+                        className={`sem-pill sem-mini ${STATUS_META[c.status].cls}`}
+                        title={`${c.label}: ${c.date ? new Date(c.date).toLocaleDateString() + " · " + STATUS_META[c.status].label : "sin fecha"}`}
+                      >
+                        {abbr[c.key]}
+                      </span>
+                    ))}
+                  </div>
                 </td>
-                <td className="p-2">{d.taxonomy}</td>
-                <td className="p-2 space-x-3">
-                  <button
-                    className="text-sky-300 hover:underline"
-                    onClick={() => openEditModal(d)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="text-red-500 hover:underline"
-                    onClick={() => remove(d.id)}
-                  >
-                    Delete
-                  </button>
+                <td className="p-2 whitespace-nowrap">
+                  {next ? (
+                    <span className={`sem-pill ${STATUS_META[next.status].cls}`} title={next.label}>
+                      {abbr[next.key]} {next.days}d
+                    </span>
+                  ) : (
+                    <span className="text-slate-500 text-xs">—</span>
+                  )}
+                </td>
+                <td className="p-2 space-x-3 whitespace-nowrap">
+                  <button className="text-emerald-300 hover:underline" onClick={() => setDetailFor(d)}>Detalle</button>
+                  <button className="text-sky-300 hover:underline" onClick={() => openEditModal(d)}>Edit</button>
+                  <button className="text-red-500 hover:underline" onClick={() => remove(d.id)}>Delete</button>
                 </td>
               </tr>
             ))}
-            {list.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
-                <td colSpan={9} className="p-4 text-slate-400">
-                  No doctors added yet
+                <td colSpan={7} className="p-4 text-slate-400">
+                  {list.length === 0 ? "No doctors added yet" : "Ningún doctor coincide con el filtro"}
                 </td>
               </tr>
             )}
@@ -167,99 +266,99 @@ export default function DoctorsTable() {
       </div>
 
       <div className="mt-2 text-left">
-        <button
-          onClick={openAddModal}
-          className="text-sky-300 hover:underline text-sm"
-        >
-          + Add Doctor
-        </button>
+        <button onClick={openAddModal} className="text-sky-300 hover:underline text-sm">+ Add Doctor</button>
       </div>
 
+      {/* Modal Detalle de credenciales */}
+      {detailFor && (() => {
+        const creds = doctorCredentials(detailFor).map((c) => ({ ...c, status: statusOf(c.date), days: daysUntil(c.date) }));
+        return (
+          <div className="modal-backdrop" onClick={() => setDetailFor(null)}>
+            <div className="modal guide-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="guide-head">
+                <div>
+                  <h3 style={{ margin: 0 }}>{detailFor.name}</h3>
+                  <div className="guide-sub">
+                    NPI {detailFor.npi || "—"} · Licencia {detailFor.license || "—"} · CAQH {detailFor.caqh || "—"}
+                    {detailFor.taxonomy ? ` · ${detailFor.taxonomy}` : ""}
+                  </div>
+                </div>
+                <button className="btn-cancel" onClick={() => setDetailFor(null)}>Cerrar</button>
+              </div>
+
+              <table className="cred-detail">
+                <thead>
+                  <tr><th>Credencial</th><th>Vence</th><th>Estado</th><th>Acción</th></tr>
+                </thead>
+                <tbody>
+                  {creds.map((c) => (
+                    <tr key={c.key}>
+                      <td>{c.label}{c.key === "caqh" && c.base ? ` (atestado ${new Date(c.base).toLocaleDateString()})` : ""}</td>
+                      <td>{c.date ? new Date(c.date).toLocaleDateString() : "—"}</td>
+                      <td>
+                        <span className={`sem-pill ${STATUS_META[c.status].cls}`}>
+                          {c.date ? `${c.days}d` : "sin fecha"}
+                        </span>
+                      </td>
+                      <td className="cred-action">{c.action}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="guide-note">
+                CAQH vence 120 días después de la última atestación. Medicare revalida cada 5 años (verifica tu fecha en CMS). Plazos pueden cambiar; confirma en cada portal.
+              </p>
+              <div className="mt-4 flex justify-end">
+                <button className="btn-red" onClick={() => { setDetailFor(null); openEditModal(detailFor); }}>Editar fechas</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Modal Add/Edit */}
       {showModal && (
         <div className="modal-backdrop">
-          <div className="modal">
+          <div className="modal guide-modal">
             <h3>{isEditing ? "Edit Doctor" : "Add Doctor"}</h3>
-            <div className="grid grid-cols-1 gap-2 mt-2">
-              <input
-                placeholder="Name"
-                value={doctor.name}
-                onChange={(e) =>
-                  setDoctor({ ...doctor, name: e.target.value })
-                }
-                className="p-2 rounded bg-[#081424]"
-              />
-              <input
-                placeholder="NPI"
-                value={doctor.npi}
-                onChange={(e) =>
-                  setDoctor({ ...doctor, npi: e.target.value })
-                }
-                className="p-2 rounded bg-[#081424]"
-              />
-              <input
-                placeholder="License"
-                value={doctor.license}
-                onChange={(e) =>
-                  setDoctor({ ...doctor, license: e.target.value })
-                }
-                className="p-2 rounded bg-[#081424]"
-              />
-              <input
-                placeholder="CAQH"
-                value={doctor.caqh}
-                onChange={(e) =>
-                  setDoctor({ ...doctor, caqh: e.target.value })
-                }
-                className="p-2 rounded bg-[#081424]"
-              />
-              <input
-                placeholder="Medicaid"
-                value={doctor.medicaid}
-                onChange={(e) =>
-                  setDoctor({ ...doctor, medicaid: e.target.value })
-                }
-                className="p-2 rounded bg-[#081424]"
-              />
-              <input
-                placeholder="Medicare"
-                value={doctor.medicare}
-                onChange={(e) =>
-                  setDoctor({ ...doctor, medicare: e.target.value })
-                }
-                className="p-2 rounded bg-[#081424]"
-              />
-              <input
-                type="date"
-                value={doctor.dob || ""}
-                onChange={(e) =>
-                  setDoctor({ ...doctor, dob: e.target.value })
-                }
-                className="p-2 rounded bg-[#081424]"
-              />
-              <input
-                placeholder="Taxonomy"
-                value={doctor.taxonomy}
-                onChange={(e) =>
-                  setDoctor({ ...doctor, taxonomy: e.target.value })
-                }
-                className="p-2 rounded bg-[#081424]"
-              />
+
+            <h4 className="form-section">Identificación</h4>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <input placeholder="Name" value={doctor.name} onChange={(e) => setDoctor({ ...doctor, name: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              <input placeholder="NPI" value={doctor.npi} onChange={(e) => setDoctor({ ...doctor, npi: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              <input placeholder="License #" value={doctor.license} onChange={(e) => setDoctor({ ...doctor, license: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              <input placeholder="CAQH #" value={doctor.caqh} onChange={(e) => setDoctor({ ...doctor, caqh: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              <input placeholder="Medicaid #" value={doctor.medicaid} onChange={(e) => setDoctor({ ...doctor, medicaid: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              <input placeholder="Medicare #" value={doctor.medicare} onChange={(e) => setDoctor({ ...doctor, medicare: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              <input placeholder="Taxonomy" value={doctor.taxonomy} onChange={(e) => setDoctor({ ...doctor, taxonomy: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              <label className="form-date"><span>DOB</span>
+                <input type="date" value={doctor.dob || ""} onChange={(e) => setDoctor({ ...doctor, dob: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              </label>
+            </div>
+
+            <h4 className="form-section">Vencimientos de credenciales</h4>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <label className="form-date"><span>Licencia FL vence</span>
+                <input type="date" value={doctor.licenseExp || ""} onChange={(e) => setDoctor({ ...doctor, licenseExp: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              </label>
+              <input placeholder="DEA #" value={doctor.dea} onChange={(e) => setDoctor({ ...doctor, dea: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              <label className="form-date"><span>DEA vence</span>
+                <input type="date" value={doctor.deaExp || ""} onChange={(e) => setDoctor({ ...doctor, deaExp: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              </label>
+              <label className="form-date"><span>CAQH últ. atestación</span>
+                <input type="date" value={doctor.caqhAttested || ""} onChange={(e) => setDoctor({ ...doctor, caqhAttested: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              </label>
+              <label className="form-date"><span>Malpractice vence</span>
+                <input type="date" value={doctor.malpracticeExp || ""} onChange={(e) => setDoctor({ ...doctor, malpracticeExp: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              </label>
+              <label className="form-date"><span>Medicare revalidación</span>
+                <input type="date" value={doctor.medicareRevalidation || ""} onChange={(e) => setDoctor({ ...doctor, medicareRevalidation: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              </label>
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
-              <button
-                className="btn-cancel"
-                onClick={() => {
-                  setShowModal(false);
-                  setIsEditing(false);
-                  setDoctor(empty());
-                }}
-              >
-                Cancel
-              </button>
-              <button className="btn-red" onClick={saveDoctor}>
-                {isEditing ? "Save Changes" : "Save Doctor"}
-              </button>
+              <button className="btn-cancel" onClick={() => { setShowModal(false); setIsEditing(false); setDoctor(empty()); }}>Cancel</button>
+              <button className="btn-red" onClick={saveDoctor}>{isEditing ? "Save Changes" : "Save Doctor"}</button>
             </div>
           </div>
         </div>

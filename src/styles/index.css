@@ -13,3 +13,93 @@ select{ background-color:#0b1a33; color:#fff; border:1px solid #2e4a75; border-r
 .badge-out{ background:#6b7280; color:white; padding:4px 8px; border-radius:999px; font-size:12px }
 .highlight-yellow{ background:#7c5e2e }
 .highlight-red{ background:#4b1e1e }
+
+/* ================= Insurances: filtros, semáforo y guía ================= */
+
+/* Tarjetas resumen */
+.ins-summary{ display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 14px }
+.sum-tile{ display:flex; flex-direction:column; align-items:center; justify-content:center;
+  min-width:92px; padding:8px 12px; border-radius:12px; background:#0b1a33;
+  border:1px solid #22385f; color:#e6f6ff; cursor:pointer; transition:.15s }
+.sum-tile:hover{ border-color:#3b5c93 }
+.sum-tile.active{ outline:2px solid #38bdf8; border-color:#38bdf8 }
+.sum-tile .sum-num{ font-size:20px; font-weight:800; line-height:1 }
+.sum-tile .sum-lbl{ font-size:11px; color:#9fb3d1; margin-top:3px }
+.sum-tile.t-expired .sum-num{ color:#f87171 }
+.sum-tile.t-30 .sum-num{ color:#fb923c }
+.sum-tile.t-60 .sum-num{ color:#facc15 }
+.sum-tile.t-nodate .sum-num{ color:#94a3b8 }
+
+/* Barra de filtros */
+.ins-filters{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px }
+.ins-filters .flt-search{ flex:1; min-width:220px; background:#0b1a33; color:#fff;
+  border:1px solid #2e4a75; border-radius:8px; padding:8px 12px }
+.ins-filters select{ min-width:140px }
+.flt-clear{ background:transparent; border:1px solid #3b5c93; color:#dbefff;
+  padding:8px 12px; border-radius:8px; cursor:pointer }
+.flt-clear:hover{ background:#12233f }
+
+/* Semáforo (pill de Days Left) */
+.sem-pill{ display:inline-block; min-width:44px; text-align:center; padding:3px 8px;
+  border-radius:999px; font-size:12px; font-weight:700 }
+.sem-expired{ background:#7f1d1d; color:#fecaca }
+.sem-30{ background:#7c2d12; color:#fed7aa }
+.sem-60{ background:#713f12; color:#fde68a }
+.sem-90{ background:#164e63; color:#a5f3fc }
+.sem-ok{ background:#14532d; color:#bbf7d0 }
+.sem-nodate{ background:#334155; color:#cbd5e1 }
+
+/* Modal de guía */
+.guide-modal{ width:760px; max-width:94vw; max-height:88vh; overflow:auto }
+.guide-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px }
+.guide-sub{ font-size:12px; color:#9fb3d1; margin-top:4px }
+.guide-portal{ margin:12px 0; padding:8px 12px; background:#0b1a33; border:1px solid #22385f;
+  border-radius:8px; font-size:13px; color:#dbefff }
+.guide-cols{ display:grid; grid-template-columns:1fr 1fr; gap:16px }
+@media (max-width:640px){ .guide-cols{ grid-template-columns:1fr } }
+.guide-cols h4{ font-size:13px; color:#93c5fd; margin:0 0 6px }
+.guide-cols h4.hl{ color:#34d399 }
+.guide-cols ol{ margin:0; padding-left:18px }
+.guide-cols li{ font-size:13px; color:#dbe7f7; margin-bottom:6px; line-height:1.35 }
+.guide-docs{ margin-top:14px; font-size:12px; color:#cbd5e1 }
+.guide-deadline{ margin-top:8px; font-size:13px; color:#fde68a }
+.guide-note{ margin-top:10px; font-size:11px; color:#8090a8; font-style:italic }
+
+/* Doctors: mini-pills de credenciales */
+.cred-pills{ display:flex; gap:4px; flex-wrap:wrap }
+.sem-mini{ min-width:0; padding:2px 6px; font-size:11px }
+.cred-detail{ width:100%; border-collapse:collapse; margin-top:8px; font-size:13px }
+.cred-detail th{ text-align:left; color:#9fb3d1; padding:6px 8px; border-bottom:1px solid #22385f; font-weight:600 }
+.cred-detail td{ padding:8px; border-bottom:1px solid #16233b; vertical-align:top; color:#dbe7f7 }
+.cred-detail .cred-action{ color:#aebfd6; font-size:12px }
+
+/* Formulario de doctor */
+.form-section{ margin:16px 0 2px; font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:#7db1f0 }
+.form-date{ display:flex; flex-direction:column; gap:2px; font-size:11px; color:#9fb3d1 }
+.form-date input{ color-scheme:dark }
+
+/* Buscar por NPI */
+.sum-tile.t-active .sum-num{ color:#4ade80 }
+.npi-matches{ display:flex; flex-direction:column; gap:6px; margin:8px 0 }
+.npi-match{ text-align:left; background:#0b1a33; border:1px solid #22385f; border-radius:8px;
+  padding:8px 12px; color:#e6f6ff; cursor:pointer }
+.npi-match:hover{ border-color:#38bdf8 }
+.npi-match span{ color:#9fb3d1; font-size:12px; margin-left:8px }
+.npi-card{ margin-top:12px; padding:14px; background:#0b1a33; border:1px solid #22385f; border-radius:12px }
+.npi-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px }
+
+/* Verificación externa (NPPES / Medicare / Availity) */
+.verify-box{ margin-top:12px; padding:10px 12px; background:#08152b; border:1px solid #22385f; border-radius:8px }
+.verify-row{ font-size:13px; color:#dbe7f7; margin:4px 0 }
+.v-ok{ color:#4ade80; font-weight:700 }
+.v-bad{ color:#f87171; font-weight:700 }
+.v-warn{ color:#fbbf24 }
+.v-muted{ color:#94a3b8 }
+.link-btn{ background:none; border:none; color:#7db1f0; cursor:pointer; padding:4px 0; font-size:12px; text-decoration:underline }
+.elig-raw{ margin-top:8px; max-height:280px; overflow:auto; background:#050d1c; border:1px solid #1c2c48;
+  border-radius:8px; padding:10px; font-size:11px; color:#a5c8e6; white-space:pre-wrap; word-break:break-word }
+
+/* Formulario de elegibilidad */
+.elig-form{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px }
+@media (max-width:640px){ .elig-form{ grid-template-columns:1fr } }
+.elig-submit{ grid-column:1 / -1; display:flex; justify-content:flex-end }

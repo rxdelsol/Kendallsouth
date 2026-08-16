@@ -3,6 +3,8 @@ import Header from './components/Header.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import DoctorsTable from './components/DoctorsTable.jsx'
 import InsurancesTable from './components/InsurancesTable.jsx'
+import ProviderLookup from './components/ProviderLookup.jsx'
+import EligibilityCheck from './components/EligibilityCheck.jsx'
 import FileManager from './components/FileManager.jsx'
 
 export default function App(){
@@ -18,6 +20,8 @@ export default function App(){
           {route==='dashboard' && <Dashboard />}
           {route==='doctors' && <DoctorsTable />}
           {route==='insurances' && <InsurancesTable />}
+          {route==='provider' && <ProviderLookup />}
+          {route==='eligibility' && <EligibilityCheck />}
         </main>
       </div>
     </div>

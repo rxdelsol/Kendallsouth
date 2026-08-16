@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { getRenewalGuide } from "../data/renewalGuides";
 
 export default function InsurancesTable() {
   const empty = () => ({
@@ -17,6 +18,17 @@ export default function InsurancesTable() {
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [doctors, setDoctors] = useState([]);
+
+  // ---- Filtros ----
+  const [search, setSearch] = useState("");
+  const [fName, setFName] = useState("");
+  const [fDoctor, setFDoctor] = useState("");
+  const [fNetwork, setFNetwork] = useState("");
+  const [fType, setFType] = useState("");
+  const [fExp, setFExp] = useState(""); // "", expired, d30, d60, d90, nodate
+
+  // ---- Guía de renovación ----
+  const [guideFor, setGuideFor] = useState(null); // objeto insurance
 
   async function loadInsurances() {
     try {
@@ -62,10 +74,80 @@ export default function InsurancesTable() {
     return diffDays;
   };
 
+  // Clasificación de estado por vencimiento (semáforo)
+  const expStatus = (expiration) => {
+    if (!expiration) return "nodate";
+    const d = daysLeft(expiration);
+    if (d < 0) return "expired";
+    if (d <= 30) return "d30";
+    if (d <= 60) return "d60";
+    if (d <= 90) return "d90";
+    return "ok";
+  };
+
+  const statusMeta = {
+    expired: { cls: "sem-expired", label: "Vencido" },
+    d30: { cls: "sem-30", label: "≤ 30 días" },
+    d60: { cls: "sem-60", label: "≤ 60 días" },
+    d90: { cls: "sem-90", label: "≤ 90 días" },
+    ok: { cls: "sem-ok", label: "Vigente" },
+    nodate: { cls: "sem-nodate", label: "Sin fecha" },
+  };
+
+  // ---- Opciones únicas para dropdowns ----
+  const nameOptions = useMemo(
+    () => Array.from(new Set(list.map((i) => i.name).filter(Boolean))).sort(),
+    [list]
+  );
+  const typeOptions = useMemo(
+    () => Array.from(new Set(list.map((i) => i.type).filter(Boolean))).sort(),
+    [list]
+  );
+  const doctorFilterOptions = useMemo(
+    () => Array.from(new Set(list.map((i) => i.doctorName).filter(Boolean))).sort(),
+    [list]
+  );
+
+  // ---- Lista filtrada ----
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return list.filter((i) => {
+      if (fName && i.name !== fName) return false;
+      if (fType && i.type !== fType) return false;
+      if (fDoctor && (i.doctorName || "") !== fDoctor) return false;
+      if (fNetwork && (i.network || "") !== fNetwork) return false;
+      if (fExp && expStatus(i.expiration) !== fExp) return false;
+      if (q) {
+        const hay = [i.name, i.type, i.doctorName, i.network, i.notes]
+          .map((x) => (x || "").toLowerCase())
+          .join(" ");
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [list, search, fName, fType, fDoctor, fNetwork, fExp]);
+
+  // ---- Resumen de vencimientos ----
+  const summary = useMemo(() => {
+    const s = { total: list.length, expired: 0, d30: 0, d60: 0, nodate: 0 };
+    list.forEach((i) => {
+      const st = expStatus(i.expiration);
+      if (st === "expired") s.expired++;
+      else if (st === "d30") s.d30++;
+      else if (st === "d60") s.d60++;
+      else if (st === "nodate") s.nodate++;
+    });
+    return s;
+  }, [list]);
+
+  const anyFilter = search || fName || fDoctor || fNetwork || fType || fExp;
+  const clearFilters = () => {
+    setSearch(""); setFName(""); setFDoctor(""); setFNetwork(""); setFType(""); setFExp("");
+  };
+
   const saveInsurance = async () => {
     if (!item.name.trim()) return alert("Enter insurance name");
 
-    // si seleccionó Other, usamos lo que escribió en otherType
     const finalType =
       item.typeSelect === "Other" && item.otherType?.trim()
         ? item.otherType.trim()
@@ -155,8 +237,57 @@ export default function InsurancesTable() {
     <div className="bg-card rounded p-4">
       <h2 className="text-sky-200 font-semibold mb-2">Insurances</h2>
 
+      {/* ---- Tarjetas resumen de vencimientos ---- */}
+      <div className="ins-summary">
+        <button className={`sum-tile ${fExp === "" ? "active" : ""}`} onClick={() => setFExp("")}>
+          <span className="sum-num">{summary.total}</span><span className="sum-lbl">Total</span>
+        </button>
+        <button className={`sum-tile t-expired ${fExp === "expired" ? "active" : ""}`} onClick={() => setFExp(fExp === "expired" ? "" : "expired")}>
+          <span className="sum-num">{summary.expired}</span><span className="sum-lbl">Vencidos</span>
+        </button>
+        <button className={`sum-tile t-30 ${fExp === "d30" ? "active" : ""}`} onClick={() => setFExp(fExp === "d30" ? "" : "d30")}>
+          <span className="sum-num">{summary.d30}</span><span className="sum-lbl">≤ 30 días</span>
+        </button>
+        <button className={`sum-tile t-60 ${fExp === "d60" ? "active" : ""}`} onClick={() => setFExp(fExp === "d60" ? "" : "d60")}>
+          <span className="sum-num">{summary.d60}</span><span className="sum-lbl">31–60 días</span>
+        </button>
+        <button className={`sum-tile t-nodate ${fExp === "nodate" ? "active" : ""}`} onClick={() => setFExp(fExp === "nodate" ? "" : "nodate")}>
+          <span className="sum-num">{summary.nodate}</span><span className="sum-lbl">Sin fecha</span>
+        </button>
+      </div>
+
+      {/* ---- Barra de filtros ---- */}
+      <div className="ins-filters">
+        <input
+          className="flt-search"
+          placeholder="🔎 Buscar (aseguradora, doctor, notas…)"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select value={fName} onChange={(e) => setFName(e.target.value)}>
+          <option value="">Aseguradora: todas</option>
+          {nameOptions.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+        <select value={fDoctor} onChange={(e) => setFDoctor(e.target.value)}>
+          <option value="">Doctor: todos</option>
+          {doctorFilterOptions.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+        <select value={fType} onChange={(e) => setFType(e.target.value)}>
+          <option value="">Tipo: todos</option>
+          {typeOptions.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+        <select value={fNetwork} onChange={(e) => setFNetwork(e.target.value)}>
+          <option value="">Network: todos</option>
+          <option value="In Network">In Network</option>
+          <option value="Out of Network">Out of Network</option>
+        </select>
+        {anyFilter && (
+          <button className="flt-clear" onClick={clearFilters}>✕ Limpiar</button>
+        )}
+      </div>
+
       <p className="text-slate-400 text-xs mb-2">
-        (Debug) Insurances cargados: {list.length}
+        Mostrando {filtered.length} de {list.length} seguros
       </p>
 
       <div className="overflow-auto mb-4">
@@ -174,45 +305,61 @@ export default function InsurancesTable() {
             </tr>
           </thead>
           <tbody className="text-slate-200">
-            {list.map((ins) => (
-              <tr key={ins.id} className="border-t border-slate-800">
-                <td className="p-2">{ins.name}</td>
-                <td className="p-2">{ins.type}</td>
-                <td className="p-2">{ins.doctorName || ""}</td>
-                <td className="p-2">
-                  {ins.network === "Out of Network" ? (
-                    <span className="badge-out">Out of Network</span>
-                  ) : (
-                    <span className="badge-in">In Network</span>
-                  )}
-                </td>
-                <td className="p-2">
-                  {ins.expiration
-                    ? new Date(ins.expiration).toLocaleDateString()
-                    : ""}
-                </td>
-                <td className="p-2">{daysLeft(ins.expiration)}</td>
-                <td className="p-2">{ins.notes}</td>
-                <td className="p-2 space-x-3">
-                  <button
-                    className="text-sky-300 hover:underline"
-                    onClick={() => openEditModal(ins)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="text-red-500 hover:underline"
-                    onClick={() => remove(ins.id)}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {list.length === 0 && (
+            {filtered.map((ins) => {
+              const st = expStatus(ins.expiration);
+              const meta = statusMeta[st];
+              const dl = daysLeft(ins.expiration);
+              return (
+                <tr key={ins.id} className="border-t border-slate-800">
+                  <td className="p-2">{ins.name}</td>
+                  <td className="p-2">{ins.type}</td>
+                  <td className="p-2">{ins.doctorName || ""}</td>
+                  <td className="p-2">
+                    {ins.network === "Out of Network" ? (
+                      <span className="badge-out">Out of Network</span>
+                    ) : (
+                      <span className="badge-in">In Network</span>
+                    )}
+                  </td>
+                  <td className="p-2">
+                    {ins.expiration
+                      ? new Date(ins.expiration).toLocaleDateString()
+                      : ""}
+                  </td>
+                  <td className="p-2">
+                    <span className={`sem-pill ${meta.cls}`} title={meta.label}>
+                      {ins.expiration ? `${dl}d` : "—"}
+                    </span>
+                  </td>
+                  <td className="p-2">{ins.notes}</td>
+                  <td className="p-2 space-x-3 whitespace-nowrap">
+                    <button
+                      className="text-emerald-300 hover:underline"
+                      onClick={() => setGuideFor(ins)}
+                      title="Cómo renovar o aplicar"
+                    >
+                      Guía
+                    </button>
+                    <button
+                      className="text-sky-300 hover:underline"
+                      onClick={() => openEditModal(ins)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="text-red-500 hover:underline"
+                      onClick={() => remove(ins.id)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+            {filtered.length === 0 && (
               <tr>
                 <td colSpan={8} className="p-4 text-slate-400">
-                  No insurances yet
+                  {list.length === 0 ? "No insurances yet" : "Ningún seguro coincide con el filtro"}
                 </td>
               </tr>
             )}
@@ -229,6 +376,58 @@ export default function InsurancesTable() {
         </button>
       </div>
 
+      {/* ---- Modal Guía de renovación ---- */}
+      {guideFor && (() => {
+        const g = getRenewalGuide(guideFor.name);
+        const st = expStatus(guideFor.expiration);
+        const isNew = (guideFor.network || "").toLowerCase().includes("out") ||
+          !!(guideFor.notes || "").toLowerCase().match(/appl|pending|submitted/);
+        return (
+          <div className="modal-backdrop" onClick={() => setGuideFor(null)}>
+            <div className="modal guide-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="guide-head">
+                <div>
+                  <h3 style={{ margin: 0 }}>{guideFor.name}</h3>
+                  <div className="guide-sub">
+                    {guideFor.doctorName || "Sin doctor asignado"} · {guideFor.type} ·{" "}
+                    <span className={`sem-pill ${statusMeta[st].cls}`}>{statusMeta[st].label}</span>
+                  </div>
+                </div>
+                <button className="btn-cancel" onClick={() => setGuideFor(null)}>Cerrar</button>
+              </div>
+
+              <div className="guide-portal">
+                <strong>Portal:</strong> {g.portal}
+              </div>
+
+              <div className="guide-cols">
+                <div>
+                  <h4 className={isNew ? "hl" : ""}>
+                    {isNew ? "▶ Aplicar (nuevo / pendiente)" : "Aplicar (nuevo)"}
+                  </h4>
+                  <ol>{g.apply.map((s, i) => <li key={i}>{s}</li>)}</ol>
+                </div>
+                <div>
+                  <h4 className={!isNew ? "hl" : ""}>
+                    {!isNew ? "▶ Renovar / mantener" : "Renovar / mantener"}
+                  </h4>
+                  <ol>{g.renew.map((s, i) => <li key={i}>{s}</li>)}</ol>
+                </div>
+              </div>
+
+              <div className="guide-docs">
+                <strong>Documentos:</strong> {g.docs.join(" · ")}
+              </div>
+              <div className="guide-deadline">⏰ {g.deadline}</div>
+              <p className="guide-note">
+                Portales y plazos pueden cambiar; verifica la fecha efectiva y los deadlines en el portal del pagador.
+              </p>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ---- Modal Add/Edit ---- */}
       {showModal && (
         <div className="modal-backdrop">
           <div className="modal">
