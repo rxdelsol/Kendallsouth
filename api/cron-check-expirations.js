@@ -52,6 +52,27 @@ export default async function handler(req, res) {
   }
 
   try {
+    // ---- 0) Auto-marcar "Out of Network" los contratos vencidos ----
+    // Si un seguro pasó su fecha de expiración y sigue "In Network", se cambia a Out
+    // automáticamente y se le agrega una nota con la fecha en que venció.
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: allIns } = await supabase
+      .from('insurances').select('*').not('expiration', 'is', null);
+    let autoOut = 0;
+    for (const r of allIns || []) {
+      const exp = (r.expiration || '').slice(0, 10);
+      const isOut = (r.network || '').toLowerCase().includes('out');
+      if (exp && exp < today && !isOut) {
+        const tag = `Vencido auto ${exp}`;
+        const notes = (r.notes || '').includes('Vencido auto')
+          ? r.notes
+          : (r.notes ? `${r.notes} · ${tag}` : tag);
+        const { error: e2 } = await supabase
+          .from('insurances').update({ network: 'Out of Network', notes }).eq('id', r.id);
+        if (!e2) autoOut++;
+      }
+    }
+
     // ---- 1) Contratos de seguros ----
     const { data: insRows, error: insErr } = await supabase
       .from('insurances').select('*').not('expiration', 'is', null);
@@ -93,7 +114,15 @@ export default async function handler(req, res) {
 
     const totalItems = insItems.length + credItems.length;
     if (totalItems === 0) {
-      return res.status(200).json({ ok: true, sent: false, message: 'Nada por vencer.' });
+      return res.status(200).json({ ok: true, sent: false, autoOut, message: 'Nada por vencer.' });
+    }
+
+    // El email es semanal (lunes) aunque la tarea corra a diario para el auto-Out.
+    // Se puede forzar el envío en una prueba manual con &email=1.
+    const emailDay = new Date().getUTCDay() === 1;
+    const forceEmail = req.query && (req.query.email === '1');
+    if (!emailDay && !forceEmail) {
+      return res.status(200).json({ ok: true, sent: false, autoOut, reason: 'Auto-Out aplicado; email solo los lunes.' });
     }
 
     const bucket = (arr, lo, hi) => arr.filter((i) => i.days >= lo && i.days <= hi);
@@ -115,7 +144,7 @@ export default async function handler(req, res) {
 
     if (!process.env.RESEND_API_KEY || !process.env.ALERT_EMAIL_TO || !process.env.ALERT_EMAIL_FROM) {
       return res.status(200).json({
-        ok: true, sent: false,
+        ok: true, sent: false, autoOut,
         reason: 'Faltan RESEND_API_KEY / ALERT_EMAIL_TO / ALERT_EMAIL_FROM',
         counts: { insurances: insItems.length, credentials: credItems.length, expired: insExpired + credExpired },
       });
@@ -140,7 +169,7 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json({
-      ok: true, sent: true,
+      ok: true, sent: true, autoOut,
       counts: { insurances: insItems.length, credentials: credItems.length, expired: insExpired + credExpired },
     });
   } catch (err) {
