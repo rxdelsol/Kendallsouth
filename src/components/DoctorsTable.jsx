@@ -35,6 +35,8 @@ export default function DoctorsTable() {
 
   const [search, setSearch] = useState("");
   const [fExp, setFExp] = useState(""); // "", expired, d30, d60, nodate
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState(null);
 
   async function loadDoctors() {
     try {
@@ -50,6 +52,20 @@ export default function DoctorsTable() {
   useEffect(() => {
     loadDoctors();
   }, []);
+
+  async function refreshFromNppes() {
+    if (!window.confirm("¿Actualizar TODOS los doctores desde el registro nacional NPPES?\nRefresca la taxonomía y rellena nombre/licencia faltantes. No borra tus datos.")) return;
+    setRefreshing(true); setRefreshMsg(null);
+    try {
+      const res = await fetch("/api/refresh-doctors", { method: "POST" }).then((r) => r.json());
+      if (res.ok) { await loadDoctors(); setRefreshMsg(res.summary); }
+      else setRefreshMsg({ error: true });
+    } catch (e) {
+      setRefreshMsg({ error: true });
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   const saveDoctor = async () => {
     if (!doctor.name.trim()) return alert("Enter doctor name");
@@ -199,11 +215,23 @@ export default function DoctorsTable() {
         {anyFilter && (
           <button className="flt-clear" onClick={() => { setSearch(""); setFExp(""); }}>✕ Limpiar</button>
         )}
+        <div style={{ flex: 1 }} />
+        <button className="btn-red" onClick={refreshFromNppes} disabled={refreshing} title="Consulta el registro nacional NPPES y refresca todos los doctores">
+          {refreshing ? "Actualizando…" : "🔄 Actualizar desde NPPES"}
+        </button>
       </div>
 
       <p className="text-slate-400 text-xs mb-2">
         Mostrando {filtered.length} de {list.length} doctores
       </p>
+
+      {refreshMsg && (refreshMsg.error ? (
+        <p className="v-bad text-xs mb-2">No se pudo actualizar desde NPPES.</p>
+      ) : (
+        <p className="v-ok text-xs mb-2">
+          ✓ Actualizados {refreshMsg.actualizado}/{refreshMsg.total} · no encontrados {refreshMsg.noEncontrado} · sin NPI {refreshMsg.sinNpi}{refreshMsg.error ? ` · errores ${refreshMsg.error}` : ""}
+        </p>
+      ))}
 
       <div className="overflow-auto mb-4">
         <table className="min-w-full text-sm">
