@@ -22,6 +22,11 @@ export default function ProviderLookup() {
   const [searched, setSearched] = useState(false);
   const [onlyActive, setOnlyActive] = useState(false);
 
+  const [addOpen, setAddOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [addForm, setAddForm] = useState(null);
+  const [addMsg, setAddMsg] = useState(null); // 'ok' | 'warn' | 'error'
+
   useEffect(() => {
     (async () => {
       try {
@@ -137,6 +142,51 @@ export default function ProviderLookup() {
     }
   }
 
+  async function reloadDoctors() {
+    const dr = await fetch("/api/get-doctors").then((r) => r.json()).catch(() => null);
+    if (dr?.ok) setDoctors(dr.data || []);
+    return dr?.data || [];
+  }
+
+  function openAdd() {
+    setAddForm({
+      name: nppes?.name || "",
+      npi: nppes?.npi || q.trim(),
+      taxonomy: nppes?.taxonomy || "",
+      license: nppes?.license || "",
+      licenseExp: "", dea: "", deaExp: "", caqhAttested: "", malpracticeExp: "", medicareRevalidation: "",
+    });
+    setAddMsg(null);
+    setAddOpen(true);
+  }
+
+  async function saveNewDoctor() {
+    if (!addForm?.name) { alert("Falta el nombre."); return; }
+    setAdding(true); setAddMsg(null);
+    try {
+      const res = await fetch("/api/save-doctor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addForm),
+      }).then((r) => r.json());
+      if (res.ok) {
+        const list = await reloadDoctors();
+        const created = res.data;
+        const found = list.find((d) => String(d.id) === String(created?.id)) ||
+          list.find((d) => (d.npi || "") === addForm.npi);
+        if (found) setSelectedId(found.id);
+        setAddOpen(false);
+        setAddMsg(res.datesSaved === false ? "warn" : "ok");
+      } else {
+        setAddMsg("error");
+      }
+    } catch (e) {
+      setAddMsg("error");
+    } finally {
+      setAdding(false);
+    }
+  }
+
   const onKey = (e) => { if (e.key === "Enter") runSearch(); };
   const clearAll = () => { setQ(""); setSelectedId(null); setNppes(null); setMedicare(null); setSearched(false); };
 
@@ -200,7 +250,43 @@ export default function ProviderLookup() {
                 {nppes && nppes.found ? ` · ${nppes.taxonomy || ""}${nppes.city ? " · " + nppes.city + ", " + (nppes.state || "") : ""}` : ""}
               </div>
             </div>
+            {provider.source === "nppes" && !addOpen && (
+              <button className="btn-red" onClick={openAdd}>➕ Agregar a mis doctores</button>
+            )}
           </div>
+
+          {addMsg === "ok" && (
+            <div className="verify-box"><span className="v-ok">✓ Agregado a tus doctores. Ya aparece en Doctors y en la matriz. Las fechas que pusiste activan el semáforo y el aviso por email.</span></div>
+          )}
+          {addMsg === "warn" && (
+            <div className="verify-box"><span className="v-warn">✓ Agregado, pero las fechas de vencimiento NO se guardaron: falta correr la migración de Supabase (supabase-migration.sql). Después edítalo en Doctors para fijarlas.</span></div>
+          )}
+          {addMsg === "error" && (
+            <div className="verify-box"><span className="v-bad">No se pudo agregar. Revisa la conexión con Supabase.</span></div>
+          )}
+
+          {addOpen && addForm && (
+            <div className="verify-box">
+              <h4 className="form-section" style={{ marginTop: 0 }}>Agregar proveedor a tus doctores</h4>
+              <p className="guide-note" style={{ marginTop: 0 }}>Pon las fechas de vencimiento para que el semáforo y el email te avisen cuando se venzan.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <input className="p-2 rounded bg-[#081424]" placeholder="Nombre" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} />
+                <input className="p-2 rounded bg-[#081424]" placeholder="NPI" value={addForm.npi} onChange={(e) => setAddForm({ ...addForm, npi: e.target.value })} />
+                <input className="p-2 rounded bg-[#081424]" placeholder="License #" value={addForm.license} onChange={(e) => setAddForm({ ...addForm, license: e.target.value })} />
+                <input className="p-2 rounded bg-[#081424]" placeholder="Taxonomía" value={addForm.taxonomy} onChange={(e) => setAddForm({ ...addForm, taxonomy: e.target.value })} />
+                <label className="form-date"><span>Licencia vence</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.licenseExp} onChange={(e) => setAddForm({ ...addForm, licenseExp: e.target.value })} /></label>
+                <input className="p-2 rounded bg-[#081424]" placeholder="DEA #" value={addForm.dea} onChange={(e) => setAddForm({ ...addForm, dea: e.target.value })} />
+                <label className="form-date"><span>DEA vence</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.deaExp} onChange={(e) => setAddForm({ ...addForm, deaExp: e.target.value })} /></label>
+                <label className="form-date"><span>CAQH últ. atestación</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.caqhAttested} onChange={(e) => setAddForm({ ...addForm, caqhAttested: e.target.value })} /></label>
+                <label className="form-date"><span>Malpractice vence</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.malpracticeExp} onChange={(e) => setAddForm({ ...addForm, malpracticeExp: e.target.value })} /></label>
+                <label className="form-date"><span>Medicare revalidación</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.medicareRevalidation} onChange={(e) => setAddForm({ ...addForm, medicareRevalidation: e.target.value })} /></label>
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <button className="btn-cancel" onClick={() => setAddOpen(false)}>Cancelar</button>
+                <button className="btn-red" onClick={saveNewDoctor} disabled={adding}>{adding ? "Guardando…" : "Guardar doctor"}</button>
+              </div>
+            </div>
+          )}
 
           {/* Verificación externa (NPPES + Medicare) */}
           {(nppes || medicare) && (
