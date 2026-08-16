@@ -6,16 +6,21 @@ import {
   doctorCredentials,
 } from "../utils/credStatus";
 
-// Busca un doctor por NPI (o nombre) y muestra TODOS sus seguros con estado,
-// más el semáforo de sus credenciales. Todo con los datos ya cargados en el tracker.
+// Busca un NPI en el registro NACIONAL (NPPES) — no solo en el tracker — y muestra
+// al proveedor con sus seguros del tracker (fuente real de la participación comercial)
+// + verificación pública de Medicare. Funciona aunque el proveedor no esté en tu sitio.
 export default function ProviderLookup() {
   const [doctors, setDoctors] = useState([]);
   const [insurances, setInsurances] = useState([]);
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [verify, setVerify] = useState(null);       // { nppes, medicare }
-  const [verifying, setVerifying] = useState(false);
+
+  const [nppes, setNppes] = useState(null);
+  const [medicare, setMedicare] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [onlyActive, setOnlyActive] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -34,99 +39,136 @@ export default function ProviderLookup() {
     })();
   }, []);
 
-  // Coincidencias por NPI o nombre
+  const norm = (s) => (s || "").trim().toLowerCase();
+  const isNpi = (s) => /^\d{10}$/.test((s || "").trim());
+  const tokens = (s) => norm(s).split(/\s+/).filter((t) => t.length > 1);
+  // Coincidencia de nombres tolerante: comparte >=2 tokens (nombre + apellido)
+  const nameMatch = (a, b) => {
+    if (!a || !b) return false;
+    if (norm(a) === norm(b)) return true;
+    const ta = tokens(a), tb = tokens(b);
+    const shared = ta.filter((t) => tb.includes(t));
+    return shared.length >= 2;
+  };
+
+  // Coincidencias locales por nombre (para búsqueda por texto)
   const matches = useMemo(() => {
     const s = q.toLowerCase().trim();
-    if (!s) return [];
+    if (!s || isNpi(q)) return [];
     return doctors.filter(
-      (d) =>
-        (d.npi || "").toLowerCase().includes(s) ||
-        (d.name || "").toLowerCase().includes(s)
+      (d) => (d.npi || "").toLowerCase().includes(s) || (d.name || "").toLowerCase().includes(s)
     );
   }, [q, doctors]);
 
-  const selected = useMemo(
+  useEffect(() => { if (matches.length === 1) setSelectedId(matches[0].id); }, [matches]);
+
+  const localDoctor = useMemo(
     () => doctors.find((d) => d.id === selectedId) || null,
     [doctors, selectedId]
   );
 
-  // Auto-selecciona si hay exactamente una coincidencia
-  useEffect(() => {
-    if (matches.length === 1) setSelectedId(matches[0].id);
-  }, [matches]);
+  // Proveedor "activo": doctor local si existe; si no, el resultado de NPPES
+  const provider = useMemo(() => {
+    if (localDoctor) {
+      return { name: localDoctor.name, npi: localDoctor.npi, source: "local", doctor: localDoctor };
+    }
+    if (nppes && nppes.found) {
+      return { name: nppes.name, npi: nppes.npi, source: "nppes", doctor: null };
+    }
+    return null;
+  }, [localDoctor, nppes]);
 
-  // Seguros del doctor seleccionado (enlazados por nombre)
+  // Seguros del proveedor: match por nombre (exacto si es local; tolerante si viene de NPPES)
   const docInsurances = useMemo(() => {
-    if (!selected) return [];
-    const name = (selected.name || "").trim().toLowerCase();
-    return insurances
-      .filter((i) => (i.doctorName || "").trim().toLowerCase() === name)
+    if (!provider) return [];
+    const list = insurances.filter((i) =>
+      provider.source === "local"
+        ? norm(i.doctorName) === norm(provider.name)
+        : nameMatch(i.doctorName, provider.name)
+    );
+    return list
       .map((i) => ({ ...i, status: statusOf(i.expiration), days: daysUntil(i.expiration) }))
       .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-  }, [selected, insurances]);
+  }, [provider, insurances]);
+
+  const shown = onlyActive
+    ? docInsurances.filter((i) => !(i.network || "").toLowerCase().includes("out"))
+    : docInsurances;
 
   const stats = useMemo(() => {
     const s = { active: 0, out: 0, soon: 0, expired: 0 };
     docInsurances.forEach((i) => {
       const isOut = (i.network || "").toLowerCase().includes("out");
-      if (isOut) s.out++;
-      else s.active++;
+      if (isOut) s.out++; else s.active++;
       if (i.status === "expired") s.expired++;
       else if (i.status === "d30" || i.status === "d60") s.soon++;
     });
     return s;
   }, [docInsurances]);
 
-  // Reinicia la verificación al cambiar de doctor
-  useEffect(() => { setVerify(null); }, [selectedId]);
+  const creds = useMemo(() => {
+    if (!localDoctor) return [];
+    return doctorCredentials(localDoctor).map((c) => ({ ...c, status: statusOf(c.date), days: daysUntil(c.date) }));
+  }, [localDoctor]);
 
-  async function runVerify() {
-    if (!selected?.npi) { alert("Este doctor no tiene NPI registrado."); return; }
-    setVerifying(true);
-    try {
-      const [nppes, medicare] = await Promise.all([
-        fetch(`/api/verify-npi?npi=${encodeURIComponent(selected.npi)}&name=${encodeURIComponent((selected.name || "").split(" ").pop() || "")}`).then((r) => r.json()).catch(() => null),
-        fetch(`/api/verify-medicare?npi=${encodeURIComponent(selected.npi)}`).then((r) => r.json()).catch(() => null),
-      ]);
-      setVerify({ nppes, medicare });
-    } finally {
-      setVerifying(false);
+  async function runSearch() {
+    const query = q.trim();
+    if (!query) return;
+    setSearched(true);
+    // Match local: por NPI exacto o por nombre
+    const localByNpi = doctors.find((d) => (d.npi || "").trim() === query);
+    const localByName = !isNpi(query) && matches.length ? matches[0] : null;
+    setSelectedId(localByNpi ? localByNpi.id : localByName ? localByName.id : null);
+
+    if (isNpi(query)) {
+      setSearching(true);
+      setNppes(null); setMedicare(null);
+      try {
+        const [n, m] = await Promise.all([
+          fetch(`/api/verify-npi?npi=${encodeURIComponent(query)}`).then((r) => r.json()).catch(() => null),
+          fetch(`/api/verify-medicare?npi=${encodeURIComponent(query)}`).then((r) => r.json()).catch(() => null),
+        ]);
+        setNppes(n); setMedicare(m);
+      } finally {
+        setSearching(false);
+      }
+    } else {
+      setNppes(null); setMedicare(null);
     }
   }
 
-  const creds = useMemo(() => {
-    if (!selected) return [];
-    return doctorCredentials(selected).map((c) => ({
-      ...c,
-      status: statusOf(c.date),
-      days: daysUntil(c.date),
-    }));
-  }, [selected]);
+  const onKey = (e) => { if (e.key === "Enter") runSearch(); };
+  const clearAll = () => { setQ(""); setSelectedId(null); setNppes(null); setMedicare(null); setSearched(false); };
 
   return (
     <div className="bg-card rounded p-4">
       <h2 className="text-sky-200 font-semibold mb-1">Buscar proveedor por NPI</h2>
       <p className="text-slate-400 text-xs mb-3">
-        Escribe el NPI (o el nombre) del doctor para ver todos sus seguros y el estado de sus credenciales.
+        Escribe un <strong>NPI</strong> (se busca en el registro nacional NPPES, no solo en tu sitio) o un nombre.
+        Los seguros salen de tu tracker; Medicare se verifica con datos públicos.
       </p>
 
       <div className="ins-filters">
         <input
           className="flt-search"
-          placeholder="🔎 NPI o nombre del doctor…"
+          placeholder="🔎 NPI (10 dígitos) o nombre del doctor…"
           value={q}
           onChange={(e) => { setQ(e.target.value); setSelectedId(null); }}
+          onKeyDown={onKey}
           autoFocus
         />
-        {(q || selected) && (
-          <button className="flt-clear" onClick={() => { setQ(""); setSelectedId(null); }}>✕ Limpiar</button>
+        <button className="btn-red" onClick={runSearch} disabled={searching}>
+          {searching ? "Buscando…" : "Buscar"}
+        </button>
+        {(q || provider || searched) && (
+          <button className="flt-clear" onClick={clearAll}>✕ Limpiar</button>
         )}
       </div>
 
       {loading && <p className="text-slate-400 text-sm">Cargando…</p>}
 
-      {/* Lista de coincidencias cuando hay varias */}
-      {!selected && matches.length > 1 && (
+      {/* Varias coincidencias locales por nombre */}
+      {!provider && matches.length > 1 && (
         <div className="npi-matches">
           {matches.map((d) => (
             <button key={d.id} className="npi-match" onClick={() => setSelectedId(d.id)}>
@@ -135,48 +177,49 @@ export default function ProviderLookup() {
           ))}
         </div>
       )}
-      {!selected && q && matches.length === 0 && !loading && (
-        <p className="text-slate-400 text-sm">Ningún doctor coincide con “{q}”.</p>
+
+      {/* NPI buscado pero no encontrado en NPPES */}
+      {searched && isNpi(q) && !searching && nppes && !nppes.found && !localDoctor && (
+        <p className="text-slate-400 text-sm">El NPI {q} no aparece en el registro nacional NPPES.</p>
       )}
 
       {/* Ficha del proveedor */}
-      {selected && (
+      {provider && (
         <div className="npi-card">
           <div className="npi-head">
             <div>
-              <h3 style={{ margin: 0 }}>{selected.name}</h3>
+              <h3 style={{ margin: 0 }}>
+                {provider.name}{" "}
+                <span className={`sem-pill ${provider.source === "local" ? "sem-ok" : "sem-90"}`} style={{ fontSize: 11 }}>
+                  {provider.source === "local" ? "En tu sistema" : "NPPES nacional"}
+                </span>
+              </h3>
               <div className="guide-sub">
-                NPI {selected.npi || "—"} · Licencia {selected.license || "—"} · CAQH {selected.caqh || "—"}
-                {selected.taxonomy ? ` · ${selected.taxonomy}` : ""}
+                NPI {provider.npi || "—"}
+                {localDoctor ? ` · Licencia ${localDoctor.license || "—"} · CAQH ${localDoctor.caqh || "—"}` : ""}
+                {nppes && nppes.found ? ` · ${nppes.taxonomy || ""}${nppes.city ? " · " + nppes.city + ", " + (nppes.state || "") : ""}` : ""}
               </div>
             </div>
-            <button className="btn-red" onClick={runVerify} disabled={verifying}>
-              {verifying ? "Verificando…" : "Verificar NPPES + Medicare"}
-            </button>
           </div>
 
-          {/* Resultado de verificación externa */}
-          {verify && (
+          {/* Verificación externa (NPPES + Medicare) */}
+          {(nppes || medicare) && (
             <div className="verify-box">
               <div className="verify-row">
                 <strong>NPPES:</strong>{" "}
-                {!verify.nppes ? "no disponible" :
-                  !verify.nppes.found ? <span className="v-bad">NPI no encontrado</span> :
+                {!nppes ? "no consultado" :
+                  !nppes.found ? <span className="v-bad">NPI no encontrado</span> :
                   <>
-                    <span className={verify.nppes.active ? "v-ok" : "v-bad"}>
-                      {verify.nppes.active ? "Activo" : "Inactivo"}
-                    </span>
-                    {" · "}{verify.nppes.name}{verify.nppes.credential ? `, ${verify.nppes.credential}` : ""}
-                    {verify.nppes.taxonomy ? ` · ${verify.nppes.taxonomy}` : ""}
-                    {verify.nppes.licenseState ? ` · Lic ${verify.nppes.license || ""} (${verify.nppes.licenseState})` : ""}
-                    {verify.nppes.nameMatch === false && <span className="v-warn"> · ⚠ el nombre no coincide con tu registro</span>}
+                    <span className={nppes.active ? "v-ok" : "v-bad"}>{nppes.active ? "Activo" : "Inactivo"}</span>
+                    {" · "}{nppes.name}{nppes.credential ? `, ${nppes.credential}` : ""}
+                    {nppes.licenseState ? ` · Lic ${nppes.license || ""} (${nppes.licenseState})` : ""}
                   </>}
               </div>
               <div className="verify-row">
                 <strong>Medicare (PECOS):</strong>{" "}
-                {!verify.medicare ? "no disponible" :
-                  !verify.medicare.verified ? <span className="v-muted">no verificado ({verify.medicare.reason || "sin configurar"})</span> :
-                  verify.medicare.enrolled ? <span className="v-ok">Inscrito{verify.medicare.state ? ` · ${verify.medicare.state}` : ""}</span> :
+                {!medicare ? "no consultado" :
+                  !medicare.verified ? <span className="v-muted">no verificado ({medicare.reason || "sin configurar"})</span> :
+                  medicare.enrolled ? <span className="v-ok">Inscrito{medicare.state ? ` · ${medicare.state}` : ""}</span> :
                   <span className="v-bad">No aparece en el padrón</span>}
               </div>
             </div>
@@ -191,19 +234,29 @@ export default function ProviderLookup() {
             <div className="sum-tile t-expired"><span className="sum-num">{stats.expired}</span><span className="sum-lbl">Vencidos</span></div>
           </div>
 
-          {/* Credenciales del doctor */}
-          <h4 className="form-section">Credenciales del doctor</h4>
-          <div className="cred-pills" style={{ marginBottom: 6 }}>
-            {creds.map((c) => (
-              <span key={c.key} className={`sem-pill ${STATUS_META[c.status].cls}`}
-                title={c.date ? `${new Date(c.date).toLocaleDateString()} · ${STATUS_META[c.status].label}` : "sin fecha"}>
-                {c.label}: {c.date ? `${c.days}d` : "—"}
-              </span>
-            ))}
-          </div>
+          {/* Credenciales (solo si es doctor de tu sistema) */}
+          {localDoctor && (
+            <>
+              <h4 className="form-section">Credenciales del doctor</h4>
+              <div className="cred-pills" style={{ marginBottom: 6 }}>
+                {creds.map((c) => (
+                  <span key={c.key} className={`sem-pill ${STATUS_META[c.status].cls}`}
+                    title={c.date ? `${new Date(c.date).toLocaleDateString()} · ${STATUS_META[c.status].label}` : "sin fecha"}>
+                    {c.label}: {c.date ? `${c.days}d` : "—"}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Tabla de seguros */}
-          <h4 className="form-section">Seguros de este proveedor</h4>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+            <h4 className="form-section" style={{ margin: 0 }}>Seguros de este proveedor</h4>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, color: "#cbd5e1", fontSize: 12 }}>
+              <input type="checkbox" checked={onlyActive} onChange={(e) => setOnlyActive(e.target.checked)} />
+              Solo activos (In Network)
+            </label>
+          </div>
           <div className="overflow-auto">
             <table className="min-w-full text-sm">
               <thead className="text-slate-300">
@@ -217,7 +270,7 @@ export default function ProviderLookup() {
                 </tr>
               </thead>
               <tbody className="text-slate-200">
-                {docInsurances.map((i) => (
+                {shown.map((i) => (
                   <tr key={i.id} className="border-t border-slate-800">
                     <td className="p-2">{i.name}</td>
                     <td className="p-2">{i.type}</td>
@@ -228,15 +281,19 @@ export default function ProviderLookup() {
                     </td>
                     <td className="p-2">{i.expiration ? new Date(i.expiration).toLocaleDateString() : ""}</td>
                     <td className="p-2">
-                      <span className={`sem-pill ${STATUS_META[i.status].cls}`}>
-                        {i.expiration ? `${i.days}d` : "—"}
-                      </span>
+                      <span className={`sem-pill ${STATUS_META[i.status].cls}`}>{i.expiration ? `${i.days}d` : "—"}</span>
                     </td>
                     <td className="p-2">{i.notes}</td>
                   </tr>
                 ))}
-                {docInsurances.length === 0 && (
-                  <tr><td colSpan={6} className="p-4 text-slate-400">Este doctor no tiene seguros registrados (o el nombre no coincide con el de la tabla de seguros).</td></tr>
+                {shown.length === 0 && (
+                  <tr><td colSpan={6} className="p-4 text-slate-400">
+                    {docInsurances.length === 0
+                      ? (provider.source === "nppes"
+                          ? "Este proveedor no está en tu tracker, así que no hay seguros comerciales registrados. La participación en red comercial no existe como dato público — solo Medicare/Medicaid (arriba)."
+                          : "Este doctor no tiene seguros registrados.")
+                      : "No hay seguros In Network para mostrar."}
+                  </td></tr>
                 )}
               </tbody>
             </table>
