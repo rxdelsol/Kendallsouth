@@ -1,0 +1,4 @@
+# Funciones no usadas por la app; excluidas para respetar el tope de 12 funciones del plan Hobby de Vercel.
+api/save-provider.js
+api/export-database.js
+api/import-database.js
