@@ -89,11 +89,20 @@ function entriesOf(bundle) {
   return Array.isArray(bundle?.entry) ? bundle.entry.map((e) => e.resource).filter(Boolean) : [];
 }
 
-// Verifica un NPI contra el Provider Directory FHIR de `payerKey`.
-// Devuelve { ok, configured, inNetwork, foundPractitioner, roles, reason?, raw? }
-// Si `debug` es true, incluye la respuesta FHIR cruda (para ajustar el mapeo de
-// campos la primera vez que conectas un pagador nuevo — igual que Availity).
-export async function verifyProviderDirectory(payerKey, npi, debug = false) {
+// ¿Este recurso Practitioner trae el NPI que buscamos entre sus identifiers?
+// (algunos pagadores, ej. Aetna, no soportan buscar Practitioner por
+// `identifier` — solo por nombre — así que a veces hay que confirmar el NPI
+// del lado del cliente después de buscar por nombre.)
+function practitionerHasNpi(practitioner, npi) {
+  return (practitioner?.identifier || []).some((id) => String(id.value || '').trim() === npi);
+}
+
+// Verifica un NPI (y, si hace falta, el nombre) contra el Provider Directory
+// FHIR de `payerKey`. Devuelve { ok, configured, inNetwork, foundPractitioner,
+// roles, reason?, raw? }. Si `debug` es true, incluye la respuesta FHIR cruda
+// (para ajustar el mapeo de campos la primera vez que conectas un pagador
+// nuevo — igual que Availity).
+export async function verifyProviderDirectory(payerKey, npi, doctorName = '', debug = false) {
   const payer = FHIR_PAYERS[payerKey];
   if (!payer) return { ok: false, error: `Aseguradora desconocida: ${payerKey}` };
 
@@ -124,17 +133,29 @@ export async function verifyProviderDirectory(payerKey, npi, debug = false) {
 
     let roleResources = chained.ok && chained.json ? entriesOf(chained.json).filter((r) => r.resourceType === 'PractitionerRole') : [];
     let foundPractitioner = null;
+    let searchStrategy = 'chained-identifier';
 
     if (!chained.ok || !roleResources.length) {
       // 2) Alternativa en dos pasos: buscar el Practitioner por NPI y luego su(s) PractitionerRole.
       const pr = await fhirGet(cfg.base, `/Practitioner?identifier=${encodeURIComponent(NPI_SYSTEM + '|' + npi)}`, headers);
-      if (!pr.ok) {
-        return { ok: false, configured: true, error: `FHIR ${pr.status} en Practitioner`, detail: pr.text || pr.json };
-      }
-      const practitioners = entriesOf(pr.json).filter((r) => r.resourceType === 'Practitioner');
+      let practitioners = pr.ok && pr.json ? entriesOf(pr.json).filter((r) => r.resourceType === 'Practitioner') : [];
       foundPractitioner = practitioners[0] || null;
+      searchStrategy = 'two-step-identifier';
+
+      // 3) Fallback: algunos pagadores (ej. Aetna) NO soportan `identifier` como
+      //    parámetro de búsqueda en Practitioner — solo `name`/`family`/`given`.
+      //    Si no encontramos nada por NPI y tenemos el nombre del doctor, buscamos
+      //    por nombre y confirmamos el NPI en los resultados (nunca al revés: si
+      //    el NPI no coincide, no lo damos por encontrado).
+      if (!foundPractitioner && doctorName) {
+        const byName = await fhirGet(cfg.base, `/Practitioner?name=${encodeURIComponent(doctorName)}&_count=20`, headers);
+        const candidates = byName.ok && byName.json ? entriesOf(byName.json).filter((r) => r.resourceType === 'Practitioner') : [];
+        foundPractitioner = candidates.find((p) => practitionerHasNpi(p, npi)) || null;
+        searchStrategy = 'name-then-npi-match';
+      }
+
       if (!foundPractitioner) {
-        return { ok: true, configured: true, foundPractitioner: false, inNetwork: false, roles: [] };
+        return { ok: true, configured: true, foundPractitioner: false, inNetwork: false, roles: [], searchStrategy };
       }
       const roles = await fhirGet(cfg.base, `/PractitionerRole?practitioner=${encodeURIComponent(foundPractitioner.id)}&active=true&_count=50`, headers);
       if (roles.ok && roles.json) {
@@ -155,6 +176,7 @@ export async function verifyProviderDirectory(payerKey, npi, debug = false) {
       foundPractitioner: !!(foundPractitioner || activeRoles.length),
       inNetwork: activeRoles.length > 0,
       roles,
+      searchStrategy,
       ...(debug ? { raw: { chained: chained.json, roleResources } } : {}),
     };
   } catch (err) {

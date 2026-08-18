@@ -160,7 +160,7 @@ export default function EligibilityCheck() {
       targets.map(async (d) => {
         const npi = String(d.npi).trim();
         try {
-          const r = await fetch(`/api/verify-provider-directory?payer=${payerKey}&npi=${npi}`);
+          const r = await fetch(`/api/verify-provider-directory?payer=${payerKey}&npi=${npi}&name=${encodeURIComponent(d.name || "")}`);
           const j = await r.json();
           next[npi] = {
             configured: !!j.configured,

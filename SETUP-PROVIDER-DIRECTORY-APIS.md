@@ -23,13 +23,16 @@ puedes hacer — nadie puede crear esa cuenta en tu nombre. Una vez que tengas
 esos datos, los pegas en Vercel y el botón queda funcionando exactamente
 igual que el de Medicare.
 
-**Importante:** no pude probar estas integraciones contra un servidor real
-(mi entorno de trabajo no tiene acceso a internet general, y el navegador se
-desconectó a mitad de la investigación). El código sigue el estándar Da Vinci
-Plan-Net al pie de la letra, pero cada aseguradora implementa el estándar con
-pequeñas diferencias. Usa `&debug=1` en la URL de verificación (ver abajo)
-para ver la respuesta cruda de cada aseguradora la primera vez y así ajustar
-el mapeo si hace falta — avísame con esa respuesta y lo corrijo.
+**Importante:** confirmé contra la documentación real del portal de **Aetna**
+y de **UnitedHealthcare** (ver detalle de cada una abajo) — Aetna no busca
+por NPI directamente (el código ya tiene el respaldo por nombre) y UHC
+resultó ser la más simple: su Provider Directory es público, sin necesidad
+de cuenta ni credenciales. Las demás (Humana, Florida Blue, Molina, Centene)
+siguen el mismo estándar Da Vinci Plan-Net, pero no pude entrar a sus
+portales reales (requieren cuenta) para confirmar el detalle exacto de cada
+una. Usa `&debug=1` en la URL de verificación (ver abajo) para ver la
+respuesta cruda la primera vez que configures una — mándamela si el
+resultado no cuadra con lo que sabes de ese doctor y ajusto el mapeo.
 
 ---
 
@@ -51,11 +54,27 @@ Todas van en **Vercel → tu proyecto → Settings → Environment Variables**, 
 después **Redeploy**. Mientras una aseguradora no tenga su `..._BASE`
 configurada, su botón dice claramente "no configurado" — no rompe nada.
 
-### Aetna
-1. Entra a **developerportal.aetna.com** → crea una cuenta de developer → registra una app.
-2. Suscríbela al producto **"Provider Directory API"** (FHIR R4 / Da Vinci Plan-Net).
-3. Copia la URL base de la API (y la API key/credenciales si el producto las pide).
-4. Variables: `FHIR_AETNA_BASE` (y si aplica `FHIR_AETNA_APIKEY` o `FHIR_AETNA_CLIENT_ID` / `FHIR_AETNA_CLIENT_SECRET` / `FHIR_AETNA_TOKEN_URL`).
+### Aetna (verificado — pasos exactos)
+1. Entra a **developerportal.aetna.com** → **Login/Register → Register**. Pon tu email de la clínica, nombre y apellido, acepta los términos, confirma el código que te llega por email y crea usuario/contraseña.
+2. **My Applications → Create New**. En "I Am Representing" elige **Third-Party**. En "Application Environment" elige **Production** → Continue.
+3. Completa el **Questionnaire** que aparece y dale Submit. Aetna revisa y responde en **2 a 4 días hábiles** (no es instantáneo) — te avisan por email.
+4. Una vez aprobado: **Create Application**, completa los datos y Submit. Te da un **Client ID** y **Client Secret** — cópialos, el Secret no se vuelve a mostrar.
+5. En **Products**, suscríbete a todos los productos de **"Provider Directory"** disponibles (incluye el de Medicare) y confirma la suscripción.
+6. En Vercel agrega:
+
+| Variable | Valor |
+|---|---|
+| `FHIR_AETNA_BASE` | `https://apif1.aetna.com/fhir/v1/providerdirectorydata` |
+| `FHIR_AETNA_CLIENT_ID` | El Client ID que te dio Aetna |
+| `FHIR_AETNA_CLIENT_SECRET` | El Client Secret que te dio Aetna |
+| `FHIR_AETNA_TOKEN_URL` | `https://apif1.aetna.com/fhir/v1/fhirserver_auth/oauth2/token` |
+| `FHIR_AETNA_SCOPE` | `Public NonPII` |
+
+> Detalle técnico (ya resuelto en el código, no tienes que hacer nada): la API
+> de Aetna no permite buscar un Practitioner directamente por NPI, solo por
+> nombre — `verifyProviderDirectory()` ya intenta primero por NPI y, si no
+> encuentra nada, busca por el nombre del doctor y confirma el NPI en el
+> resultado antes de darlo por válido.
 
 ### Humana
 1. Entra a **developers.humana.com** → crea cuenta → busca **"Provider Directory API"** en su marketplace.
@@ -78,9 +97,21 @@ configurada, su botón dice claramente "no configurado" — no rompe nada.
 2. Sigue su proceso de registro de developer para obtener la URL base.
 3. Variable: `FHIR_MOLINA_BASE`.
 
-### UnitedHealthcare
-1. UHC publica sus APIs de interoperabilidad en **uhc.com/legal/interoperability-apis** — desde ahí enlazan al portal de developer donde te registras.
-2. Variable: `FHIR_UHC_BASE`.
+### UnitedHealthcare (verificado — es la más fácil, sin registro)
+Confirmado directo en **uhc.com/legal/interoperability-apis/patient-access-api**:
+UHC publica su Provider Directory en endpoints **públicos, sin autenticación**
+("Authorization NOT Required Endpoints — these endpoints are only applicable
+to the public directory API calls"). No hace falta crear cuenta ni pedir
+Client ID/Secret — solo agrega esta variable en Vercel:
+
+| Variable | Valor |
+|---|---|
+| `FHIR_UHC_BASE` | `https://flex.optum.com/fhirpublic/R4` |
+
+Y listo — sin `CLIENT_ID`, `CLIENT_SECRET` ni `TOKEN_URL`, el código ya
+maneja el caso de "sin autenticación" (simplemente no manda esos headers).
+Su API sí soporta buscar `Practitioner?identifier=<npi>` directamente, así
+que no necesita el respaldo por nombre que sí usa Aetna.
 
 > Nota: los links de arriba son los que encontré vigentes al armar esto; si
 > alguno cambió de dirección, busca "[aseguradora] provider directory API
@@ -106,8 +137,12 @@ alguna sí publica una API así, la agrego con el mismo patrón.
 Abre en el navegador (reemplaza payer y npi):
 
 ```
-https://kendallsouthcredentialing.vercel.app/api/verify-provider-directory?payer=humana&npi=1234567890&debug=1
+https://kendallsouthcredentialing.vercel.app/api/verify-provider-directory?payer=humana&npi=1234567890&name=Ariel%20Goitia&debug=1
 ```
+
+El parámetro `name` es opcional pero recomendado: si el pagador no soporta
+buscar por NPI directamente (como Aetna), el código lo usa como respaldo —
+busca por nombre y confirma el NPI en el resultado.
 
 Con `&debug=1` te devuelve, además del resultado, la respuesta cruda del
 servidor FHIR de esa aseguradora — mándamela si el resultado no coincide con

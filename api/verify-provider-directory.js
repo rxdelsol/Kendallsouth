@@ -5,8 +5,12 @@
 // Medicare, solo que uno por pagador (CMS obliga a cada aseguradora
 // regulada a publicar el suyo; no existe un padrón único como PECOS).
 //
-// Uso: GET /api/verify-provider-directory?payer=humana&npi=1234567890
+// Uso: GET /api/verify-provider-directory?payer=humana&npi=1234567890&name=Ariel%20Goitia
 //   payer: una de las claves de FHIR_PAYERS (ver api/_lib/fhirDirectory.js)
+//   name: opcional — nombre del doctor. Algunos pagadores (ej. Aetna) no
+//         soportan buscar por NPI directamente; con el nombre, el cliente FHIR
+//         busca por nombre y confirma el NPI en el resultado antes de darlo
+//         por encontrado (nunca al revés).
 //
 // Si la aseguradora no tiene sus variables de entorno configuradas en
 // Vercel, responde configured:false sin romper nada (igual que Medicare).
@@ -28,7 +32,8 @@ export default async function handler(req, res) {
     });
   }
 
+  const name = (req.query.name || '').toString().trim();
   const debug = req.query.debug === '1' || req.query.debug === 'true';
-  const result = await verifyProviderDirectory(payer, npi, debug);
+  const result = await verifyProviderDirectory(payer, npi, name, debug);
   return res.status(200).json({ payer, npi, ...result });
 }
