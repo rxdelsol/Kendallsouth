@@ -134,10 +134,14 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
     let roleResources = chained.ok && chained.json ? entriesOf(chained.json).filter((r) => r.resourceType === 'PractitionerRole') : [];
     let foundPractitioner = null;
     let searchStrategy = 'chained-identifier';
+    let twoStepPractitionerSearch = null;
+    let twoStepRolesSearch = null;
+    let twoStepRolesSearchNoFilter = null;
 
     if (!chained.ok || !roleResources.length) {
       // 2) Alternativa en dos pasos: buscar el Practitioner por NPI y luego su(s) PractitionerRole.
       const pr = await fhirGet(cfg.base, `/Practitioner?identifier=${encodeURIComponent(NPI_SYSTEM + '|' + npi)}`, headers);
+      twoStepPractitionerSearch = pr;
       let practitioners = pr.ok && pr.json ? entriesOf(pr.json).filter((r) => r.resourceType === 'Practitioner') : [];
       foundPractitioner = practitioners[0] || null;
       searchStrategy = 'two-step-identifier';
@@ -155,11 +159,31 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
       }
 
       if (!foundPractitioner) {
-        return { ok: true, configured: true, foundPractitioner: false, inNetwork: false, roles: [], searchStrategy };
+        return {
+          ok: true,
+          configured: true,
+          foundPractitioner: false,
+          inNetwork: false,
+          roles: [],
+          searchStrategy,
+          ...(debug ? { raw: { chained: chained.json, twoStepPractitionerSearch: twoStepPractitionerSearch?.json } } : {}),
+        };
       }
+      // Pide el/los PractitionerRole de este practitioner. Algunos servidores
+      // (ej. UHC/Optum) ignoran o rechazan `active=true` como filtro combinado;
+      // por eso además probamos sin ese filtro y unimos ambos resultados para
+      // no perder roles solo por una diferencia de parámetros soportados.
       const roles = await fhirGet(cfg.base, `/PractitionerRole?practitioner=${encodeURIComponent(foundPractitioner.id)}&active=true&_count=50`, headers);
+      twoStepRolesSearch = roles;
       if (roles.ok && roles.json) {
         roleResources = entriesOf(roles.json).filter((r) => r.resourceType === 'PractitionerRole');
+      }
+      if (!roleResources.length) {
+        const rolesNoFilter = await fhirGet(cfg.base, `/PractitionerRole?practitioner=${encodeURIComponent(foundPractitioner.id)}&_count=50`, headers);
+        twoStepRolesSearchNoFilter = rolesNoFilter;
+        if (rolesNoFilter.ok && rolesNoFilter.json) {
+          roleResources = entriesOf(rolesNoFilter.json).filter((r) => r.resourceType === 'PractitionerRole');
+        }
       }
     }
 
@@ -177,7 +201,18 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
       inNetwork: activeRoles.length > 0,
       roles,
       searchStrategy,
-      ...(debug ? { raw: { chained: chained.json, roleResources } } : {}),
+      ...(debug
+        ? {
+            raw: {
+              chained: chained.json,
+              practitionerId: foundPractitioner?.id || null,
+              twoStepPractitionerSearch: twoStepPractitionerSearch?.json,
+              twoStepRolesSearch: twoStepRolesSearch?.json,
+              twoStepRolesSearchNoFilter: twoStepRolesSearchNoFilter?.json,
+              roleResources,
+            },
+          }
+        : {}),
     };
   } catch (err) {
     return { ok: false, configured: true, error: String(err.message || err) };
