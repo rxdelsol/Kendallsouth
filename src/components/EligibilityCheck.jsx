@@ -1,6 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { daysUntil, statusOf } from "../utils/credStatus";
 
+// Debe coincidir con las claves de FHIR_PAYERS en api/_lib/fhirDirectory.js.
+// Solo metadatos (sin secretos ni lógica) — la verificación real vive en el
+// servidor (api/verify-provider-directory.js).
+const FHIR_PAYER_KEYS = {
+  aetna: "aetna",
+  humana: "humana",
+  unitedhealthcare: "unitedhealthcare",
+  "florida blue": "florida_blue",
+  molina: "molina",
+  "sunshine health": "sunshine",
+  ambetter: "ambetter",
+  "simply healthcare": "simply",
+  wellcare: "wellcare",
+};
+
 // Matriz Doctor × Seguro: muestra, para cada doctor y cada aseguradora, si está
 // In Network / Out / Aplicó, según los datos del tracker (fuente de verdad para
 // las comerciales; no existe API pública de participación de red).
@@ -63,6 +78,13 @@ export default function EligibilityCheck() {
   const [verifying, setVerifying] = useState(false);
   const [verifiedDone, setVerifiedDone] = useState(0);
   const [verifiedTotal, setVerifiedTotal] = useState(0);
+
+  // Verificación automática de aseguradoras comerciales (Provider Directory FHIR
+  // oficial de cada pagador — igual de "en vivo" que Medicare, pero una por pagador
+  // y solo si configuraste sus credenciales en Vercel; ver SETUP-PROVIDER-DIRECTORY-APIS.md).
+  const [fhirStatus, setFhirStatus] = useState({}); // payerKey -> { npi -> {inNetwork, foundPractitioner, configured, error, reason} }
+  const [verifyingFhir, setVerifyingFhir] = useState({}); // payerKey -> bool
+  const [fhirProgress, setFhirProgress] = useState({}); // payerKey -> { done, total }
 
   // Directorios oficiales: doctor seleccionado (NPI) y mensaje de confirmación.
   const [selDoc, setSelDoc] = useState("");
@@ -127,6 +149,49 @@ export default function EligibilityCheck() {
   );
   const hasMed = Object.keys(medStatus).length > 0;
 
+  // Consulta el Provider Directory FHIR oficial de `payerKey` para todos los
+  // doctores con NPI válido. Igual patrón que verifyMedicare(), pero por pagador.
+  async function verifyFhirPayer(payerKey) {
+    const targets = doctors.filter((d) => /^\d{10}$/.test(String(d.npi || "").trim()));
+    setVerifyingFhir((s) => ({ ...s, [payerKey]: true }));
+    setFhirProgress((s) => ({ ...s, [payerKey]: { done: 0, total: targets.length } }));
+    const next = {};
+    await Promise.all(
+      targets.map(async (d) => {
+        const npi = String(d.npi).trim();
+        try {
+          const r = await fetch(`/api/verify-provider-directory?payer=${payerKey}&npi=${npi}`);
+          const j = await r.json();
+          next[npi] = {
+            configured: !!j.configured,
+            inNetwork: !!j.inNetwork,
+            foundPractitioner: !!j.foundPractitioner,
+            reason: j.reason || j.error || "",
+          };
+        } catch (e) {
+          next[npi] = { error: true };
+        } finally {
+          setFhirProgress((s) => ({ ...s, [payerKey]: { done: (s[payerKey]?.done || 0) + 1, total: targets.length } }));
+        }
+      })
+    );
+    setFhirStatus((s) => ({ ...s, [payerKey]: next }));
+    setVerifyingFhir((s) => ({ ...s, [payerKey]: false }));
+  }
+
+  // Estado FHIR de una celda (payerKey + doctor). null si aún no se ha verificado ese pagador.
+  const fhirCell = (payerKey, doctorName) => {
+    const npi = npiByName.get(norm(doctorName));
+    const byNpi = fhirStatus[payerKey];
+    if (!npi || !byNpi) return null;
+    const s = byNpi[npi];
+    if (!s) return null;
+    if (s.error) return { kind: "error" };
+    if (!s.configured) return { kind: "unconfigured", reason: s.reason };
+    if (!s.foundPractitioner) return { kind: "review", reason: s.reason };
+    return { kind: s.inNetwork ? "in" : "review" };
+  };
+
   // Filas: doctores (de la tabla doctors + los que aparezcan en seguros)
   const doctorRows = useMemo(() => {
     const set = new Map();
@@ -167,9 +232,17 @@ export default function EligibilityCheck() {
       if (!byFamily.has(info.family)) byFamily.set(info.family, info.url);
     });
     return Array.from(byFamily.entries())
-      .map(([family, url]) => ({ family, url }))
+      .map(([family, url]) => ({ family, url, fhirKey: FHIR_PAYER_KEYS[family.toLowerCase()] || null }))
       .sort((a, b) => a.family.localeCompare(b.family));
   }, [insurances]);
+
+  // Solo las familias que tienen un Provider Directory FHIR soportado (ver
+  // FHIR_PAYER_KEYS arriba). Estas son las que consiguen un botón "oficial",
+  // idéntico en espíritu al de Medicare — dato en vivo del propio pagador.
+  const fhirButtons = useMemo(
+    () => dirButtons.filter((b) => b.fhirKey),
+    [dirButtons]
+  );
 
   // Abre el directorio oficial del seguro y copia el NPI del doctor seleccionado.
   async function openDirectory(family, url) {
@@ -222,7 +295,11 @@ export default function EligibilityCheck() {
   // Precalcular la matriz
   const matrix = useMemo(() => {
     return doctorRows.map((doc) => {
-      const cells = payers.map((p) => ({ payer: p, ...cellFor(doc, p) }));
+      const cells = payers.map((p) => ({
+        payer: p,
+        fhirKey: FHIR_PAYER_KEYS[directoryInfoFor(p).family.toLowerCase()] || null,
+        ...cellFor(doc, p),
+      }));
       const inCount = cells.filter((c) => c.state === "in").length;
       return { doc, cells, inCount };
     });
@@ -241,7 +318,9 @@ export default function EligibilityCheck() {
       <p className="text-slate-400 text-xs mb-3">
         Estado de cada doctor con cada aseguradora, según tu tracker. Pasa el cursor sobre una celda para ver tipo, vencimiento y notas.
         <br />
-        Nota: la participación en redes comerciales no tiene API pública; esta vista refleja lo que registras en Insurances.
+        Nota: la mayoría de los seguros comerciales no tiene una sola API tipo Medicare; varias sí publican su propio
+        Provider Directory oficial (obligado por CMS) pero hay que configurarlo — ver los botones ⚡ abajo y{" "}
+        <code>SETUP-PROVIDER-DIRECTORY-APIS.md</code>. El resto sigue reflejando lo que registras en Insurances.
       </p>
 
       {/* Verificación automática oficial (CMS/PECOS) */}
@@ -268,9 +347,60 @@ export default function EligibilityCheck() {
           </span>
         )}
         <span style={{ color: "#64748b", fontSize: 11 }}>
-          Dato oficial de CMS, en vivo. Los seguros comerciales siguen siendo manuales.
+          Dato oficial de CMS, en vivo.
         </span>
       </div>
+
+      {/* Verificación automática oficial por aseguradora comercial (Provider Directory FHIR) */}
+      {fhirButtons.length > 0 && (
+        <div style={{ marginBottom: 12, padding: "10px 12px", background: "#0b1a33", borderRadius: 8, border: "1px solid #22385f" }}>
+          <div style={{ color: "#e6f6ff", fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
+            ⚡ Verificar seguros comerciales (Provider Directory oficial)
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {fhirButtons.map((b) => {
+              const busy = !!verifyingFhir[b.fhirKey];
+              const prog = fhirProgress[b.fhirKey];
+              const byNpi = fhirStatus[b.fhirKey];
+              const done = byNpi && !busy;
+              const configuredCount = done ? Object.values(byNpi).filter((s) => s.configured).length : 0;
+              const inCount = done ? Object.values(byNpi).filter((s) => s.inNetwork).length : 0;
+              const allUnconfigured = done && configuredCount === 0;
+              return (
+                <button
+                  key={b.fhirKey}
+                  onClick={() => verifyFhirPayer(b.fhirKey)}
+                  disabled={busy}
+                  title={done && allUnconfigured ? "No configurado aún — ver SETUP-PROVIDER-DIRECTORY-APIS.md" : `Verificar ${b.family} en su Provider Directory oficial`}
+                  style={{
+                    background: busy ? "#334155" : allUnconfigured ? "#3f2d0e" : "#0e7490",
+                    color: allUnconfigured ? "#fde68a" : "#e0f2fe",
+                    border: "none",
+                    borderRadius: 6,
+                    padding: "6px 10px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: busy ? "default" : "pointer",
+                  }}
+                >
+                  {busy
+                    ? `${b.family}… ${prog?.done ?? 0}/${prog?.total ?? 0}`
+                    : done
+                    ? allUnconfigured
+                      ? `${b.family}: no configurado`
+                      : `${b.family}: ${inCount}/${configuredCount} en red`
+                    : `Verificar ${b.family}`}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 6, color: "#64748b", fontSize: 11 }}>
+            Cada aseguradora publica su propio Provider Directory (exigido por CMS); necesitas registrarte gratis en el
+            portal de developers de cada una y pegar sus claves en Vercel una vez — ver <code>SETUP-PROVIDER-DIRECTORY-APIS.md</code>.
+            Mientras no esté configurada, el botón lo dice claramente y no rompe nada.
+          </div>
+        </div>
+      )}
 
       {/* Verificar en directorios oficiales (uno por seguro) */}
       <div style={{ marginBottom: 12, padding: "10px 12px", background: "#0b1a33", borderRadius: 8, border: "1px solid #22385f" }}>
@@ -375,8 +505,19 @@ export default function EligibilityCheck() {
                   </td>
                   {row.cells.map((c) => {
                     const m = meta[c.state];
+                    const fc = c.fhirKey ? fhirCell(c.fhirKey, row.doc) : null;
+                    const fcTip =
+                      fc?.kind === "in"
+                        ? "Confirmado en el Provider Directory oficial de la aseguradora (dato en vivo)"
+                        : fc?.kind === "review"
+                        ? `No aparece activo en el Provider Directory oficial — revisar${fc.reason ? " (" + fc.reason + ")" : ""}`
+                        : fc?.kind === "unconfigured"
+                        ? "Provider Directory oficial no configurado aún"
+                        : fc?.kind === "error"
+                        ? "Error consultando el Provider Directory oficial"
+                        : "";
                     return (
-                      <td key={c.payer} title={c.tip || ""} style={{ textAlign: "center", padding: "3px 4px", borderBottom: "1px solid #16233b" }}>
+                      <td key={c.payer} title={[c.tip, fcTip].filter(Boolean).join(" | ")} style={{ textAlign: "center", padding: "3px 4px", borderBottom: "1px solid #16233b" }}>
                         {c.state === "none" ? (
                           <span style={{ color: "#334155" }}>·</span>
                         ) : (
@@ -384,6 +525,8 @@ export default function EligibilityCheck() {
                             {m.label}{c.warn ? " •" : ""}
                           </span>
                         )}
+                        {fc?.kind === "in" && <span title={fcTip} style={{ marginLeft: 3, color: "#7dd3fc" }}>⚡</span>}
+                        {fc?.kind === "review" && <span title={fcTip} style={{ marginLeft: 3, color: "#fbbf24" }}>⚡?</span>}
                       </td>
                     );
                   })}
