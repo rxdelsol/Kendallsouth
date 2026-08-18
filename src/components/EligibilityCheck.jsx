@@ -516,17 +516,24 @@ export default function EligibilityCheck() {
                         : fc?.kind === "error"
                         ? "Error consultando el Provider Directory oficial"
                         : "";
+                    // Si ya se verificó este pagador EN VIVO (Provider Directory oficial),
+                    // el resultado manda — mismo estilo "✓ Sí / ⚠ Revisar" que usa la
+                    // columna de Medicare, para que se vea idéntico. Si aún no se ha
+                    // verificado ese pagador (o no está configurado), se sigue mostrando
+                    // el estado manual de Insurances como antes.
                     return (
                       <td key={c.payer} title={[c.tip, fcTip].filter(Boolean).join(" | ")} style={{ textAlign: "center", padding: "3px 4px", borderBottom: "1px solid #16233b" }}>
-                        {c.state === "none" ? (
+                        {fc?.kind === "in" ? (
+                          <span style={{ background: "#14532d", color: "#bbf7d0", borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 700 }}>✓ Sí</span>
+                        ) : fc?.kind === "review" ? (
+                          <span style={{ background: "#713f12", color: "#fde68a", borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 700 }}>⚠ Revisar</span>
+                        ) : c.state === "none" ? (
                           <span style={{ color: "#334155" }}>·</span>
                         ) : (
                           <span style={{ background: m.bg, color: m.fg, borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
                             {m.label}{c.warn ? " •" : ""}
                           </span>
                         )}
-                        {fc?.kind === "in" && <span title={fcTip} style={{ marginLeft: 3, color: "#7dd3fc" }}>⚡</span>}
-                        {fc?.kind === "review" && <span title={fcTip} style={{ marginLeft: 3, color: "#fbbf24" }}>⚡?</span>}
                       </td>
                     );
                   })}
