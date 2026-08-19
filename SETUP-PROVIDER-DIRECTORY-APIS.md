@@ -81,16 +81,38 @@ configurada, su botón dice claramente "no configurado" — no rompe nada.
 2. Suscríbete y copia la URL base del entorno de producción.
 3. Variable: `FHIR_HUMANA_BASE` (más las de API key/OAuth si tu suscripción las requiere).
 
-### Centene — cubre Sunshine Health, Ambetter y Simply Healthcare (y WellCare)
-1. Entra a **developer.centene.com** (Partner Portal de Centene) → crea cuenta → busca **"FHIR - Provider Directory"** en el catálogo de APIs.
-2. Centene agrupa sus marcas bajo la misma plataforma; confirma en el portal si te da una sola URL base para todas o una por marca/estado (Florida).
-3. Variables — usa la(s) misma(s) URL que te dé Centene, una por marca que uses:
-   `FHIR_SUNSHINE_BASE`, `FHIR_AMBETTER_BASE`, `FHIR_SIMPLY_BASE`, `FHIR_WELLCARE_BASE`.
+### Centene — Ambetter, Sunshine Health, Simply Healthcare y WellCare (verificado — ya configurado, sin registro)
+Confirmé en vivo en **partners.centene.com/apis** que las 4 marcas comparten
+**una sola API pública "FHIR - Provider Directory" (v4.0.1), con
+Authentication Type: None** — igual que UnitedHealthcare, sin necesidad de
+cuenta ni credenciales. Ya quedó configurada en Vercel:
 
-### Florida Blue (GuideWell)
-1. Entra a **developer.bcbsfl.com** → API Developer Portal → producto **"Provider Directory"**.
-2. Regístrate y sigue el flujo de "Getting Started" para obtener acceso.
-3. Variable: `FHIR_FLORIDABLUE_BASE` (más credenciales si el portal las exige).
+| Variable | Valor |
+|---|---|
+| `FHIR_AMBETTER_BASE` | `https://iopc-pd.api.centene.com/iopc/pd/fhir/providerdirectory` |
+| `FHIR_SIMPLY_BASE` | `https://iopc-pd.api.centene.com/iopc/pd/fhir/providerdirectory` |
+| `FHIR_SUNSHINE_BASE` | `https://iopc-pd.api.centene.com/iopc/pd/fhir/providerdirectory` |
+| `FHIR_WELLCARE_BASE` | `https://iopc-pd.api.centene.com/iopc/pd/fhir/providerdirectory` |
+
+> Detalle técnico (ya resuelto en el código, no tienes que hacer nada): igual
+> que Aetna, su Practitioner no soporta búsqueda por `identifier` (NPI) — solo
+> por nombre — así que usa el mismo respaldo por nombre. Tampoco documenta un
+> parámetro `active` en PractitionerRole, así que usa el mismo respaldo "sin
+> filtro" que se agregó para UnitedHealthcare.
+
+### Florida Blue (GuideWell) — portal confirmado, falta que te registres
+Confirmé en vivo que **developer.bcbsfl.com** sí tiene un producto llamado
+**"Provider Directory 1.0.0"** activo (junto a PDEX FHIR Service, Patient
+Access, Payer2Payer). El registro es gratis ("Create a new account and get
+started with our APIs. It's free to join.") — el detalle técnico exacto
+(URL base, si pide API key u OAuth2) está detrás del login, así que no lo
+pude confirmar sin una cuenta.
+1. Entra a **developer.bcbsfl.com** → **Create a new account** (arriba a la derecha) → completa tus datos y confirma el email.
+2. Una vez adentro, ve a **API Products** → abre **"Provider Directory"**.
+3. Suscríbete al producto (puede pedir aprobación o darte acceso al instante — Florida Blue no especifica un plazo como Aetna).
+4. Ahí mismo debería darte la URL base del servidor FHIR y, si aplica, un API key o Client ID/Secret.
+5. Variable: `FHIR_FLORIDABLUE_BASE` con esa URL (más `FHIR_FLORIDABLUE_APIKEY` o `FHIR_FLORIDABLUE_CLIENT_ID`/`_CLIENT_SECRET`/`_TOKEN_URL` si el portal te da credenciales).
+6. Si tienes dudas técnicas, el soporte del portal es **InteroperabilityAPIs@floridablue.com**.
 
 ### Molina
 1. Entra a **developer.interop.molinahealthcare.com** → documentación/registro del **Provider Online Directory**.
