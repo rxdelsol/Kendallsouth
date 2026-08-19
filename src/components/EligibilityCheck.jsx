@@ -358,41 +358,61 @@ export default function EligibilityCheck() {
             ⚡ Verificar seguros comerciales (Provider Directory oficial)
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {fhirButtons.map((b) => {
-              const busy = !!verifyingFhir[b.fhirKey];
-              const prog = fhirProgress[b.fhirKey];
-              const byNpi = fhirStatus[b.fhirKey];
-              const done = byNpi && !busy;
-              const configuredCount = done ? Object.values(byNpi).filter((s) => s.configured).length : 0;
-              const inCount = done ? Object.values(byNpi).filter((s) => s.inNetwork).length : 0;
-              const allUnconfigured = done && configuredCount === 0;
-              return (
-                <button
-                  key={b.fhirKey}
-                  onClick={() => verifyFhirPayer(b.fhirKey)}
-                  disabled={busy}
-                  title={done && allUnconfigured ? "No configurado aún — ver SETUP-PROVIDER-DIRECTORY-APIS.md" : `Verificar ${b.family} en su Provider Directory oficial`}
-                  style={{
-                    background: busy ? "#334155" : allUnconfigured ? "#3f2d0e" : "#0e7490",
-                    color: allUnconfigured ? "#fde68a" : "#e0f2fe",
-                    border: "none",
-                    borderRadius: 6,
-                    padding: "6px 10px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: busy ? "default" : "pointer",
-                  }}
-                >
-                  {busy
-                    ? `${b.family}… ${prog?.done ?? 0}/${prog?.total ?? 0}`
-                    : done
-                    ? allUnconfigured
-                      ? `${b.family}: no configurado`
-                      : `${b.family}: ${inCount}/${configuredCount} en red`
-                    : `Verificar ${b.family}`}
-                </button>
-              );
-            })}
+            {(() => {
+              // Varias aseguradoras (Ambetter/Simply Healthcare/Sunshine
+              // Health/WellCare) comparten UN MISMO servidor FHIR de Centene.
+              // Si se lanzan dos o más verificaciones a la vez, cada una dispara
+              // 12 llamadas concurrentes (una por doctor) y ese servidor
+              // compartido recibe 24-48+ llamadas simultáneas — en la práctica
+              // esto lo satura y empieza a devolver "no encontrado" para
+              // doctores que sí están en la red (falsos negativos, confirmado
+              // probando la misma aseguradora sola vs. varias a la vez). Por
+              // eso mientras UNA verificación esté en curso, se deshabilitan
+              // TODAS las demás — se verifican de a una, en fila.
+              const anyFhirBusy = Object.values(verifyingFhir).some(Boolean);
+              return fhirButtons.map((b) => {
+                const busy = !!verifyingFhir[b.fhirKey];
+                const prog = fhirProgress[b.fhirKey];
+                const byNpi = fhirStatus[b.fhirKey];
+                const done = byNpi && !busy;
+                const configuredCount = done ? Object.values(byNpi).filter((s) => s.configured).length : 0;
+                const inCount = done ? Object.values(byNpi).filter((s) => s.inNetwork).length : 0;
+                const allUnconfigured = done && configuredCount === 0;
+                const disabledByOther = anyFhirBusy && !busy;
+                return (
+                  <button
+                    key={b.fhirKey}
+                    onClick={() => verifyFhirPayer(b.fhirKey)}
+                    disabled={busy || disabledByOther}
+                    title={
+                      disabledByOther
+                        ? "Espera a que termine la verificación en curso (varias aseguradoras comparten servidor — se hacen de a una para no saturarlo)"
+                        : done && allUnconfigured
+                        ? "No configurado aún — ver SETUP-PROVIDER-DIRECTORY-APIS.md"
+                        : `Verificar ${b.family} en su Provider Directory oficial`
+                    }
+                    style={{
+                      background: busy ? "#334155" : disabledByOther ? "#1e293b" : allUnconfigured ? "#3f2d0e" : "#0e7490",
+                      color: disabledByOther ? "#475569" : allUnconfigured ? "#fde68a" : "#e0f2fe",
+                      border: "none",
+                      borderRadius: 6,
+                      padding: "6px 10px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: busy || disabledByOther ? "default" : "pointer",
+                    }}
+                  >
+                    {busy
+                      ? `${b.family}… ${prog?.done ?? 0}/${prog?.total ?? 0}`
+                      : done
+                      ? allUnconfigured
+                        ? `${b.family}: no configurado`
+                        : `${b.family}: ${inCount}/${configuredCount} en red`
+                      : `Verificar ${b.family}`}
+                  </button>
+                );
+              });
+            })()}
           </div>
           <div style={{ marginTop: 6, color: "#64748b", fontSize: 11 }}>
             Cada aseguradora publica su propio Provider Directory (exigido por CMS); necesitas registrarte gratis en el
