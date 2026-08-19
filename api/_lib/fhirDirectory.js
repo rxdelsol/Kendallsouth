@@ -200,21 +200,32 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
             : {}),
         };
       }
-      // Pide el/los PractitionerRole de este practitioner. Algunos servidores
-      // (ej. UHC/Optum) ignoran o rechazan `active=true` como filtro combinado;
-      // por eso además probamos sin ese filtro y unimos ambos resultados para
-      // no perder roles solo por una diferencia de parámetros soportados.
-      const roles = await fhirGet(cfg.base, `/PractitionerRole?practitioner=${encodeURIComponent(foundPractitioner.id)}&active=true&_count=50`, headers);
-      twoStepRolesSearch = roles;
-      if (roles.ok && roles.json) {
-        roleResources = entriesOf(roles.json).filter((r) => r.resourceType === 'PractitionerRole');
-      }
-      if (!roleResources.length) {
-        const rolesNoFilter = await fhirGet(cfg.base, `/PractitionerRole?practitioner=${encodeURIComponent(foundPractitioner.id)}&_count=50`, headers);
-        twoStepRolesSearchNoFilter = rolesNoFilter;
+      // Pide el/los PractitionerRole de este practitioner. Dos cosas varían
+      // entre servidores y hay que probar combinaciones:
+      // 1) el formato de la referencia — algunos (ej. UHC/Optum) aceptan el
+      //    id "pelado" (5350887), otros (ej. Centene) EXIGEN la referencia
+      //    completa "Practitioner/5350887" y devuelven 0 resultados (sin
+      //    error) con el id pelado.
+      // 2) el filtro `active=true` — algunos servidores (ej. UHC/Optum)
+      //    lo ignoran o rechazan y devuelven 0 resultados con él puesto.
+      // Probamos las combinaciones en orden y nos quedamos con la primera
+      // que traiga resultados, para no perder roles solo por una diferencia
+      // de formato/parámetros soportados por el servidor.
+      const practitionerRefCandidates = [foundPractitioner.id, `Practitioner/${foundPractitioner.id}`];
+      for (const ref of practitionerRefCandidates) {
+        const roles = await fhirGet(cfg.base, `/PractitionerRole?practitioner=${encodeURIComponent(ref)}&active=true&_count=50`, headers);
+        if (!twoStepRolesSearch) twoStepRolesSearch = roles;
+        if (roles.ok && roles.json) {
+          roleResources = entriesOf(roles.json).filter((r) => r.resourceType === 'PractitionerRole');
+        }
+        if (roleResources.length) break;
+
+        const rolesNoFilter = await fhirGet(cfg.base, `/PractitionerRole?practitioner=${encodeURIComponent(ref)}&_count=50`, headers);
+        if (!twoStepRolesSearchNoFilter) twoStepRolesSearchNoFilter = rolesNoFilter;
         if (rolesNoFilter.ok && rolesNoFilter.json) {
           roleResources = entriesOf(rolesNoFilter.json).filter((r) => r.resourceType === 'PractitionerRole');
         }
+        if (roleResources.length) break;
       }
     }
 
