@@ -6,9 +6,25 @@ import {
   doctorCredentials,
 } from "../utils/credStatus";
 
+// Catálogo de aseguradoras con Provider Directory FHIR (debe coincidir con
+// FHIR_PAYERS en api/_lib/fhirDirectory.js). El buscador consulta el directorio
+// oficial EN VIVO de cada una para el NPI, exista o no en tu sistema.
+const DIR_PAYERS = [
+  { key: "aetna", label: "Aetna" },
+  { key: "humana", label: "Humana" },
+  { key: "unitedhealthcare", label: "UnitedHealthcare" },
+  { key: "florida_blue", label: "Florida Blue" },
+  { key: "molina", label: "Molina" },
+  { key: "sunshine", label: "Sunshine Health" },
+  { key: "ambetter", label: "Ambetter" },
+  { key: "simply", label: "Simply Healthcare" },
+  { key: "wellcare", label: "WellCare" },
+];
+
 // Busca un NPI en el registro NACIONAL (NPPES) — no solo en el tracker — y muestra
-// al proveedor con sus seguros del tracker (fuente real de la participación comercial)
-// + verificación pública de Medicare. Funciona aunque el proveedor no esté en tu sitio.
+// al proveedor con su participación REAL en cada aseguradora (directorio oficial FHIR
+// en vivo) + verificación pública de Medicare. Funciona aunque el proveedor no esté
+// en tu sitio, y permite agregarlo/actualizarlo en tu sistema.
 export default function ProviderLookup() {
   const [doctors, setDoctors] = useState([]);
   const [insurances, setInsurances] = useState([]);
@@ -26,6 +42,12 @@ export default function ProviderLookup() {
   const [adding, setAdding] = useState(false);
   const [addForm, setAddForm] = useState(null);
   const [addMsg, setAddMsg] = useState(null); // 'ok' | 'warn' | 'error'
+
+  // Directorio oficial en vivo (participación real por aseguradora)
+  const [directory, setDirectory] = useState(null); // { [payerKey]: result }
+  const [dirLoading, setDirLoading] = useState(false);
+  const [savingPayer, setSavingPayer] = useState(null);
+  const [dirMsg, setDirMsg] = useState(null); // 'ok' | 'error'
 
   useEffect(() => {
     (async () => {
@@ -100,6 +122,13 @@ export default function ProviderLookup() {
     ? docInsurances.filter((i) => !(i.network || "").toLowerCase().includes("out"))
     : docInsurances;
 
+  // ¿Ya existe este seguro (por nombre) en el tracker para este proveedor?
+  const hasInTracker = (label) =>
+    docInsurances.some((i) => {
+      const a = norm(i.name), b = norm(label);
+      return a === b || a.includes(b) || b.includes(a);
+    });
+
   const stats = useMemo(() => {
     const s = { active: 0, out: 0, soon: 0, expired: 0 };
     docInsurances.forEach((i) => {
@@ -128,17 +157,23 @@ export default function ProviderLookup() {
     if (isNpi(query)) {
       setSearching(true);
       setNppes(null); setMedicare(null);
+      setDirectory(null); setDirMsg(null);
       try {
         const [n, m] = await Promise.all([
           fetch(`/api/verify-npi?npi=${encodeURIComponent(query)}`).then((r) => r.json()).catch(() => null),
           fetch(`/api/verify-medicare?npi=${encodeURIComponent(query)}`).then((r) => r.json()).catch(() => null),
         ]);
         setNppes(n); setMedicare(m);
+        // Directorio oficial en vivo de cada aseguradora. Pasamos el nombre para
+        // los pagadores que no buscan por NPI directo (ej. Aetna/Centene).
+        const provName = (localByNpi && localByNpi.name) || (n && n.name) || "";
+        setDirLoading(true);
+        fetchDirectory(query, provName).finally(() => setDirLoading(false));
       } finally {
         setSearching(false);
       }
     } else {
-      setNppes(null); setMedicare(null);
+      setNppes(null); setMedicare(null); setDirectory(null); setDirMsg(null);
     }
   }
 
@@ -146,6 +181,52 @@ export default function ProviderLookup() {
     const dr = await fetch("/api/get-doctors").then((r) => r.json()).catch(() => null);
     if (dr?.ok) setDoctors(dr.data || []);
     return dr?.data || [];
+  }
+
+  async function reloadInsurances() {
+    const ir = await fetch("/api/get-insurances").then((r) => r.json()).catch(() => null);
+    if (ir?.ok) setInsurances(ir.data || []);
+    return ir?.data || [];
+  }
+
+  // Consulta el Provider Directory FHIR oficial de las 9 aseguradoras en paralelo.
+  async function fetchDirectory(npi, name) {
+    const entries = await Promise.all(
+      DIR_PAYERS.map(async (p) => {
+        try {
+          const url = `/api/verify-provider-directory?payer=${p.key}&npi=${encodeURIComponent(npi)}${name ? `&name=${encodeURIComponent(name)}` : ""}`;
+          const r = await fetch(url).then((x) => x.json());
+          return [p.key, r];
+        } catch (e) {
+          return [p.key, { ok: false, error: "sin conexión" }];
+        }
+      })
+    );
+    setDirectory(Object.fromEntries(entries));
+  }
+
+  // Agrega/actualiza el seguro en tu sistema a partir del directorio oficial.
+  async function addFromDirectory(payer) {
+    if (!provider) return;
+    setSavingPayer(payer.key); setDirMsg(null);
+    try {
+      const res = await fetch("/api/save-insurance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: payer.label,
+          doctorName: provider.name,
+          network: "In Network",
+          notes: `Directorio oficial ${payer.label} · ${new Date().toLocaleDateString()}`,
+        }),
+      }).then((r) => r.json());
+      if (res.ok) { await reloadInsurances(); setDirMsg("ok"); }
+      else setDirMsg("error");
+    } catch (e) {
+      setDirMsg("error");
+    } finally {
+      setSavingPayer(null);
+    }
   }
 
   function openAdd() {
@@ -195,7 +276,8 @@ export default function ProviderLookup() {
       <h2 className="text-sky-200 font-semibold mb-1">Buscar proveedor por NPI</h2>
       <p className="text-slate-400 text-xs mb-3">
         Escribe un <strong>NPI</strong> (se busca en el registro nacional NPPES, no solo en tu sitio) o un nombre.
-        Los seguros salen de tu tracker; Medicare se verifica con datos públicos.
+        Al buscar por NPI se consulta además el <strong>directorio oficial en vivo</strong> de cada aseguradora
+        (participación real), y podés agregar lo que falte a tu sistema. Medicare se verifica con datos públicos.
       </p>
 
       <div className="ins-filters">
@@ -307,6 +389,93 @@ export default function ProviderLookup() {
                   !medicare.verified ? <span className="v-muted">no verificado ({medicare.reason || "sin configurar"})</span> :
                   medicare.enrolled ? <span className="v-ok">Inscrito{medicare.state ? ` · ${medicare.state}` : ""}</span> :
                   <span className="v-bad">No aparece en el padrón</span>}
+              </div>
+            </div>
+          )}
+
+          {/* Participación oficial en aseguradoras (directorio FHIR en vivo) */}
+          {(dirLoading || directory) && (
+            <div className="verify-box">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h4 className="form-section" style={{ margin: 0 }}>
+                  Participación en aseguradoras — directorio oficial en vivo
+                </h4>
+                {dirLoading && <span className="v-muted" style={{ fontSize: 12 }}>Consultando…</span>}
+              </div>
+              <p className="guide-note" style={{ marginTop: 4 }}>
+                Estado real publicado por cada aseguradora para este NPI — todas las que existen,
+                esté o no el proveedor en tu sistema.
+              </p>
+
+              {dirMsg === "ok" && <div className="v-ok" style={{ marginBottom: 6 }}>✓ Agregado a tu sistema. Ya aparece en la lista de seguros.</div>}
+              {dirMsg === "error" && <div className="v-bad" style={{ marginBottom: 6 }}>No se pudo guardar. Revisa la conexión con Supabase.</div>}
+
+              <div className="overflow-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="text-slate-300">
+                    <tr>
+                      <th className="p-2" style={{ textAlign: "left" }}>Aseguradora</th>
+                      <th className="p-2" style={{ textAlign: "left" }}>Estado en su directorio</th>
+                      <th className="p-2" style={{ textAlign: "left" }}>Cómo aparece</th>
+                      <th className="p-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-slate-200">
+                    {DIR_PAYERS.map((p) => {
+                      const r = directory ? directory[p.key] : undefined;
+                      const already = hasInTracker(p.label);
+                      let statusEl = <span className="v-muted">…</span>;
+                      let detailEl = <span className="v-muted">—</span>;
+                      let canAdd = false;
+                      if (r === undefined) {
+                        statusEl = <span className="v-muted">…</span>;
+                      } else if (r && r.ok === false) {
+                        statusEl = <span className="v-muted">Error ({r.error || "sin datos"})</span>;
+                      } else if (r && r.configured === false) {
+                        statusEl = <span className="v-muted">No configurado</span>;
+                      } else if (r && r.inNetwork) {
+                        statusEl = <span className="badge-in">En red ✓</span>;
+                        canAdd = !already;
+                        const roles = r.roles || [];
+                        const specs = [...new Set(roles.flatMap((x) => x.specialty || []))].slice(0, 3);
+                        const nets = [...new Set(roles.flatMap((x) => x.network || []))].slice(0, 2);
+                        detailEl = (
+                          <span>
+                            {roles.length} registro{roles.length === 1 ? "" : "s"}
+                            {specs.length ? ` · ${specs.join(", ")}` : ""}
+                            {nets.length ? ` · ${nets.join(", ")}` : ""}
+                          </span>
+                        );
+                      } else if (r && r.foundPractitioner) {
+                        statusEl = <span className="badge-out">Sin rol activo</span>;
+                        detailEl = <span className="v-muted">Aparece pero sin red activa</span>;
+                      } else if (r) {
+                        statusEl = <span className="v-muted">No aparece</span>;
+                      }
+                      return (
+                        <tr key={p.key} className="border-t border-slate-800">
+                          <td className="p-2">{p.label}</td>
+                          <td className="p-2">{statusEl}</td>
+                          <td className="p-2">{detailEl}</td>
+                          <td className="p-2" style={{ textAlign: "right" }}>
+                            {already ? (
+                              <span className="v-ok" style={{ fontSize: 11 }}>En tu sistema</span>
+                            ) : canAdd ? (
+                              <button
+                                className="btn-red"
+                                style={{ padding: "4px 10px", fontSize: 12 }}
+                                disabled={savingPayer === p.key}
+                                onClick={() => addFromDirectory(p)}
+                              >
+                                {savingPayer === p.key ? "Guardando…" : "➕ Agregar"}
+                              </button>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
