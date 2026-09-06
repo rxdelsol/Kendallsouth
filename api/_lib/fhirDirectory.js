@@ -250,13 +250,27 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
 
     // 1) Intento directo: PractitionerRole encadenado por NPI del practitioner.
     //    Muchos servidores Plan-Net soportan esta búsqueda encadenada en una sola llamada.
-    const chainedQ = `/PractitionerRole?practitioner.identifier=${encodeURIComponent(NPI_SYSTEM + '|' + npi)}&active=true&_count=50`;
-    let chained = await fhirGet(cfg.base, chainedQ + INCLUDES, headers);
+    //    OJO: no todos indexan el identifier con su `system`. Varios (ej. Molina,
+    //    que en su portal público sí matchea "PROVIDER IDENTIFIER") devuelven 0
+    //    resultados con `system|valor` y sí encuentran con el NPI pelado. Por eso
+    //    se prueban las dos formas — antes esto hacía que el proveedor solo se
+    //    encontrara de rebote por apellido, o directamente saliera "No aparece".
+    const idForms = [NPI_SYSTEM + '|' + npi, npi];
+    const chainedQs = idForms.map(
+      (v) => `/PractitionerRole?practitioner.identifier=${encodeURIComponent(v)}&active=true&_count=50`
+    );
+    const chainedTries = await Promise.all(chainedQs.map((q) => fhirGet(cfg.base, q + INCLUDES, headers)));
+    let chained = chainedTries.find((r) => r.ok && entriesOf(r.json).some((x) => x.resourceType === 'PractitionerRole'))
+      || chainedTries.find((r) => r.ok)
+      || chainedTries[0];
     // Algunos servidores rechazan _include desconocidos con 400: reintentar sin él.
     if (!chained.ok && !chained.timedOut) {
-      const plain = await fhirGet(cfg.base, chainedQ, headers);
-      if (plain.ok) chained = plain;
+      const plainTries = await Promise.all(chainedQs.map((q) => fhirGet(cfg.base, q, headers)));
+      const plain = plainTries.find((r) => r.ok && entriesOf(r.json).some((x) => x.resourceType === 'PractitionerRole'))
+        || plainTries.find((r) => r.ok);
+      if (plain) chained = plain;
     }
+    for (const r of chainedTries) absorb(r.json);
     absorb(chained.json);
 
     let roleResources = chained.ok && chained.json ? entriesOf(chained.json).filter((r) => r.resourceType === 'PractitionerRole') : [];
@@ -268,11 +282,22 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
 
     if (!chained.ok || !roleResources.length) {
       // 2) Alternativa en dos pasos: buscar el Practitioner por NPI y luego su(s) PractitionerRole.
-      const pr = await fhirGet(cfg.base, `/Practitioner?identifier=${encodeURIComponent(NPI_SYSTEM + '|' + npi)}`, headers);
+      const prTries = await Promise.all(
+        idForms.map((v) => fhirGet(cfg.base, `/Practitioner?identifier=${encodeURIComponent(v)}`, headers))
+      );
+      for (const r of prTries) absorb(r.json);
+      // Nos quedamos con la primera forma del identifier que devuelva un
+      // Practitioner cuyo NPI realmente coincida (nunca al revés).
+      let practitioners = [];
+      let pr = prTries[0];
+      for (const r of prTries) {
+        const found = r.ok && r.json ? entriesOf(r.json).filter((x) => x.resourceType === 'Practitioner') : [];
+        const exact = found.filter((x) => practitionerHasNpi(x, npi));
+        if (exact.length) { practitioners = exact; pr = r; break; }
+        if (found.length && !practitioners.length) { practitioners = found; pr = r; }
+      }
       twoStepPractitionerSearch = pr;
-      absorb(pr.json);
-      let practitioners = pr.ok && pr.json ? entriesOf(pr.json).filter((r) => r.resourceType === 'Practitioner') : [];
-      foundPractitioner = practitioners[0] || null;
+      foundPractitioner = practitioners.find((x) => practitionerHasNpi(x, npi)) || practitioners[0] || null;
       searchStrategy = 'two-step-identifier';
 
       // 3) Fallback: algunos pagadores (ej. Aetna) NO soportan `identifier` como
