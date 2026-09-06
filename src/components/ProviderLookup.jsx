@@ -5,6 +5,7 @@ import {
   STATUS_META,
   doctorCredentials,
 } from "../utils/credStatus";
+import { deaCheck, DEA_STATE_META } from "../utils/dea";
 
 // Catálogo de aseguradoras con Provider Directory FHIR (debe coincidir con
 // FHIR_PAYERS en api/_lib/fhirDirectory.js). El buscador consulta el directorio
@@ -787,6 +788,23 @@ export default function ProviderLookup() {
                   </span>
                 ))}
               </div>
+
+              {/* Comprobación del número DEA. El vencimiento del registro no
+                  es un dato público (la DEA vende el archivo vía NTIS), pero
+                  que el número esté bien escrito sí se puede verificar acá. */}
+              {(() => {
+                const dc = deaCheck(localDoctor?.dea, localDoctor?.name);
+                if (dc.state === "empty") return null;
+                const meta = DEA_STATE_META[dc.state];
+                return (
+                  <div className="verify-row" style={{ marginTop: 6, fontSize: 12 }}>
+                    <strong>DEA {localDoctor.dea}:</strong>{" "}
+                    <span className={meta.cls}>{meta.icon} {dc.label}</span>
+                    {dc.tipo ? <span className="v-muted"> · {dc.tipo}</span> : null}
+                    {dc.hint ? <div className="v-muted">{dc.hint}</div> : null}
+                  </div>
+                );
+              })()}
             </>
           )}
 
