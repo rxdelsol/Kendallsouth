@@ -1,67 +1,101 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-:root{ --navy:#081028; --card:#0d1b33; }
-body { @apply bg-navy; }
-select{ background-color:#0b1a33; color:#fff; border:1px solid #2e4a75; border-radius:8px; padding:8px 36px 8px 12px; appearance:none; background-image: url("data:image/svg+xml;utf8,<svg fill='%2300bfa6' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>"); background-repeat:no-repeat; background-position: right 10px center; }
-.toast{ position:fixed; right:20px; bottom:20px; background:#063447; color:#d6fff3; padding:10px 14px; border-radius:8px; box-shadow:0 6px 18px rgba(2,6,23,0.6); z-index:9999 }
-.modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:2000 }
-.modal{ background:var(--card); padding:18px; border-radius:10px; width:520px; color:#e6f6ff }
-.btn-red{ background:#c53030; color:white; padding:8px 12px; border-radius:8px }
-.btn-cancel{ background:transparent; border:1px solid rgba(255,255,255,0.06); color:#dbefff; padding:8px 12px; border-radius:8px }
-.badge-in{ background:#2563eb; color:white; padding:4px 8px; border-radius:999px; font-size:12px }
-.badge-out{ background:#6b7280; color:white; padding:4px 8px; border-radius:999px; font-size:12px }
-.highlight-yellow{ background:#7c5e2e }
-.highlight-red{ background:#4b1e1e }
+
+/* ============================================================
+   Tema claro. Misma paleta que la ficha del proveedor: tinta
+   sobre papel, y el color reservado para medir tiempo.
+   Las clases ks-* reemplazan a los colores que antes estaban
+   escritos a mano en el JSX.
+   ============================================================ */
+:root{
+  --navy:#ECEFEC; --card:#FBFCFB;
+  --page:#ECEFEC; --surface:#FBFCFB; --field:#FFFFFF; --alt:#E3E7E3;
+  --ink:#17293A; --ink2:#3E5266; --muted:#6C7F91;
+  --line:#D3DAD5; --line2:#E4E9E5;
+  --accent:#1C5E7A;
+  --ok:#2E6F5E;  --ok-bg:#E0EDE8;
+  --mid:#9B6B12; --mid-bg:#F5EAD5;
+  --hot:#A63A2C; --hot-bg:#F6E2DE;
+  --idle:#8695A0; --idle-bg:#E7EBEC;
+}
+body{ background:var(--page); color:var(--ink); }
+
+.ks-page{ background:var(--page) !important; }
+.ks-card{ background:var(--surface) !important; border:1px solid var(--line); }
+.ks-field{ background:var(--field) !important; color:var(--ink) !important; border:1px solid var(--line); border-radius:3px; }
+.ks-field:focus{ outline:2px solid var(--ink); outline-offset:1px; }
+.ks-alt{ background:var(--alt) !important; color:var(--ink) !important; }
+.ks-ink{ color:var(--ink) !important; }
+.ks-ink2{ color:var(--ink2) !important; }
+.ks-muted{ color:var(--muted) !important; }
+.ks-accent{ color:var(--accent) !important; }
+.ks-ok{ color:var(--ok) !important; }
+
+select{ background-color:var(--field); color:var(--ink); border:1px solid var(--line); border-radius:3px; padding:8px 36px 8px 12px; appearance:none; background-image: url("data:image/svg+xml;utf8,<svg fill='%236C7F91' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>"); background-repeat:no-repeat; background-position: right 10px center; }
+.toast{ position:fixed; right:20px; bottom:20px; background:var(--ink); color:var(--surface); padding:10px 14px; border-radius:3px; box-shadow:0 10px 30px -14px rgba(22,35,42,.6); z-index:9999 }
+.modal-backdrop{ position:fixed; inset:0; background:rgba(23,41,58,.42); display:flex; align-items:center; justify-content:center; z-index:2000 }
+.modal{ background:var(--surface); padding:18px; border-radius:4px; width:520px; color:var(--ink); border:1px solid var(--line); box-shadow:0 14px 40px -22px rgba(22,35,42,.7) }
+.ks-btn{ background:var(--surface); color:var(--ink); border:1px solid var(--line);
+  padding:8px 12px; border-radius:3px; font-size:13px; cursor:pointer }
+.ks-btn:hover{ border-color:var(--muted) }
+.btn-red{ background:var(--ink); color:var(--surface); padding:8px 12px; border-radius:3px; border:0; cursor:pointer }
+.btn-red:hover{ background:#22384C }
+.btn-cancel{ background:transparent; border:1px solid var(--line); color:var(--ink2); padding:8px 12px; border-radius:3px; cursor:pointer }
+.btn-cancel:hover{ border-color:var(--muted); color:var(--ink) }
+.badge-in{ background:var(--ok-bg); color:var(--ok); padding:3px 9px; border-radius:999px; font-size:12px; font-weight:500 }
+.badge-out{ background:var(--idle-bg); color:var(--idle); padding:3px 9px; border-radius:999px; font-size:12px; font-weight:500 }
+.highlight-yellow{ background:var(--mid-bg) }
+.highlight-red{ background:var(--hot-bg) }
 
 /* ================= Insurances: filtros, semáforo y guía ================= */
 
 /* Tarjetas resumen */
 .ins-summary{ display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 14px }
 .sum-tile{ display:flex; flex-direction:column; align-items:center; justify-content:center;
-  min-width:92px; padding:8px 12px; border-radius:12px; background:#0b1a33;
-  border:1px solid #22385f; color:#e6f6ff; cursor:pointer; transition:.15s }
-.sum-tile:hover{ border-color:#3b5c93 }
-.sum-tile.active{ outline:2px solid #38bdf8; border-color:#38bdf8 }
+  min-width:92px; padding:8px 12px; border-radius:12px; background:var(--surface);
+  border:1px solid var(--line); color:var(--ink); cursor:pointer; transition:.15s }
+.sum-tile:hover{ border-color:var(--muted) }
+.sum-tile.active{ outline:2px solid var(--ink); border-color:var(--ink) }
 .sum-tile .sum-num{ font-size:20px; font-weight:800; line-height:1 }
-.sum-tile .sum-lbl{ font-size:11px; color:#9fb3d1; margin-top:3px }
-.sum-tile.t-expired .sum-num{ color:#f87171 }
-.sum-tile.t-30 .sum-num{ color:#fb923c }
-.sum-tile.t-60 .sum-num{ color:#facc15 }
-.sum-tile.t-nodate .sum-num{ color:#94a3b8 }
+.sum-tile .sum-lbl{ font-size:11px; color:var(--muted); margin-top:3px }
+.sum-tile.t-expired .sum-num{ color:var(--hot) }
+.sum-tile.t-30 .sum-num{ color:var(--hot) }
+.sum-tile.t-60 .sum-num{ color:var(--mid) }
+.sum-tile.t-nodate .sum-num{ color:var(--idle) }
 
 /* Barra de filtros */
 .ins-filters{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px }
-.ins-filters .flt-search{ flex:1; min-width:220px; background:#0b1a33; color:#fff;
-  border:1px solid #2e4a75; border-radius:8px; padding:8px 12px }
+.ins-filters .flt-search{ flex:1; min-width:220px; background:var(--field); color:var(--ink);
+  border:1px solid var(--line); border-radius:3px; padding:8px 12px }
 .ins-filters select{ min-width:140px }
-.flt-clear{ background:transparent; border:1px solid #3b5c93; color:#dbefff;
-  padding:8px 12px; border-radius:8px; cursor:pointer }
-.flt-clear:hover{ background:#12233f }
+.flt-clear{ background:transparent; border:1px solid var(--line); color:var(--ink2);
+  padding:8px 12px; border-radius:3px; cursor:pointer }
+.flt-clear:hover{ background:var(--alt) }
 
 /* Semáforo (pill de Days Left) */
 .sem-pill{ display:inline-block; min-width:44px; text-align:center; padding:3px 8px;
   border-radius:999px; font-size:12px; font-weight:700 }
-.sem-expired{ background:#7f1d1d; color:#fecaca }
-.sem-30{ background:#7c2d12; color:#fed7aa }
-.sem-60{ background:#713f12; color:#fde68a }
-.sem-90{ background:#164e63; color:#a5f3fc }
-.sem-ok{ background:#14532d; color:#bbf7d0 }
-.sem-nodate{ background:#334155; color:#cbd5e1 }
+.sem-expired{ background:var(--hot-bg); color:var(--hot) }
+.sem-30{ background:var(--hot-bg); color:var(--hot) }
+.sem-60{ background:var(--mid-bg); color:var(--mid) }
+.sem-90{ background:var(--mid-bg); color:var(--mid) }
+.sem-ok{ background:var(--ok-bg); color:var(--ok) }
+.sem-nodate{ background:var(--idle-bg); color:var(--idle) }
 
 /* Modal de guía */
 .guide-modal{ width:760px; max-width:94vw; max-height:88vh; overflow:auto }
 .guide-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px }
-.guide-sub{ font-size:12px; color:#9fb3d1; margin-top:4px }
-.guide-portal{ margin:12px 0; padding:8px 12px; background:#0b1a33; border:1px solid #22385f;
-  border-radius:8px; font-size:13px; color:#dbefff }
+.guide-sub{ font-size:12px; color:var(--muted); margin-top:4px }
+.guide-portal{ margin:12px 0; padding:8px 12px; background:var(--surface); border:1px solid var(--line);
+  border-radius:8px; font-size:13px; color:var(--ink2) }
 .guide-cols{ display:grid; grid-template-columns:1fr 1fr; gap:16px }
 @media (max-width:640px){ .guide-cols{ grid-template-columns:1fr } }
 .guide-cols h4{ font-size:13px; color:#93c5fd; margin:0 0 6px }
 .guide-cols h4.hl{ color:#34d399 }
 .guide-cols ol{ margin:0; padding-left:18px }
-.guide-cols li{ font-size:13px; color:#dbe7f7; margin-bottom:6px; line-height:1.35 }
-.guide-docs{ margin-top:14px; font-size:12px; color:#cbd5e1 }
+.guide-cols li{ font-size:13px; color:var(--ink); margin-bottom:6px; line-height:1.35 }
+.guide-docs{ margin-top:14px; font-size:12px; color:var(--ink2) }
 .guide-deadline{ margin-top:8px; font-size:13px; color:#fde68a }
 .guide-note{ margin-top:10px; font-size:11px; color:#8090a8; font-style:italic }
 
@@ -69,34 +103,34 @@ select{ background-color:#0b1a33; color:#fff; border:1px solid #2e4a75; border-r
 .cred-pills{ display:flex; gap:4px; flex-wrap:wrap }
 .sem-mini{ min-width:0; padding:2px 6px; font-size:11px }
 .cred-detail{ width:100%; border-collapse:collapse; margin-top:8px; font-size:13px }
-.cred-detail th{ text-align:left; color:#9fb3d1; padding:6px 8px; border-bottom:1px solid #22385f; font-weight:600 }
-.cred-detail td{ padding:8px; border-bottom:1px solid #16233b; vertical-align:top; color:#dbe7f7 }
+.cred-detail th{ text-align:left; color:var(--muted); padding:6px 8px; border-bottom:1px solid var(--line); font-weight:600 }
+.cred-detail td{ padding:8px; border-bottom:1px solid var(--line2); vertical-align:top; color:var(--ink) }
 .cred-detail .cred-action{ color:#aebfd6; font-size:12px }
 
 /* Formulario de doctor */
-.form-section{ margin:16px 0 2px; font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:#7db1f0 }
-.form-date{ display:flex; flex-direction:column; gap:2px; font-size:11px; color:#9fb3d1 }
+.form-section{ margin:16px 0 2px; font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--accent) }
+.form-date{ display:flex; flex-direction:column; gap:2px; font-size:11px; color:var(--muted) }
 .form-date input{ color-scheme:dark }
 
 /* Buscar por NPI */
 .sum-tile.t-active .sum-num{ color:#4ade80 }
 .npi-matches{ display:flex; flex-direction:column; gap:6px; margin:8px 0 }
-.npi-match{ text-align:left; background:#0b1a33; border:1px solid #22385f; border-radius:8px;
-  padding:8px 12px; color:#e6f6ff; cursor:pointer }
-.npi-match:hover{ border-color:#38bdf8 }
-.npi-match span{ color:#9fb3d1; font-size:12px; margin-left:8px }
-.npi-card{ margin-top:12px; padding:14px; background:#0b1a33; border:1px solid #22385f; border-radius:12px }
+.npi-match{ text-align:left; background:var(--surface); border:1px solid var(--line); border-radius:8px;
+  padding:8px 12px; color:var(--ink); cursor:pointer }
+.npi-match:hover{ border-color:var(--accent) }
+.npi-match span{ color:var(--muted); font-size:12px; margin-left:8px }
+.npi-card{ margin-top:12px; padding:14px; background:var(--surface); border:1px solid var(--line); border-radius:12px }
 .npi-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px }
 
 /* Verificación externa (NPPES / Medicare / Availity) */
-.verify-box{ margin-top:12px; padding:10px 12px; background:#08152b; border:1px solid #22385f; border-radius:8px }
-.verify-row{ font-size:13px; color:#dbe7f7; margin:4px 0 }
+.verify-box{ margin-top:12px; padding:10px 12px; background:var(--surface); border:1px solid var(--line); border-radius:8px }
+.verify-row{ font-size:13px; color:var(--ink); margin:4px 0 }
 .v-ok{ color:#4ade80; font-weight:700 }
 .v-bad{ color:#f87171; font-weight:700 }
 .v-warn{ color:#fbbf24 }
 .v-muted{ color:#94a3b8 }
-.link-btn{ background:none; border:none; color:#7db1f0; cursor:pointer; padding:4px 0; font-size:12px; text-decoration:underline }
-.elig-raw{ margin-top:8px; max-height:280px; overflow:auto; background:#050d1c; border:1px solid #1c2c48;
+.link-btn{ background:none; border:none; color:var(--accent); cursor:pointer; padding:4px 0; font-size:12px; text-decoration:underline }
+.elig-raw{ margin-top:8px; max-height:280px; overflow:auto; background:var(--alt); border:1px solid var(--line);
   border-radius:8px; padding:10px; font-size:11px; color:#a5c8e6; white-space:pre-wrap; word-break:break-word }
 
 /* Formulario de elegibilidad */

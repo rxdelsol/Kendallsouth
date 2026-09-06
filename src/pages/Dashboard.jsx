@@ -63,21 +63,21 @@ export default function Dashboard(){
   return (
     <div className="max-w-6xl mx-auto">
       <section className="mt-6">
-        <h2 className="text-sky-200 text-lg font-semibold mb-2">
+        <h2 className="ks-accent text-lg font-semibold mb-2">
           Insurance Expiration Summary
         </h2>
 
-        <div className="bg-card rounded p-4 mb-4">
+        <div className="ks-card rounded p-4 mb-4">
 
           <div className="flex gap-6 mb-4">
             <div className="flex-1">
-              <p className="text-xs text-slate-200 mb-1">In Network</p>
-              <p className="text-2xl font-bold text-emerald-300">
+              <p className="text-xs ks-ink mb-1">In Network</p>
+              <p className="text-2xl font-bold ks-ok">
                 {inNetworkCount}
               </p>
             </div>
             <div className="flex-1">
-              <p className="text-xs text-slate-200 mb-1">Out of Network</p>
+              <p className="text-xs ks-ink mb-1">Out of Network</p>
               <p className="text-2xl font-bold text-red-300">
                 {outNetworkCount}
               </p>
@@ -88,7 +88,7 @@ export default function Dashboard(){
             <select 
               value={filterDoctor} 
               onChange={e => setFilterDoctor(e.target.value)} 
-              className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
+              className="p-2 rounded ks-alt ks-ink border border-slate-600"
             >
               {allDoctors.map((d, idx) => (
                 <option key={idx} value={d}>{d}</option>
@@ -98,7 +98,7 @@ export default function Dashboard(){
             <select 
               value={filterInsurance} 
               onChange={e => setFilterInsurance(e.target.value)} 
-              className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
+              className="p-2 rounded ks-alt ks-ink border border-slate-600"
             >
               {allInsurances.map((i, idx) => (
                 <option key={idx} value={i}>{i}</option>
@@ -108,7 +108,7 @@ export default function Dashboard(){
             <select 
               value={filterType} 
               onChange={e => setFilterType(e.target.value)} 
-              className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
+              className="p-2 rounded ks-alt ks-ink border border-slate-600"
             >
               {allTypes.map((t, idx) => (
                 <option key={idx} value={t}>{t}</option>
@@ -118,7 +118,7 @@ export default function Dashboard(){
             <select
               value={filterNetwork}
               onChange={e => setFilterNetwork(e.target.value)}
-              className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
+              className="p-2 rounded ks-alt ks-ink border border-slate-600"
             >
               {allNetworks.map((n, idx) => (
                 <option key={idx} value={n}>{n}</option>
@@ -126,14 +126,14 @@ export default function Dashboard(){
             </select>
 
             <div style={{ flex: 1 }} />
-            <div className="text-sm text-slate-200">
+            <div className="text-sm ks-ink">
               Showing {rows.length} records
             </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="text-slate-100 bg-[#1b355a]">
+              <thead className="ks-ink ks-alt">
                 <tr>
                   <th className="p-2 text-left">Doctor Name</th>
                   <th className="p-2 text-left">Insurance Name</th>
@@ -143,10 +143,10 @@ export default function Dashboard(){
                   <th className="p-2 text-left">Days Left</th>
                 </tr>
               </thead>
-              <tbody className="text-slate-100">
+              <tbody className="ks-ink">
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-4 text-slate-200">
+                    <td colSpan={6} className="p-4 ks-ink">
                       No records found
                     </td>
                   </tr>

@@ -95,11 +95,11 @@ export default function InsurancesTable() {
   };
 
   return (
-    <div className="bg-card rounded p-4">
-      <h2 className="text-sky-200 font-semibold mb-2">Insurances</h2>
+    <div className="ks-card rounded p-4">
+      <h2 className="ks-accent font-semibold mb-2">Insurances</h2>
       <div className="overflow-auto mb-4">
         <table className="min-w-full text-sm">
-          <thead className="text-slate-100 bg-[#1b355a]">
+          <thead className="ks-ink ks-alt">
             <tr>
               <th className="p-2">Name</th>
               <th className="p-2">Type</th>
@@ -110,7 +110,7 @@ export default function InsurancesTable() {
               <th className="p-2">Actions</th>
             </tr>
           </thead>
-          <tbody className="text-slate-100">
+          <tbody className="ks-ink">
             {list.map((i) => (
               <tr key={i.id} className="border-t border-slate-600">
                 <td className="p-2">{i.name}</td>
@@ -131,7 +131,7 @@ export default function InsurancesTable() {
                 <td className="p-2">{i.notes}</td>
                 <td className="p-2 space-x-3">
                   <button
-                    className="text-sky-300 hover:underline"
+                    className="ks-accent hover:underline"
                     onClick={() => openEditModal(i)}
                   >
                     Edit
@@ -147,7 +147,7 @@ export default function InsurancesTable() {
             ))}
             {list.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-4 text-slate-200">
+                <td colSpan={7} className="p-4 ks-ink">
                   No insurances yet
                 </td>
               </tr>
@@ -159,7 +159,7 @@ export default function InsurancesTable() {
       <div className="mt-2 text-left">
         <button
           onClick={openAddModal}
-          className="text-sky-300 hover:underline text-sm"
+          className="ks-accent hover:underline text-sm"
         >
           + Add Insurance
         </button>
@@ -167,7 +167,7 @@ export default function InsurancesTable() {
 
       {showModal && (
         <div className="modal-backdrop">
-          <div className="modal bg-[#19375f]">
+          <div className="modal ks-alt">
             <h3>{isEditing ? "Edit Insurance" : "Add Insurance"}</h3>
             <div className="grid grid-cols-1 gap-2 mt-2 text-sm">
               <input
@@ -176,7 +176,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setNewIns({ ...newIns, name: e.target.value })
                 }
-                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
+                className="p-2 rounded ks-alt ks-ink border border-slate-600"
               />
 
               <select
@@ -184,7 +184,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setNewIns({ ...newIns, type: e.target.value })
                 }
-                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
+                className="p-2 rounded ks-alt ks-ink border border-slate-600"
               >
                 <option>HMO</option>
                 <option>PPO</option>
@@ -198,7 +198,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setNewIns({ ...newIns, doctor: e.target.value })
                 }
-                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
+                className="p-2 rounded ks-alt ks-ink border border-slate-600"
               >
                 <option value="">Assign Doctor...</option>
                 {doctors.map((d) => (
@@ -213,7 +213,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setNewIns({ ...newIns, network: e.target.value })
                 }
-                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
+                className="p-2 rounded ks-alt ks-ink border border-slate-600"
               >
                 <option>In Network</option>
                 <option>Out of Network</option>
@@ -225,7 +225,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setNewIns({ ...newIns, expiration: e.target.value })
                 }
-                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
+                className="p-2 rounded ks-alt ks-ink border border-slate-600"
               />
 
               <textarea
@@ -234,7 +234,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setNewIns({ ...newIns, notes: e.target.value })
                 }
-                className="p-2 rounded bg-[#1e3d66] text-slate-100 border border-slate-600"
+                className="p-2 rounded ks-alt ks-ink border border-slate-600"
               />
             </div>
 

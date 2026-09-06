@@ -396,9 +396,9 @@ export default function ProviderLookup() {
   const clearAll = () => { setQ(""); setSelectedId(null); setNppes(null); setMedicare(null); setSearched(false); };
 
   return (
-    <div className="bg-card rounded p-4">
-      <h2 className="text-sky-200 font-semibold mb-1">Search a provider by NPI</h2>
-      <p className="text-slate-400 text-xs mb-3">
+    <div className="ks-card rounded p-4">
+      <h2 className="ks-accent font-semibold mb-1">Search a provider by NPI</h2>
+      <p className="ks-muted text-xs mb-3">
         Escribe un <strong>NPI</strong> (se busca en el record nacional NPPES, no solo en tu sitio) o un nombre.
         Al buscar por NPI se consulta además el <strong>directorio oficial en vivo</strong> de cada aseguradora
         (participación real), y podés agregar lo que falte a tu sistema. Medicare se verifica con datos públicos.
@@ -421,7 +421,7 @@ export default function ProviderLookup() {
         )}
       </div>
 
-      {loading && <p className="text-slate-400 text-sm">Loading…</p>}
+      {loading && <p className="ks-muted text-sm">Loading…</p>}
 
       {/* Varias coincidencias locales por nombre */}
       {!provider && matches.length > 1 && (
@@ -436,7 +436,7 @@ export default function ProviderLookup() {
 
       {/* NPI buscado pero no encontrado en NPPES */}
       {searched && isNpi(q) && !searching && nppes && !nppes.found && !localDoctor && (
-        <p className="text-slate-400 text-sm">El NPI {q} no aparece en el record nacional NPPES.</p>
+        <p className="ks-muted text-sm">El NPI {q} no aparece en el record nacional NPPES.</p>
       )}
 
       {/* Ficha del proveedor */}
@@ -476,13 +476,13 @@ export default function ProviderLookup() {
               <h4 className="form-section" style={{ marginTop: 0 }}>Agregar proveedor a tus doctores</h4>
               <p className="guide-note" style={{ marginTop: 0 }}>Enter the expiration dates so the status colors and the email alert can warn you before they lapse.</p>
               <div className="grid grid-cols-2 gap-2">
-                <input className="p-2 rounded bg-[#081424]" placeholder="Nombre" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} />
-                <input className="p-2 rounded bg-[#081424]" placeholder="NPI" value={addForm.npi} onChange={(e) => setAddForm({ ...addForm, npi: e.target.value })} />
-                <input className="p-2 rounded bg-[#081424]" placeholder="License #" value={addForm.license} onChange={(e) => setAddForm({ ...addForm, license: e.target.value })} />
-                <input className="p-2 rounded bg-[#081424]" placeholder="Taxonomy" value={addForm.taxonomy} onChange={(e) => setAddForm({ ...addForm, taxonomy: e.target.value })} />
-                <label className="form-date"><span>License expires</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.licenseExp} onChange={(e) => setAddForm({ ...addForm, licenseExp: e.target.value })} /></label>
+                <input className="p-2 rounded ks-field" placeholder="Nombre" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} />
+                <input className="p-2 rounded ks-field" placeholder="NPI" value={addForm.npi} onChange={(e) => setAddForm({ ...addForm, npi: e.target.value })} />
+                <input className="p-2 rounded ks-field" placeholder="License #" value={addForm.license} onChange={(e) => setAddForm({ ...addForm, license: e.target.value })} />
+                <input className="p-2 rounded ks-field" placeholder="Taxonomy" value={addForm.taxonomy} onChange={(e) => setAddForm({ ...addForm, taxonomy: e.target.value })} />
+                <label className="form-date"><span>License expires</span><input type="date" className="p-2 rounded ks-field" value={addForm.licenseExp} onChange={(e) => setAddForm({ ...addForm, licenseExp: e.target.value })} /></label>
                 <div>
-                  <input className="p-2 rounded bg-[#081424]" placeholder="DEA #" style={{ width: "100%" }}
+                  <input className="p-2 rounded ks-field" placeholder="DEA #" style={{ width: "100%" }}
                     value={addForm.dea} onChange={(e) => setAddForm({ ...addForm, dea: e.target.value })} />
                   {(() => {
                     const dc = deaCheck(addForm.dea, addForm.name);
@@ -495,10 +495,10 @@ export default function ProviderLookup() {
                     );
                   })()}
                 </div>
-                <label className="form-date"><span>DEA expires</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.deaExp} onChange={(e) => setAddForm({ ...addForm, deaExp: e.target.value })} /></label>
-                <label className="form-date"><span>CAQH last attestation</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.caqhAttested} onChange={(e) => setAddForm({ ...addForm, caqhAttested: e.target.value })} /></label>
-                <label className="form-date"><span>Malpractice expires</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.malpracticeExp} onChange={(e) => setAddForm({ ...addForm, malpracticeExp: e.target.value })} /></label>
-                <label className="form-date"><span>Medicare revalidation</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.medicareRevalidation} onChange={(e) => setAddForm({ ...addForm, medicareRevalidation: e.target.value })} /></label>
+                <label className="form-date"><span>DEA expires</span><input type="date" className="p-2 rounded ks-field" value={addForm.deaExp} onChange={(e) => setAddForm({ ...addForm, deaExp: e.target.value })} /></label>
+                <label className="form-date"><span>CAQH last attestation</span><input type="date" className="p-2 rounded ks-field" value={addForm.caqhAttested} onChange={(e) => setAddForm({ ...addForm, caqhAttested: e.target.value })} /></label>
+                <label className="form-date"><span>Malpractice expires</span><input type="date" className="p-2 rounded ks-field" value={addForm.malpracticeExp} onChange={(e) => setAddForm({ ...addForm, malpracticeExp: e.target.value })} /></label>
+                <label className="form-date"><span>Medicare revalidation</span><input type="date" className="p-2 rounded ks-field" value={addForm.medicareRevalidation} onChange={(e) => setAddForm({ ...addForm, medicareRevalidation: e.target.value })} /></label>
               </div>
               <div className="mt-4 flex justify-end gap-2">
                 <button className="btn-cancel" onClick={() => setAddOpen(false)}>Cancelar</button>
@@ -571,7 +571,7 @@ export default function ProviderLookup() {
 
               <div className="overflow-auto">
                 <table className="min-w-full text-sm">
-                  <thead className="text-slate-300">
+                  <thead className="ks-ink2">
                     <tr>
                       <th className="p-2" style={{ textAlign: "left" }}>Payer</th>
                       <th className="p-2" style={{ textAlign: "left" }}>Status in their directory</th>
@@ -579,7 +579,7 @@ export default function ProviderLookup() {
                       <th className="p-2"></th>
                     </tr>
                   </thead>
-                  <tbody className="text-slate-200">
+                  <tbody className="ks-ink">
                     {(showManual ? DIR_PAYERS : DIR_QUERYABLE).map((p) => {
                       const r = directory ? directory[p.key] : undefined;
                       const already = hasInTracker(p.label);
@@ -836,7 +836,7 @@ export default function ProviderLookup() {
           </div>
           <div className="overflow-auto">
             <table className="min-w-full text-sm">
-              <thead className="text-slate-300">
+              <thead className="ks-ink2">
                 <tr>
                   <th className="p-2">Payer</th>
                   <th className="p-2">Type</th>
@@ -846,7 +846,7 @@ export default function ProviderLookup() {
                   <th className="p-2">Notes</th>
                 </tr>
               </thead>
-              <tbody className="text-slate-200">
+              <tbody className="ks-ink">
                 {shown.map((i) => (
                   <tr key={i.id} className="border-t border-slate-800">
                     <td className="p-2">{i.name}</td>
@@ -864,7 +864,7 @@ export default function ProviderLookup() {
                   </tr>
                 ))}
                 {shown.length === 0 && (
-                  <tr><td colSpan={6} className="p-4 text-slate-400">
+                  <tr><td colSpan={6} className="p-4 ks-muted">
                     {docInsurances.length === 0
                       ? (provider.source === "nppes"
                           ? "This provider is not in your tracker, so there are no commercial contracts on file. Commercial network participation is not public data — only Medicare/Medicaid (above)."

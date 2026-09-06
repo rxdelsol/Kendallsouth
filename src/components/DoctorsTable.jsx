@@ -184,8 +184,8 @@ export default function DoctorsTable() {
   const anyFilter = search || fExp;
 
   return (
-    <div className="bg-card rounded p-4">
-      <h2 className="text-sky-200 font-semibold mb-2">Doctors</h2>
+    <div className="ks-card rounded p-4">
+      <h2 className="ks-accent font-semibold mb-2">Doctors</h2>
 
       {/* Tarjetas resumen */}
       <div className="ins-summary">
@@ -223,7 +223,7 @@ export default function DoctorsTable() {
         </button>
       </div>
 
-      <p className="text-slate-400 text-xs mb-2">
+      <p className="ks-muted text-xs mb-2">
         Mostrando {filtered.length} de {list.length} doctores
       </p>
 
@@ -237,7 +237,7 @@ export default function DoctorsTable() {
 
       <div className="overflow-auto mb-4">
         <table className="min-w-full text-sm">
-          <thead className="text-slate-300">
+          <thead className="ks-ink2">
             <tr>
               <th className="p-2">Name</th>
               <th className="p-2">NPI</th>
@@ -248,7 +248,7 @@ export default function DoctorsTable() {
               <th className="p-2">Actions</th>
             </tr>
           </thead>
-          <tbody className="text-slate-200">
+          <tbody className="ks-ink">
             {filtered.map(({ d, creds, next }) => (
               <tr key={d.id} className="border-t border-slate-800">
                 <td className="p-2">{d.name}</td>
@@ -274,19 +274,19 @@ export default function DoctorsTable() {
                       {abbr[next.key]} {next.days}d
                     </span>
                   ) : (
-                    <span className="text-slate-500 text-xs">—</span>
+                    <span className="ks-muted text-xs">—</span>
                   )}
                 </td>
                 <td className="p-2 space-x-3 whitespace-nowrap">
-                  <button className="text-emerald-300 hover:underline" onClick={() => setDetailFor(d)}>Detalle</button>
-                  <button className="text-sky-300 hover:underline" onClick={() => openEditModal(d)}>Edit</button>
+                  <button className="ks-ok hover:underline" onClick={() => setDetailFor(d)}>Detalle</button>
+                  <button className="ks-accent hover:underline" onClick={() => openEditModal(d)}>Edit</button>
                   <button className="text-red-500 hover:underline" onClick={() => remove(d.id)}>Delete</button>
                 </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-4 text-slate-400">
+                <td colSpan={7} className="p-4 ks-muted">
                   {list.length === 0 ? "No doctors added yet" : "No provider matches the filter"}
                 </td>
               </tr>
@@ -296,7 +296,7 @@ export default function DoctorsTable() {
       </div>
 
       <div className="mt-2 text-left">
-        <button onClick={openAddModal} className="text-sky-300 hover:underline text-sm">+ Add Doctor</button>
+        <button onClick={openAddModal} className="ks-accent hover:underline text-sm">+ Add Doctor</button>
       </div>
 
       {/* Ficha completa del proveedor */}
@@ -316,25 +316,25 @@ export default function DoctorsTable() {
 
             <h4 className="form-section">Identification</h4>
             <div className="grid grid-cols-2 gap-2 mt-1">
-              <input placeholder="Name" value={doctor.name} onChange={(e) => setDoctor({ ...doctor, name: e.target.value })} className="p-2 rounded bg-[#081424]" />
-              <input placeholder="NPI" value={doctor.npi} onChange={(e) => setDoctor({ ...doctor, npi: e.target.value })} className="p-2 rounded bg-[#081424]" />
-              <input placeholder="License #" value={doctor.license} onChange={(e) => setDoctor({ ...doctor, license: e.target.value })} className="p-2 rounded bg-[#081424]" />
-              <input placeholder="CAQH #" value={doctor.caqh} onChange={(e) => setDoctor({ ...doctor, caqh: e.target.value })} className="p-2 rounded bg-[#081424]" />
-              <input placeholder="Medicaid #" value={doctor.medicaid} onChange={(e) => setDoctor({ ...doctor, medicaid: e.target.value })} className="p-2 rounded bg-[#081424]" />
-              <input placeholder="Medicare #" value={doctor.medicare} onChange={(e) => setDoctor({ ...doctor, medicare: e.target.value })} className="p-2 rounded bg-[#081424]" />
-              <input placeholder="Taxonomy" value={doctor.taxonomy} onChange={(e) => setDoctor({ ...doctor, taxonomy: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              <input placeholder="Name" value={doctor.name} onChange={(e) => setDoctor({ ...doctor, name: e.target.value })} className="p-2 rounded ks-field" />
+              <input placeholder="NPI" value={doctor.npi} onChange={(e) => setDoctor({ ...doctor, npi: e.target.value })} className="p-2 rounded ks-field" />
+              <input placeholder="License #" value={doctor.license} onChange={(e) => setDoctor({ ...doctor, license: e.target.value })} className="p-2 rounded ks-field" />
+              <input placeholder="CAQH #" value={doctor.caqh} onChange={(e) => setDoctor({ ...doctor, caqh: e.target.value })} className="p-2 rounded ks-field" />
+              <input placeholder="Medicaid #" value={doctor.medicaid} onChange={(e) => setDoctor({ ...doctor, medicaid: e.target.value })} className="p-2 rounded ks-field" />
+              <input placeholder="Medicare #" value={doctor.medicare} onChange={(e) => setDoctor({ ...doctor, medicare: e.target.value })} className="p-2 rounded ks-field" />
+              <input placeholder="Taxonomy" value={doctor.taxonomy} onChange={(e) => setDoctor({ ...doctor, taxonomy: e.target.value })} className="p-2 rounded ks-field" />
               <label className="form-date"><span>DOB</span>
-                <input type="date" value={doctor.dob || ""} onChange={(e) => setDoctor({ ...doctor, dob: e.target.value })} className="p-2 rounded bg-[#081424]" />
+                <input type="date" value={doctor.dob || ""} onChange={(e) => setDoctor({ ...doctor, dob: e.target.value })} className="p-2 rounded ks-field" />
               </label>
             </div>
 
             <h4 className="form-section">Vencimientos de credenciales</h4>
             <div className="grid grid-cols-2 gap-2 mt-1">
               <label className="form-date"><span>Licencia FL vence</span>
-                <input type="date" value={doctor.licenseExp || ""} onChange={(e) => setDoctor({ ...doctor, licenseExp: e.target.value })} className="p-2 rounded bg-[#081424]" />
+                <input type="date" value={doctor.licenseExp || ""} onChange={(e) => setDoctor({ ...doctor, licenseExp: e.target.value })} className="p-2 rounded ks-field" />
               </label>
               <div>
-                <input placeholder="DEA #" value={doctor.dea} onChange={(e) => setDoctor({ ...doctor, dea: e.target.value })} className="p-2 rounded bg-[#081424]" style={{ width: "100%" }} />
+                <input placeholder="DEA #" value={doctor.dea} onChange={(e) => setDoctor({ ...doctor, dea: e.target.value })} className="p-2 rounded ks-field" style={{ width: "100%" }} />
                 {/* El vencimiento del DEA no es público (la DEA vende el archivo
                     por NTIS), pero que el número esté bien escrito sí se
                     comprueba acá mismo: dígito verificador e inicial del
@@ -352,16 +352,16 @@ export default function DoctorsTable() {
                 })()}
               </div>
               <label className="form-date"><span>DEA expires</span>
-                <input type="date" value={doctor.deaExp || ""} onChange={(e) => setDoctor({ ...doctor, deaExp: e.target.value })} className="p-2 rounded bg-[#081424]" />
+                <input type="date" value={doctor.deaExp || ""} onChange={(e) => setDoctor({ ...doctor, deaExp: e.target.value })} className="p-2 rounded ks-field" />
               </label>
               <label className="form-date"><span>CAQH last attestation</span>
-                <input type="date" value={doctor.caqhAttested || ""} onChange={(e) => setDoctor({ ...doctor, caqhAttested: e.target.value })} className="p-2 rounded bg-[#081424]" />
+                <input type="date" value={doctor.caqhAttested || ""} onChange={(e) => setDoctor({ ...doctor, caqhAttested: e.target.value })} className="p-2 rounded ks-field" />
               </label>
               <label className="form-date"><span>Malpractice expires</span>
-                <input type="date" value={doctor.malpracticeExp || ""} onChange={(e) => setDoctor({ ...doctor, malpracticeExp: e.target.value })} className="p-2 rounded bg-[#081424]" />
+                <input type="date" value={doctor.malpracticeExp || ""} onChange={(e) => setDoctor({ ...doctor, malpracticeExp: e.target.value })} className="p-2 rounded ks-field" />
               </label>
               <label className="form-date"><span>Medicare revalidation</span>
-                <input type="date" value={doctor.medicareRevalidation || ""} onChange={(e) => setDoctor({ ...doctor, medicareRevalidation: e.target.value })} className="p-2 rounded bg-[#081424]" />
+                <input type="date" value={doctor.medicareRevalidation || ""} onChange={(e) => setDoctor({ ...doctor, medicareRevalidation: e.target.value })} className="p-2 rounded ks-field" />
               </label>
             </div>
 

@@ -234,8 +234,8 @@ export default function InsurancesTable() {
   };
 
   return (
-    <div className="bg-card rounded p-4">
-      <h2 className="text-sky-200 font-semibold mb-2">Insurances</h2>
+    <div className="ks-card rounded p-4">
+      <h2 className="ks-accent font-semibold mb-2">Insurances</h2>
 
       {/* ---- Tarjetas resumen de vencimientos ---- */}
       <div className="ins-summary">
@@ -286,13 +286,13 @@ export default function InsurancesTable() {
         )}
       </div>
 
-      <p className="text-slate-400 text-xs mb-2">
+      <p className="ks-muted text-xs mb-2">
         Mostrando {filtered.length} de {list.length} seguros
       </p>
 
       <div className="overflow-auto mb-4">
         <table className="min-w-full text-sm">
-          <thead className="text-slate-300">
+          <thead className="ks-ink2">
             <tr>
               <th className="p-2">Insurance Name</th>
               <th className="p-2">Type</th>
@@ -304,7 +304,7 @@ export default function InsurancesTable() {
               <th className="p-2">Actions</th>
             </tr>
           </thead>
-          <tbody className="text-slate-200">
+          <tbody className="ks-ink">
             {filtered.map((ins) => {
               const st = expStatus(ins.expiration);
               const meta = statusMeta[st];
@@ -334,14 +334,14 @@ export default function InsurancesTable() {
                   <td className="p-2">{ins.notes}</td>
                   <td className="p-2 space-x-3 whitespace-nowrap">
                     <button
-                      className="text-emerald-300 hover:underline"
+                      className="ks-ok hover:underline"
                       onClick={() => setGuideFor(ins)}
                       title="Cómo renovar o aplicar"
                     >
                       Guía
                     </button>
                     <button
-                      className="text-sky-300 hover:underline"
+                      className="ks-accent hover:underline"
                       onClick={() => openEditModal(ins)}
                     >
                       Edit
@@ -358,7 +358,7 @@ export default function InsurancesTable() {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="p-4 text-slate-400">
+                <td colSpan={8} className="p-4 ks-muted">
                   {list.length === 0 ? "No insurances yet" : "Ningún seguro coincide con el filtro"}
                 </td>
               </tr>
@@ -370,7 +370,7 @@ export default function InsurancesTable() {
       <div className="mt-2 text-left">
         <button
           onClick={openAddModal}
-          className="text-sky-300 hover:underline text-sm"
+          className="ks-accent hover:underline text-sm"
         >
           + Add Insurance
         </button>
@@ -440,7 +440,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setItem({ ...item, name: e.target.value })
                 }
-                className="p-2 rounded bg-[#081424]"
+                className="p-2 rounded ks-field"
               />
 
               {/* TYPE SELECT */}
@@ -449,7 +449,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setItem({ ...item, typeSelect: e.target.value })
                 }
-                className="p-2 rounded bg-[#081424]"
+                className="p-2 rounded ks-field"
               >
                 <option value="HMO">HMO</option>
                 <option value="PPO">PPO</option>
@@ -466,7 +466,7 @@ export default function InsurancesTable() {
                   onChange={(e) =>
                     setItem({ ...item, otherType: e.target.value })
                   }
-                  className="p-2 rounded bg-[#081424]"
+                  className="p-2 rounded ks-field"
                 />
               )}
 
@@ -476,7 +476,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setItem({ ...item, doctorName: e.target.value })
                 }
-                className="p-2 rounded bg-[#081424]"
+                className="p-2 rounded ks-field"
               >
                 <option value="">Unassigned</option>
                 {doctorOptions.map((name) => (
@@ -492,7 +492,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setItem({ ...item, network: e.target.value })
                 }
-                className="p-2 rounded bg-[#081424]"
+                className="p-2 rounded ks-field"
               >
                 <option>In Network</option>
                 <option>Out of Network</option>
@@ -505,7 +505,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setItem({ ...item, expiration: e.target.value })
                 }
-                className="p-2 rounded bg-[#081424]"
+                className="p-2 rounded ks-field"
               />
 
               {/* Notes */}
@@ -515,7 +515,7 @@ export default function InsurancesTable() {
                 onChange={(e) =>
                   setItem({ ...item, notes: e.target.value })
                 }
-                className="p-2 rounded bg-[#081424]"
+                className="p-2 rounded ks-field"
               />
             </div>
 

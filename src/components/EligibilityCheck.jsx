@@ -313,9 +313,9 @@ export default function EligibilityCheck() {
   const firstCol = { position: "sticky", left: 0, background: "#0d1b33", zIndex: 1, padding: "6px 10px", whiteSpace: "nowrap", borderRight: "1px solid #22385f", color: "#e6f6ff" };
 
   return (
-    <div className="bg-card rounded p-4">
-      <h2 className="text-sky-200 font-semibold mb-1">Doctor × Seguro — participación en red</h2>
-      <p className="text-slate-400 text-xs mb-3">
+    <div className="ks-card rounded p-4">
+      <h2 className="ks-accent font-semibold mb-1">Provider × Payer — network participation</h2>
+      <p className="ks-muted text-xs mb-3">
         Estado de cada doctor con cada aseguradora, según tu tracker. Pasa el cursor sobre una celda para ver tipo, vencimiento y notas.
         <br />
         Nota: la mayoría de los seguros comerciales no tiene una sola API tipo Medicare; varias sí publican su propio
@@ -484,7 +484,7 @@ export default function EligibilityCheck() {
         <span style={{ color: "#fbbf24" }}>• = por vencer / vencido</span>
       </div>
 
-      <p className="text-slate-400 text-xs mb-2">
+      <p className="ks-muted text-xs mb-2">
         {rowsToShow.length} doctores × {payers.length} aseguradoras
       </p>
 

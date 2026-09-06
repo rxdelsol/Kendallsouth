@@ -136,8 +136,8 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="bg-card rounded p-4">
-      <h2 className="text-sky-200 font-semibold mb-4">
+    <div className="ks-card rounded p-4">
+      <h2 className="ks-accent font-semibold mb-4">
         Insurance Expiration Summary
       </h2>
 
@@ -145,10 +145,10 @@ export default function Dashboard() {
       <div className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
         {/* Filtro por texto (insurance) */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">Insurance</label>
+          <label className="text-xs ks-muted">Insurance</label>
           <input
-            className="p-2 rounded bg-[#081424] text-sm"
-            placeholder="Buscar por nombre..."
+            className="p-2 rounded ks-field text-sm"
+            placeholder="Search by name…"
             value={filters.search}
             onChange={(e) => handleFilterChange("search", e.target.value)}
           />
@@ -156,9 +156,9 @@ export default function Dashboard() {
 
         {/* Filtro por doctor */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">Doctor</label>
+          <label className="text-xs ks-muted">Doctor</label>
           <select
-            className="p-2 rounded bg-[#081424] text-sm"
+            className="p-2 rounded ks-field text-sm"
             value={filters.doctor}
             onChange={(e) => handleFilterChange("doctor", e.target.value)}
           >
@@ -173,9 +173,9 @@ export default function Dashboard() {
 
         {/* Filtro por network */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">Network</label>
+          <label className="text-xs ks-muted">Network</label>
           <select
-            className="p-2 rounded bg-[#081424] text-sm"
+            className="p-2 rounded ks-field text-sm"
             value={filters.network}
             onChange={(e) => handleFilterChange("network", e.target.value)}
           >
@@ -187,9 +187,9 @@ export default function Dashboard() {
 
         {/* Filtro por estado de expiración */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-slate-400">Expiration</label>
+          <label className="text-xs ks-muted">Expiration</label>
           <select
-            className="p-2 rounded bg-[#081424] text-sm"
+            className="p-2 rounded ks-field text-sm"
             value={filters.expiration}
             onChange={(e) => handleFilterChange("expiration", e.target.value)}
           >
@@ -202,40 +202,40 @@ export default function Dashboard() {
       </div>
 
       {loading ? (
-        <p className="text-slate-400 text-sm">Loading...</p>
+        <p className="ks-muted text-sm">Loading...</p>
       ) : (
         <>
           {/* Tarjetas de resumen (sobre lista filtrada) */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="rounded-xl bg-[#081424] p-4">
-              <p className="text-slate-400 text-xs uppercase">Total</p>
-              <p className="text-3xl font-semibold text-sky-200">
+            <div className="rounded-xl ks-field p-4">
+              <p className="ks-muted text-xs uppercase">Total</p>
+              <p className="text-3xl font-semibold ks-accent">
                 {stats.total}
               </p>
             </div>
 
-            <div className="rounded-xl bg-[#081424] p-4">
-              <p className="text-slate-400 text-xs uppercase">In Network</p>
-              <p className="text-3xl font-semibold text-emerald-300">
+            <div className="rounded-xl ks-field p-4">
+              <p className="ks-muted text-xs uppercase">In Network</p>
+              <p className="text-3xl font-semibold ks-ok">
                 {stats.inNetwork}
               </p>
             </div>
 
-            <div className="rounded-xl bg-[#081424] p-4">
-              <p className="text-slate-400 text-xs uppercase">Out of Network</p>
+            <div className="rounded-xl ks-field p-4">
+              <p className="ks-muted text-xs uppercase">Out of Network</p>
               <p className="text-3xl font-semibold text-rose-300">
                 {stats.outNetwork}
               </p>
             </div>
 
-            <div className="rounded-xl bg-[#081424] p-4">
-              <p className="text-slate-400 text-xs uppercase">
+            <div className="rounded-xl ks-field p-4">
+              <p className="ks-muted text-xs uppercase">
                 Expiring ≤ 60 days
               </p>
               <p className="text-3xl font-semibold text-amber-300">
                 {stats.expiringSoon}
               </p>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs ks-muted mt-1">
                 Expired:{" "}
                 <span className="text-rose-300 font-semibold">
                   {stats.expired}
@@ -247,7 +247,7 @@ export default function Dashboard() {
           {/* Tabla detallada (como antes) */}
           <div className="overflow-auto">
             <table className="min-w-full text-sm">
-              <thead className="text-slate-300">
+              <thead className="ks-ink2">
                 <tr>
                   <th className="p-2 text-left">Insurance</th>
                   <th className="p-2 text-left">Type</th>
@@ -258,14 +258,14 @@ export default function Dashboard() {
                   <th className="p-2 text-left">Notes</th>
                 </tr>
               </thead>
-              <tbody className="text-slate-200">
+              <tbody className="ks-ink">
                 {filtered.map((ins) => {
                   const d = ins._daysLeft;
                   let colorClass = "";
                   if (typeof d === "number") {
                     if (d < 0) colorClass = "text-rose-300";
                     else if (d <= 60) colorClass = "text-amber-300";
-                    else colorClass = "text-emerald-300";
+                    else colorClass = "ks-ok";
                   }
 
                   return (
@@ -296,7 +296,7 @@ export default function Dashboard() {
                   <tr>
                     <td
                       colSpan={7}
-                      className="p-4 text-slate-400 text-center"
+                      className="p-4 ks-muted text-center"
                     >
                       No results for current filters
                     </td>
@@ -306,7 +306,7 @@ export default function Dashboard() {
             </table>
           </div>
 
-          <p className="text-slate-500 text-xs mt-3">
+          <p className="ks-muted text-xs mt-3">
             Showing data from Supabase table <code>insurances</code> with
             filters applied.
           </p>
