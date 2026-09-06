@@ -193,16 +193,23 @@ Vercel — la variable de entorno siempre gana.
 | Devoted Health | `https://fhir.devoted.com/fhir` | Verificada en vivo |
 | Community Care Plan | `https://ccpcmsioapi.zeomega.com/t/ccpprd.com/fhir/v1/ProviderDirectory/` | Verificada en vivo |
 | Ambetter · Sunshine · Simply · WellCare | `https://iopc-pd.api.centene.com/iopc/pd/fhir/providerdirectory` | Centene, una sola API para las 4 marcas |
+| AvMed | `https://avmp.interop.avmed.com/avmp/api/plannet` | Verificada en vivo — **no** es la URL que publica su web (ver abajo) |
 
 ### 2. Requieren registro (variable de entorno en Vercel)
 
-UnitedHealthcare, Florida Blue, Molina, Humana, Aetna, **Aetna Better Health FL**
-(`FHIR_AETNABH_*`, mismo servidor que Aetna) y **AvMed** (`FHIR_AVMED_BASE`).
+UnitedHealthcare, Florida Blue, Molina, Humana, Aetna y **Aetna Better Health FL**
+(`FHIR_AETNABH_*`, mismo servidor que Aetna).
 
-> **AvMed:** su propia página de developers publica
-> `https://myfhir.avmed.org/provider`, pero **el certificado TLS del host está
-> vencido** y cualquier cliente con validación normal falla. Por eso no se dejó
-> preconfigurada. Soporte (ya bajo Sentara): `CMSIODevSupport@sentara.com`.
+> **AvMed — la URL que publican está mal.** Su página "For Developers" anuncia
+> `https://myfhir.avmed.org/provider`, cuyo **certificado TLS está vencido**:
+> cualquier cliente con validación normal falla. El host bueno es otro —
+> `avmed.com`, no `avmed.org` — y está verificado en vivo devolviendo
+> Practitioner y PractitionerRole con perfil Plan-Net y NPIs reales. Dos
+> particularidades: su `/metadata` da 404 (las consultas de datos sí funcionan,
+> así que no sirve como health check), y sus PractitionerRole vienen sin
+> referencias de red, así que para AvMed "En red" hay que leerlo como "aparece
+> en su directorio con un rol activo". Soporte (ya bajo Sentara):
+> `CMSIODevSupport@sentara.com`.
 >
 > **Aetna:** su `/metadata` es público pero los datos devuelven **401** — pide
 > OAuth2 sí o sí, a diferencia de lo que manda la regla de CMS. Además movió la

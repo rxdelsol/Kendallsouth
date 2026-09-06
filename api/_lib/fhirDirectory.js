@@ -108,9 +108,18 @@ export const FHIR_PAYERS = {
   aetna: { envPrefix: 'AETNA', label: 'Aetna', directoryUrl: 'https://www.aetna.com/individuals-families/find-a-doctor.html' },
   // Aetna Better Health of Florida (Medicaid) va por el mismo servidor de Aetna.
   aetna_better_health: { envPrefix: 'AETNABH', label: 'Aetna Better Health FL', directoryUrl: 'https://www.aetnabetterhealth.com/florida/find-provider.html' },
-  // AvMed documenta su base en avmed.org/en/for-developers, pero hoy el
-  // certificado TLS del host está vencido: se deja sin defaultBase a propósito.
-  avmed: { envPrefix: 'AVMED', label: 'AvMed', directoryUrl: 'https://www.avmed.org/find-a-provider' },
+  // OJO: la página "For Developers" de AvMed sigue publicando
+  // https://myfhir.avmed.org/provider, cuyo certificado TLS está VENCIDO. El
+  // host bueno es otro (avmed.com, no avmed.org) y está verificado en vivo:
+  // devuelve Practitioner/PractitionerRole con perfil plannet y NPIs reales.
+  // Su /metadata da 404 — no usarlo como health check, las consultas sí van.
+  // Sus PractitionerRole vienen sin referencias de network, así que para AvMed
+  // "en red" significa "aparece en su directorio con un rol activo".
+  avmed: {
+    envPrefix: 'AVMED', label: 'AvMed',
+    defaultBase: 'https://avmp.interop.avmed.com/avmp/api/plannet',
+    directoryUrl: 'https://www.avmed.org/find-a-provider',
+  },
 
   // ── Sin Provider Directory FHIR público: hay que verificar a mano ──────
   oscar: { envPrefix: 'OSCAR', label: 'Oscar', noPublicApi: true, directoryUrl: 'https://www.hioscar.com/search' },
