@@ -547,6 +547,42 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
       }
     }
 
+    // Verificación de pertenencia. Varios servidores FHIR IGNORAN en silencio
+    // el parámetro de búsqueda que no entienden y devuelven un listado
+    // cualquiera. Sin este filtro, esos roles ajenos se reportarían como
+    // "En red" para un doctor que no lo está — un falso positivo que podría
+    // llevar a facturarle a una aseguradora sin contrato.
+    let ownershipUnverified = false;
+    if (roleResources.length) {
+      const refs = [...new Set(roleResources.map((r) => refKey(r.practitioner)).filter(Boolean))];
+      const missing = refs.filter((k) => !resolved.has(k)).slice(0, MAX_REF_FETCHES);
+      if (missing.length) {
+        const got = await Promise.all(missing.map((k) => fhirGet(cfg.base, `/${k}`, headers).then((r) => [k, r])));
+        for (const [k, r] of got) {
+          if (r.ok && r.json && r.json.resourceType === k.split('/')[0]) resolved.set(k, r.json);
+        }
+      }
+      const verdictFor = (role) => {
+        const k = refKey(role.practitioner);
+        if (foundPractitioner && k) return k === `Practitioner/${foundPractitioner.id}` ? 'mine' : 'other';
+        const res = k ? resolved.get(k) : null;
+        if (res) return practitionerHasNpi(res, npi) ? 'mine' : 'other';
+        return 'unknown';
+      };
+      const mine = roleResources.filter((r) => verdictFor(r) === 'mine');
+      const unknown = roleResources.filter((r) => verdictFor(r) === 'unknown');
+      if (mine.length) {
+        roleResources = mine;
+      } else if (unknown.length) {
+        // No se pudo probar de quién son. No los descartamos (sería un falso
+        // negativo), pero se marcan para no presentarlos como confirmados.
+        roleResources = unknown;
+        ownershipUnverified = true;
+      } else {
+        roleResources = [];
+      }
+    }
+
     const activeRoles = roleResources.filter((r) => r.active !== false).slice(0, MAX_ROLES);
 
     // Resolver las referencias que el servidor no mandó con _include.
@@ -611,6 +647,21 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
     // Es lo que la pantalla compara contra NPPES.
     const addrSeen = new Set();
     const addresses = [];
+    // Algunas aseguradoras (ej. Cigna) publican al proveedor como Practitioner
+    // activo, con dirección y teléfono, pero NO le asocian ningún
+    // PractitionerRole — su PractitionerRole existe y tiene datos, solo que
+    // ninguno apunta a él. Tratarlo como "no aparece" era falso: aparece en su
+    // directorio. Usamos entonces la dirección del propio Practitioner.
+    const listedOnly = !activeRoles.length && !!practitionerRes;
+    if (listedOnly) {
+      const own = mapAddress(
+        Array.isArray(practitionerRes.address) ? practitionerRes.address[0] : practitionerRes.address
+      );
+      if (own) {
+        addrSeen.add((own.full || '').toUpperCase());
+        addresses.push({ name: null, phone: phoneOf(practitionerRes), ...own });
+      }
+    }
     for (const role of roles) {
       for (const l of role.locations) {
         const key = (l.address?.full || l.name || '').toUpperCase();
@@ -644,6 +695,11 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
       configured: true,
       foundPractitioner: !!(foundPractitioner || activeRoles.length),
       inNetwork: activeRoles.length > 0,
+      // Publicado en el directorio, pero sin rol/red que lo respalde.
+      listedOnly,
+      // true = hay roles, pero el servidor no permitió confirmar que sean suyos.
+      ownershipUnverified,
+      practitionerActive: practitionerRes ? practitionerRes.active !== false : null,
       roles,
       // Cómo aparece publicado el proveedor en ESTA aseguradora:
       publishedName: nameOfPractitioner(practitionerRes),

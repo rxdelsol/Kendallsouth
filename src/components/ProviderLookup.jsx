@@ -576,8 +576,10 @@ export default function ProviderLookup() {
                       } else if (r && r.configured === false) {
                         statusEl = <span className="v-muted">No configurado</span>;
                         detailEl = dirLink || <span className="v-muted">—</span>;
-                      } else if (r && r.inNetwork) {
-                        statusEl = <span className="badge-in">En red ✓</span>;
+                      } else if (r && (r.inNetwork || r.listedOnly)) {
+                        statusEl = r.inNetwork
+                          ? <span className="badge-in">En red ✓</span>
+                          : <span className="badge-in">En el directorio ✓</span>;
                         canAdd = !already;
                         const roles = r.roles || [];
                         const addrs = r.addresses || [];
@@ -592,7 +594,9 @@ export default function ProviderLookup() {
                         detailEl = (
                           <div style={{ display: "grid", gap: 2, fontSize: 12, lineHeight: 1.45 }}>
                             <div>
-                              {roles.length} registro{roles.length === 1 ? "" : "s"}
+                              {roles.length
+                                ? `${roles.length} registro${roles.length === 1 ? "" : "s"}`
+                                : "Publicado como proveedor (la aseguradora no publica el rol de red)"}
                               {r.publishedName ? ` · ${r.publishedName}` : ""}
                               {orgs.length ? ` · ${orgs.join(", ")}` : ""}
                             </div>
@@ -655,6 +659,7 @@ export default function ProviderLookup() {
                       } else if (r && r.foundPractitioner) {
                         statusEl = <span className="badge-out">Sin rol activo</span>;
                         detailEl = <span className="v-muted">Aparece pero sin red activa</span>;
+                        canAdd = false;
                       } else if (r && r.slow) {
                         statusEl = <span className="v-muted">No respondió a tiempo</span>;
                         detailEl = <span className="v-muted">Volvé a buscar en un momento</span>;
