@@ -142,6 +142,7 @@ export default function ProviderLookup() {
   const [dirLoading, setDirLoading] = useState(false);
   const [savingPayer, setSavingPayer] = useState(null);
   const [dirMsg, setDirMsg] = useState(null); // 'ok' | 'error'
+  const [dirErr, setDirErr] = useState(null); // motivo real del fallo al guardar
   const [showManual, setShowManual] = useState(false); // aseguradoras sin API pública
 
   useEffect(() => {
@@ -312,24 +313,30 @@ export default function ProviderLookup() {
   }
 
   // Agrega/actualiza el seguro en tu sistema a partir del directorio oficial.
-  async function addFromDirectory(payer) {
+  async function addFromDirectory(payer, plans = []) {
     if (!provider) return;
-    setSavingPayer(payer.key); setDirMsg(null);
+    setSavingPayer(payer.key); setDirMsg(null); setDirErr(null);
     try {
       const res = await fetch("/api/save-insurance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: payer.label,
+          // Sin 'type' el insert falla: el resto de la app siempre manda uno.
+          type: "Other",
           doctorName: provider.name,
           network: "In Network",
-          notes: `Directorio oficial ${payer.label} · ${new Date().toLocaleDateString()}`,
+          notes: [
+            `Directorio oficial ${payer.label} · ${new Date().toLocaleDateString()}`,
+            plans.length ? `Planes: ${plans.join(", ")}` : null,
+          ].filter(Boolean).join(" · "),
         }),
       }).then((r) => r.json());
-      if (res.ok) { await reloadInsurances(); setDirMsg("ok"); }
-      else setDirMsg("error");
+      if (res.ok) { await reloadInsurances(); setDirMsg("ok"); setDirErr(null); }
+      else { setDirMsg("error"); setDirErr(res.error || null); }
     } catch (e) {
       setDirMsg("error");
+      setDirErr("No se pudo contactar al servidor.");
     } finally {
       setSavingPayer(null);
     }
@@ -532,7 +539,11 @@ export default function ProviderLookup() {
               </p>
 
               {dirMsg === "ok" && <div className="v-ok" style={{ marginBottom: 6 }}>✓ Agregado a tu sistema. Ya aparece en la lista de seguros.</div>}
-              {dirMsg === "error" && <div className="v-bad" style={{ marginBottom: 6 }}>No se pudo guardar. Revisa la conexión con Supabase.</div>}
+              {dirMsg === "error" && (
+                <div className="v-bad" style={{ marginBottom: 6 }}>
+                  No se pudo guardar{dirErr ? `: ${dirErr}` : ". El servidor no dio un motivo."}
+                </div>
+              )}
 
               <div className="overflow-auto">
                 <table className="min-w-full text-sm">
@@ -663,7 +674,7 @@ export default function ProviderLookup() {
                                 className="btn-red"
                                 style={{ padding: "4px 10px", fontSize: 12 }}
                                 disabled={savingPayer === p.key}
-                                onClick={() => addFromDirectory(p)}
+                                onClick={() => addFromDirectory(p, (directory?.[p.key]?.networks) || [])}
                               >
                                 {savingPayer === p.key ? "Guardando…" : "➕ Agregar"}
                               </button>
