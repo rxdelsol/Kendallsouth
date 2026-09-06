@@ -10,16 +10,36 @@ import {
 // FHIR_PAYERS en api/_lib/fhirDirectory.js). El buscador consulta el directorio
 // oficial EN VIVO de cada una para el NPI, exista o no en tu sistema.
 const DIR_PAYERS = [
-  { key: "aetna", label: "Aetna" },
-  { key: "humana", label: "Humana" },
-  { key: "unitedhealthcare", label: "UnitedHealthcare" },
-  { key: "florida_blue", label: "Florida Blue" },
-  { key: "molina", label: "Molina" },
-  { key: "sunshine", label: "Sunshine Health" },
-  { key: "ambetter", label: "Ambetter" },
-  { key: "simply", label: "Simply Healthcare" },
-  { key: "wellcare", label: "WellCare" },
+  // Con Provider Directory FHIR público (funcionan sin configurar nada).
+  { key: "cigna", label: "Cigna", url: "https://hcpdirectory.cigna.com/web/public/consumer/directory/search" },
+  { key: "devoted", label: "Devoted Health", url: "https://www.devoted.com/find-a-doctor/" },
+  { key: "community_care_plan", label: "Community Care Plan", url: "https://ccpcares.org/find-a-provider/" },
+  { key: "ambetter", label: "Ambetter", url: "https://www.ambetterhealth.com/en/fl/find-a-provider/" },
+  { key: "sunshine", label: "Sunshine Health", url: "https://www.sunshinehealth.com/find-a-doctor.html" },
+  { key: "simply", label: "Simply Healthcare", url: "https://www.simplyhealthcareplans.com/florida-medicaid/find-a-doctor.html" },
+  { key: "wellcare", label: "WellCare", url: "https://www.wellcare.com/en/Florida/Members/Medicaid-Plans/Find-a-Provider" },
+  // Configuradas por variable de entorno en Vercel.
+  { key: "unitedhealthcare", label: "UnitedHealthcare", url: "https://www.uhc.com/find-a-doctor" },
+  { key: "florida_blue", label: "Florida Blue", url: "https://providersearch.floridablue.com/" },
+  { key: "molina", label: "Molina", url: "https://molina.sapphirethreesixtyfive.com/?ci=fl-molina" },
+  { key: "humana", label: "Humana", url: "https://finder.humana.com/" },
+  { key: "aetna", label: "Aetna", url: "https://www.aetna.com/individuals-families/find-a-doctor.html" },
+  { key: "aetna_better_health", label: "Aetna Better Health FL", url: "https://www.aetnabetterhealth.com/florida/find-provider.html" },
+  { key: "avmed", label: "AvMed", url: "https://www.avmed.org/find-a-provider" },
+  // Sin API pública de directorio: solo verificación manual.
+  { key: "oscar", label: "Oscar", noPublicApi: true, url: "https://www.hioscar.com/search" },
+  { key: "curative", label: "Curative", noPublicApi: true, url: "https://www.curative.com/find-care" },
+  { key: "careplus", label: "CarePlus", noPublicApi: true, url: "https://www.careplushealthplans.com/resources/find-a-doctor/" },
+  { key: "health_first", label: "Health First", noPublicApi: true, url: "https://www.hf.org/health-first-health-plans/find-a-provider" },
+  { key: "freedom", label: "Freedom Health", noPublicApi: true, url: "https://www.freedomhealth.com/find-a-provider" },
+  { key: "optimum", label: "Optimum HealthCare", noPublicApi: true, url: "https://www.youroptimumhealthcare.com/find-a-provider" },
+  { key: "vivida", label: "Vivida Health", noPublicApi: true, url: "https://www.vividahealth.com/find-a-provider" },
+  { key: "florida_community_care", label: "Florida Community Care", noPublicApi: true, url: "https://www.fcchealthplan.com/provider-search" },
+  { key: "ultimate", label: "Ultimate Health Plans", noPublicApi: true, url: "https://www.chooseultimate.com/find-a-provider" },
 ];
+
+// Las que sí se consultan en vivo (a las otras no hay a qué preguntarles).
+const DIR_QUERYABLE = DIR_PAYERS.filter((p) => !p.noPublicApi);
 
 // Cada aseguradora se consulta con este tope de espera. Pasado eso se marca
 // como "no respondió" en vez de dejar la tabla colgada.
@@ -122,6 +142,7 @@ export default function ProviderLookup() {
   const [dirLoading, setDirLoading] = useState(false);
   const [savingPayer, setSavingPayer] = useState(null);
   const [dirMsg, setDirMsg] = useState(null); // 'ok' | 'error'
+  const [showManual, setShowManual] = useState(false); // aseguradoras sin API pública
 
   useEffect(() => {
     (async () => {
@@ -267,9 +288,9 @@ export default function ProviderLookup() {
   // Cada una se pinta EN CUANTO responde (antes se esperaba a las 9 y la tabla
   // quedaba en "Consultando…" ~40 s por culpa del servidor más lento).
   async function fetchDirectory(npi, name) {
-    setDirectory(Object.fromEntries(DIR_PAYERS.map((p) => [p.key, undefined])));
+    setDirectory(Object.fromEntries(DIR_QUERYABLE.map((p) => [p.key, undefined])));
     await Promise.all(
-      DIR_PAYERS.map(async (p) => {
+      DIR_QUERYABLE.map(async (p) => {
         const url = `/api/verify-provider-directory?payer=${p.key}&npi=${encodeURIComponent(npi)}${name ? `&name=${encodeURIComponent(name)}` : ""}`;
         let result;
         try {
@@ -497,7 +518,7 @@ export default function ProviderLookup() {
                 </h4>
                 {dirLoading && (
                   <span className="v-muted" style={{ fontSize: 12 }}>
-                    Consultando… {Object.values(directory || {}).filter((x) => x !== undefined).length}/{DIR_PAYERS.length}
+                    Consultando… {Object.values(directory || {}).filter((x) => x !== undefined).length}/{DIR_QUERYABLE.length}
                   </span>
                 )}
               </div>
@@ -524,18 +545,26 @@ export default function ProviderLookup() {
                     </tr>
                   </thead>
                   <tbody className="text-slate-200">
-                    {DIR_PAYERS.map((p) => {
+                    {(showManual ? DIR_PAYERS : DIR_QUERYABLE).map((p) => {
                       const r = directory ? directory[p.key] : undefined;
                       const already = hasInTracker(p.label);
                       let statusEl = <span className="v-muted">…</span>;
                       let detailEl = <span className="v-muted">—</span>;
                       let canAdd = false;
-                      if (r === undefined) {
+                      const dirLink = p.url ? (
+                        <a href={p.url} target="_blank" rel="noopener noreferrer">Verificar en su directorio ↗</a>
+                      ) : null;
+                      if (p.noPublicApi) {
+                        statusEl = <span className="v-muted">Sin API pública</span>;
+                        detailEl = dirLink || <span className="v-muted">—</span>;
+                      } else if (r === undefined) {
                         statusEl = <span className="v-muted">…</span>;
                       } else if (r && r.ok === false) {
                         statusEl = <span className="v-muted">Error ({r.error || "sin datos"})</span>;
+                        detailEl = dirLink || <span className="v-muted">—</span>;
                       } else if (r && r.configured === false) {
                         statusEl = <span className="v-muted">No configurado</span>;
+                        detailEl = dirLink || <span className="v-muted">—</span>;
                       } else if (r && r.inNetwork) {
                         statusEl = <span className="badge-in">En red ✓</span>;
                         canAdd = !already;
@@ -641,6 +670,16 @@ export default function ProviderLookup() {
                   </tbody>
                 </table>
               </div>
+
+              <button
+                className="flt-clear"
+                style={{ marginTop: 8, fontSize: 12 }}
+                onClick={() => setShowManual((v) => !v)}
+              >
+                {showManual
+                  ? "Ocultar las que no tienen API pública"
+                  : `Mostrar ${DIR_PAYERS.length - DIR_QUERYABLE.length} aseguradoras sin API pública (verificación manual)`}
+              </button>
             </div>
           )}
 

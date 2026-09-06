@@ -172,3 +172,52 @@ lo que sabes de ese doctor y ajusto el mapeo de campos.
 
 Claves de `payer` válidas: `aetna`, `humana`, `unitedhealthcare`,
 `florida_blue`, `molina`, `sunshine`, `ambetter`, `simply`, `wellcare`.
+
+---
+
+## Cobertura de Florida (ampliación)
+
+El catálogo pasó de 9 a **23 aseguradoras**, cubriendo el mercado de Florida.
+Se dividen en tres grupos.
+
+### 1. Funcionan solas — no hay que configurar nada
+
+Su Provider Directory FHIR es público y sin credenciales, así que la URL base
+viene en el código (`defaultBase` en `api/_lib/fhirDirectory.js`). Si alguna
+cambia de URL, se puede sobreescribir con su variable `FHIR_<PREFIJO>_BASE` en
+Vercel — la variable de entorno siempre gana.
+
+| Aseguradora | URL base | Estado |
+|---|---|---|
+| Cigna | `https://p-hi2.digitaledge.cigna.com/ProviderDirectory/v1` | Verificada en vivo, devuelve datos reales |
+| Devoted Health | `https://fhir.devoted.com/fhir` | Verificada en vivo |
+| Community Care Plan | `https://ccpcmsioapi.zeomega.com/t/ccpprd.com/fhir/v1/ProviderDirectory/` | Verificada en vivo |
+| Ambetter · Sunshine · Simply · WellCare | `https://iopc-pd.api.centene.com/iopc/pd/fhir/providerdirectory` | Centene, una sola API para las 4 marcas |
+
+### 2. Requieren registro (variable de entorno en Vercel)
+
+UnitedHealthcare, Florida Blue, Molina, Humana, Aetna, **Aetna Better Health FL**
+(`FHIR_AETNABH_*`, mismo servidor que Aetna) y **AvMed** (`FHIR_AVMED_BASE`).
+
+> **AvMed:** su propia página de developers publica
+> `https://myfhir.avmed.org/provider`, pero **el certificado TLS del host está
+> vencido** y cualquier cliente con validación normal falla. Por eso no se dejó
+> preconfigurada. Soporte (ya bajo Sentara): `CMSIODevSupport@sentara.com`.
+>
+> **Aetna:** su `/metadata` es público pero los datos devuelven **401** — pide
+> OAuth2 sí o sí, a diferencia de lo que manda la regla de CMS. Además movió la
+> base de `/fhir/v1/providerdirectory` a `/fhir/v1/providerdirectorydata`.
+
+### 3. Sin Provider Directory FHIR consultable — verificación manual
+
+Oscar, Curative, CarePlus, Health First, Freedom Health, Optimum HealthCare,
+Vivida Health, Florida Community Care y Ultimate Health Plans **no publican** un
+endpoint de directorio usable, aunque operan líneas reguladas de Medicaid/MA/QHP
+en Florida. En la tabla salen como "Sin API pública" con el link directo a su
+directorio para chequear a mano. Están ocultas por defecto detrás del botón
+"Mostrar N aseguradoras sin API pública".
+
+> **CarePlus — cuidado con la URL obvia:** `https://fhir.careplushealthplans.com/api`
+> responde sin autenticación, pero es el servidor de **Patient Access**, no el
+> directorio: `PractitionerRole` devuelve `total: 0` y `Practitioner` devuelve
+> 253 registros con el nombre en blanco. No conectarlo como directorio.

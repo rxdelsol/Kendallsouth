@@ -46,25 +46,91 @@ const REQUEST_TIMEOUT_MS = 9000;   // por llamada FHIR
 const MAX_REF_FETCHES = 24;        // Location/Organization sueltos a resolver
 const MAX_ROLES = 25;              // roles que devolvemos con detalle
 
-// Catálogo de aseguradoras soportadas. `family` debe coincidir con el
-// `family` que devuelve directoryInfoFor() en EligibilityCheck.jsx para
-// que el botón "oficial" aparezca junto al botón de directorio manual.
+// Catálogo de aseguradoras. Cubre las que operan en FLORIDA.
+// `family` debe coincidir con el `family` que devuelve directoryInfoFor() en
+// EligibilityCheck.jsx para que el botón "oficial" aparezca junto al botón de
+// directorio manual.
+//
+// Campos:
+//   envPrefix    prefijo de las variables FHIR_<PREFIJO>_* en Vercel
+//   defaultBase  URL base pública verificada — si está, la aseguradora funciona
+//                sin configurar NADA en Vercel. La variable de entorno, si
+//                existe, siempre gana (por si el pagador cambia la URL).
+//   noPublicApi  el pagador NO publica un Provider Directory FHIR utilizable.
+//                No se consulta nada; la pantalla manda al directorio manual.
+//   directoryUrl directorio público "para humanos", para verificar a mano.
 export const FHIR_PAYERS = {
-  aetna: { envPrefix: 'AETNA', label: 'Aetna' },
-  humana: { envPrefix: 'HUMANA', label: 'Humana' },
-  unitedhealthcare: { envPrefix: 'UHC', label: 'UnitedHealthcare' },
-  florida_blue: { envPrefix: 'FLORIDABLUE', label: 'Florida Blue' },
-  molina: { envPrefix: 'MOLINA', label: 'Molina' },
-  sunshine: { envPrefix: 'SUNSHINE', label: 'Sunshine Health' },
-  ambetter: { envPrefix: 'AMBETTER', label: 'Ambetter' },
-  simply: { envPrefix: 'SIMPLY', label: 'Simply Healthcare' },
-  wellcare: { envPrefix: 'WELLCARE', label: 'WellCare' },
+  // ── Con directorio FHIR público, sin registro ni credenciales ──────────
+  cigna: {
+    envPrefix: 'CIGNA', label: 'Cigna',
+    defaultBase: 'https://p-hi2.digitaledge.cigna.com/ProviderDirectory/v1',
+    directoryUrl: 'https://hcpdirectory.cigna.com/web/public/consumer/directory/search',
+  },
+  devoted: {
+    envPrefix: 'DEVOTED', label: 'Devoted Health',
+    defaultBase: 'https://fhir.devoted.com/fhir',
+    directoryUrl: 'https://www.devoted.com/find-a-doctor/',
+  },
+  community_care_plan: {
+    envPrefix: 'CCP', label: 'Community Care Plan',
+    defaultBase: 'https://ccpcmsioapi.zeomega.com/t/ccpprd.com/fhir/v1/ProviderDirectory/',
+    directoryUrl: 'https://ccpcares.org/find-a-provider/',
+  },
+  // Centene publica una sola API para sus 4 marcas (partners.centene.com/apis,
+  // Authentication Type: None).
+  ambetter: {
+    envPrefix: 'AMBETTER', label: 'Ambetter',
+    defaultBase: 'https://iopc-pd.api.centene.com/iopc/pd/fhir/providerdirectory',
+    directoryUrl: 'https://www.ambetterhealth.com/en/fl/find-a-provider/',
+  },
+  sunshine: {
+    envPrefix: 'SUNSHINE', label: 'Sunshine Health',
+    defaultBase: 'https://iopc-pd.api.centene.com/iopc/pd/fhir/providerdirectory',
+    directoryUrl: 'https://www.sunshinehealth.com/find-a-doctor.html',
+  },
+  simply: {
+    envPrefix: 'SIMPLY', label: 'Simply Healthcare',
+    defaultBase: 'https://iopc-pd.api.centene.com/iopc/pd/fhir/providerdirectory',
+    directoryUrl: 'https://www.simplyhealthcareplans.com/florida-medicaid/find-a-doctor.html',
+  },
+  wellcare: {
+    envPrefix: 'WELLCARE', label: 'WellCare',
+    defaultBase: 'https://iopc-pd.api.centene.com/iopc/pd/fhir/providerdirectory',
+    directoryUrl: 'https://www.wellcare.com/en/Florida/Members/Medicaid-Plans/Find-a-Provider',
+  },
+
+  // ── Configuradas por variable de entorno ───────────────────────────────
+  unitedhealthcare: { envPrefix: 'UHC', label: 'UnitedHealthcare', directoryUrl: 'https://www.uhc.com/find-a-doctor' },
+  florida_blue: { envPrefix: 'FLORIDABLUE', label: 'Florida Blue', directoryUrl: 'https://providersearch.floridablue.com/' },
+  molina: { envPrefix: 'MOLINA', label: 'Molina', directoryUrl: 'https://molina.sapphirethreesixtyfive.com/?ci=fl-molina' },
+  humana: { envPrefix: 'HUMANA', label: 'Humana', directoryUrl: 'https://finder.humana.com/' },
+  // Aetna publica el CapabilityStatement abierto pero los datos piden OAuth2.
+  aetna: { envPrefix: 'AETNA', label: 'Aetna', directoryUrl: 'https://www.aetna.com/individuals-families/find-a-doctor.html' },
+  // Aetna Better Health of Florida (Medicaid) va por el mismo servidor de Aetna.
+  aetna_better_health: { envPrefix: 'AETNABH', label: 'Aetna Better Health FL', directoryUrl: 'https://www.aetnabetterhealth.com/florida/find-provider.html' },
+  // AvMed documenta su base en avmed.org/en/for-developers, pero hoy el
+  // certificado TLS del host está vencido: se deja sin defaultBase a propósito.
+  avmed: { envPrefix: 'AVMED', label: 'AvMed', directoryUrl: 'https://www.avmed.org/find-a-provider' },
+
+  // ── Sin Provider Directory FHIR público: hay que verificar a mano ──────
+  oscar: { envPrefix: 'OSCAR', label: 'Oscar', noPublicApi: true, directoryUrl: 'https://www.hioscar.com/search' },
+  curative: { envPrefix: 'CURATIVE', label: 'Curative', noPublicApi: true, directoryUrl: 'https://www.curative.com/find-care' },
+  careplus: { envPrefix: 'CAREPLUS', label: 'CarePlus', noPublicApi: true, directoryUrl: 'https://www.careplushealthplans.com/resources/find-a-doctor/' },
+  health_first: { envPrefix: 'HEALTHFIRST', label: 'Health First', noPublicApi: true, directoryUrl: 'https://www.hf.org/health-first-health-plans/find-a-provider' },
+  freedom: { envPrefix: 'FREEDOM', label: 'Freedom Health', noPublicApi: true, directoryUrl: 'https://www.freedomhealth.com/find-a-provider' },
+  optimum: { envPrefix: 'OPTIMUM', label: 'Optimum HealthCare', noPublicApi: true, directoryUrl: 'https://www.youroptimumhealthcare.com/find-a-provider' },
+  vivida: { envPrefix: 'VIVIDA', label: 'Vivida Health', noPublicApi: true, directoryUrl: 'https://www.vividahealth.com/find-a-provider' },
+  florida_community_care: { envPrefix: 'FCC', label: 'Florida Community Care', noPublicApi: true, directoryUrl: 'https://www.fcchealthplan.com/provider-search' },
+  ultimate: { envPrefix: 'ULTIMATE', label: 'Ultimate Health Plans', noPublicApi: true, directoryUrl: 'https://www.chooseultimate.com/find-a-provider' },
 };
 
-function envFor(prefix) {
-  const p = `FHIR_${prefix}_`;
+function envFor(payer) {
+  const p = `FHIR_${payer.envPrefix}_`;
+  // La variable de entorno gana siempre; si no está, se usa la URL pública
+  // verificada que trae el catálogo (si la tiene).
+  const base = (process.env[p + 'BASE'] || payer.defaultBase || '').trim().replace(/\/+$/, '');
   return {
-    base: (process.env[p + 'BASE'] || '').trim().replace(/\/+$/, ''),
+    base,
     apikey: process.env[p + 'APIKEY'] || '',
     clientId: process.env[p + 'CLIENT_ID'] || '',
     clientSecret: process.env[p + 'CLIENT_SECRET'] || '',
@@ -212,11 +278,22 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
   const payer = FHIR_PAYERS[payerKey];
   if (!payer) return { ok: false, error: `Aseguradora desconocida: ${payerKey}` };
 
-  const cfg = envFor(payer.envPrefix);
+  if (payer.noPublicApi) {
+    return {
+      ok: true,
+      configured: false,
+      noPublicApi: true,
+      directoryUrl: payer.directoryUrl || null,
+      reason: `${payer.label} no publica un Provider Directory FHIR consultable. Hay que verificar en su directorio.`,
+    };
+  }
+
+  const cfg = envFor(payer);
   if (!cfg.base) {
     return {
       ok: true,
       configured: false,
+      directoryUrl: payer.directoryUrl || null,
       reason: `Falta FHIR_${payer.envPrefix}_BASE en Vercel. Ver SETUP-PROVIDER-DIRECTORY-APIS.md.`,
     };
   }
