@@ -6,6 +6,7 @@ import {
   worseStatus,
   doctorCredentials,
 } from "../utils/credStatus";
+import { deaCheck, DEA_STATE_META } from "../utils/dea";
 
 export default function DoctorsTable() {
   const empty = () => ({
@@ -369,7 +370,24 @@ export default function DoctorsTable() {
               <label className="form-date"><span>Licencia FL vence</span>
                 <input type="date" value={doctor.licenseExp || ""} onChange={(e) => setDoctor({ ...doctor, licenseExp: e.target.value })} className="p-2 rounded bg-[#081424]" />
               </label>
-              <input placeholder="DEA #" value={doctor.dea} onChange={(e) => setDoctor({ ...doctor, dea: e.target.value })} className="p-2 rounded bg-[#081424]" />
+              <div>
+                <input placeholder="DEA #" value={doctor.dea} onChange={(e) => setDoctor({ ...doctor, dea: e.target.value })} className="p-2 rounded bg-[#081424]" style={{ width: "100%" }} />
+                {/* El vencimiento del DEA no es público (la DEA vende el archivo
+                    por NTIS), pero que el número esté bien escrito sí se
+                    comprueba acá mismo: dígito verificador e inicial del
+                    apellido. Un DEA mal copiado termina en receta o claim
+                    rechazado semanas después. */}
+                {(() => {
+                  const dc = deaCheck(doctor.dea, doctor.name);
+                  if (dc.state === "empty") return null;
+                  const meta = DEA_STATE_META[dc.state];
+                  return (
+                    <div className={meta.cls} style={{ fontSize: 11, marginTop: 3 }}>
+                      {meta.icon} {dc.label}
+                    </div>
+                  );
+                })()}
+              </div>
               <label className="form-date"><span>DEA vence</span>
                 <input type="date" value={doctor.deaExp || ""} onChange={(e) => setDoctor({ ...doctor, deaExp: e.target.value })} className="p-2 rounded bg-[#081424]" />
               </label>
