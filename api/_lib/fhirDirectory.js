@@ -45,6 +45,9 @@ const NUCC_SYSTEM = 'nucc.org/provider-taxonomy';
 const REQUEST_TIMEOUT_MS = 9000;   // por llamada FHIR
 const MAX_REF_FETCHES = 24;        // Location/Organization sueltos a resolver
 const MAX_ROLES = 25;              // roles que devolvemos con detalle
+const MAX_NAME_PAGES = 8;          // páginas a recorrer al buscar por apellido
+const NAME_SCAN_BUDGET_MS = 22000; // techo total de la búsqueda por nombre
+const NAME_PAGE_SIZE = 200;        // antes 20: con 20 nunca aparecía un apellido común
 
 // Catálogo de aseguradoras. Cubre las que operan en FLORIDA.
 // `family` debe coincidir con el `family` que devuelve directoryInfoFor() en
@@ -276,6 +279,56 @@ function npiOf(resource) {
   return id ? String(id.value).trim() : null;
 }
 
+// Apellidos a probar a partir del nombre completo. En Miami los compuestos
+// son la norma y cada aseguradora los indexa distinto: "Enrique Vazquez
+// Escarpanter" puede estar como family="Escarpanter", "Vazquez",
+// "Vazquez Escarpanter" o "Vazquez-Escarpanter". Probamos todas.
+function familyCandidates(fullName) {
+  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return parts.slice(-1);
+  const last = parts[parts.length - 1];
+  const prev = parts[parts.length - 2];
+  const out = [last, prev, `${prev} ${last}`, `${prev}-${last}`];
+  return [...new Set(out.filter(Boolean))];
+}
+
+function givenName(fullName) {
+  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+  return parts.length > 1 ? parts[0] : '';
+}
+
+function nextLinkOf(bundle, base) {
+  const l = (bundle?.link || []).find((x) => x.relation === 'next');
+  if (!l?.url) return null;
+  // Algunos servidores devuelven la URL absoluta; otros, relativa.
+  return l.url.startsWith('http') ? l.url : `${base}${l.url.startsWith('/') ? '' : '/'}${l.url}`;
+}
+
+// Recorre un search de Practitioner siguiendo los links `next` hasta encontrar
+// el NPI exacto. Sin esto, un apellido común (Vazquez en Miami: 200 registros
+// en Centene) nunca encuentra al doctor, porque solo se miraba la 1ª página.
+async function scanPractitionersForNpi(base, path, headers, npi, deadline) {
+  let url = `${base}${path}`;
+  let pages = 0;
+  let lastBundle = null;
+  let scanned = 0;
+  while (url && pages < MAX_NAME_PAGES && Date.now() < deadline) {
+    const isAbsolute = url.startsWith('http');
+    const r = isAbsolute
+      ? await fhirGet('', url, headers)
+      : await fhirGet(base, url, headers);
+    pages += 1;
+    if (!r.ok || !r.json) return { found: null, bundle: r.json || lastBundle, pages, scanned, res: r };
+    lastBundle = r.json;
+    const people = entriesOf(r.json).filter((x) => x.resourceType === 'Practitioner');
+    scanned += people.length;
+    const hit = people.find((x) => practitionerHasNpi(x, npi));
+    if (hit) return { found: hit, bundle: r.json, pages, scanned, res: r };
+    url = nextLinkOf(r.json, base);
+  }
+  return { found: null, bundle: lastBundle, pages, scanned };
+}
+
 // ── Verificación ────────────────────────────────────────────────────────
 
 // Verifica un NPI (y, si hace falta, el nombre) contra el Provider Directory
@@ -394,29 +447,46 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
       let byNameSearch = null;
       let byNameCandidates = [];
       let byFamilySearch = null;
+      let nameScanLog = [];
       if (!foundPractitioner && doctorName) {
-        byNameSearch = await fhirGet(cfg.base, `/Practitioner?name=${encodeURIComponent(doctorName)}&_count=20`, headers);
-        absorb(byNameSearch.json);
-        byNameCandidates = byNameSearch.ok && byNameSearch.json ? entriesOf(byNameSearch.json).filter((r) => r.resourceType === 'Practitioner') : [];
-        foundPractitioner = byNameCandidates.find((p) => practitionerHasNpi(p, npi)) || null;
-        searchStrategy = 'name-then-npi-match';
+        const deadline = Date.now() + NAME_SCAN_BUDGET_MS;
+        const given = givenName(doctorName);
 
-        // 3b) Algunos servidores (ej. Centene/Ambetter-Sunshine-Simply-WellCare)
-        //     no hacen match con `name=<nombre completo>` (búsqueda de frase
-        //     exacta) pero sí con `family=<apellido>` (busca solo por
-        //     apellido, mucho más tolerante). Si la búsqueda por nombre
-        //     completo no encontró nada, probamos con el último apellido.
+        // 3a) Nombre completo tal cual (algunos servidores hacen match de frase).
+        const full = await scanPractitionersForNpi(
+          cfg.base, `/Practitioner?name=${encodeURIComponent(doctorName)}&_count=${NAME_PAGE_SIZE}`, headers, npi, deadline
+        );
+        byNameSearch = full.res || null;
+        nameScanLog.push({ q: `name=${doctorName}`, pages: full.pages, scanned: full.scanned, hit: !!full.found });
+        if (full.found) { foundPractitioner = full.found; searchStrategy = 'name-then-npi-match'; }
+
+        // 3b) Por apellido — probando los compuestos, acotando con el nombre de
+        //     pila cuando lo tenemos, y RECORRIENDO LAS PÁGINAS. Un apellido
+        //     común devuelve cientos de registros y el doctor rara vez cae en
+        //     la primera; mirar solo la página 1 lo daba por "no aparece".
         if (!foundPractitioner) {
-          const lastName = doctorName.trim().split(/\s+/).pop();
-          if (lastName && lastName.toLowerCase() !== doctorName.trim().toLowerCase()) {
-            byFamilySearch = await fhirGet(cfg.base, `/Practitioner?family=${encodeURIComponent(lastName)}&_count=20`, headers);
-            absorb(byFamilySearch.json);
-            const familyCandidates = byFamilySearch.ok && byFamilySearch.json ? entriesOf(byFamilySearch.json).filter((r) => r.resourceType === 'Practitioner') : [];
-            foundPractitioner = familyCandidates.find((p) => practitionerHasNpi(p, npi)) || null;
-            if (foundPractitioner) {
-              byNameCandidates = familyCandidates;
-              searchStrategy = 'family-then-npi-match';
+          for (const fam of familyCandidates(doctorName)) {
+            if (Date.now() > deadline) break;
+            const queries = given
+              ? [
+                  `/Practitioner?family=${encodeURIComponent(fam)}&given=${encodeURIComponent(given)}&_count=${NAME_PAGE_SIZE}`,
+                  `/Practitioner?family=${encodeURIComponent(fam)}&_count=${NAME_PAGE_SIZE}`,
+                ]
+              : [`/Practitioner?family=${encodeURIComponent(fam)}&_count=${NAME_PAGE_SIZE}`];
+            for (const q of queries) {
+              if (Date.now() > deadline) break;
+              const scan = await scanPractitionersForNpi(cfg.base, q, headers, npi, deadline);
+              if (!byFamilySearch) byFamilySearch = scan.res || null;
+              nameScanLog.push({ q, pages: scan.pages, scanned: scan.scanned, hit: !!scan.found });
+              if (scan.found) {
+                foundPractitioner = scan.found;
+                byFamilySearch = scan.res || byFamilySearch;
+                byNameCandidates = entriesOf(scan.bundle).filter((x) => x.resourceType === 'Practitioner');
+                searchStrategy = 'family-then-npi-match';
+                break;
+              }
             }
+            if (foundPractitioner) break;
           }
         }
       }
@@ -441,6 +511,7 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
                   byNameSearch: byNameSearch?.json,
                   byFamilySearch: byFamilySearch?.json,
                   byNameCandidateIds: byNameCandidates.map((p) => ({ id: p.id, identifiers: p.identifier })),
+                  nameScanLog,
                 },
               }
             : {}),
@@ -485,6 +556,9 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
     for (const r of activeRoles) {
       for (const l of r.location || []) { const k = refKey(l); if (k && !resolved.has(k)) wanted.add(k); }
       const o = refKey(r.organization); if (o && !resolved.has(o)) wanted.add(o);
+      // Las redes/planes vienen como referencia y muchas veces SIN display:
+      // hay que resolverlas para poder decir en qué plan está activo.
+      for (const n of r.network || []) { const k = refKey(n); if (k && !resolved.has(k)) wanted.add(k); }
     }
     const practitionerRef = refKey(foundPractitioner ? `Practitioner/${foundPractitioner.id}` : activeRoles[0]?.practitioner);
     if (practitionerRef && !resolved.has(practitionerRef)) wanted.add(practitionerRef);
@@ -493,7 +567,11 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
     if (toFetch.length) {
       const fetched = await Promise.all(toFetch.map((k) => fhirGet(cfg.base, `/${k}`, headers).then((r) => [k, r])));
       for (const [k, r] of fetched) {
-        if (r.ok && r.json && r.json.resourceType) resolved.set(k, r.json);
+        // Solo aceptamos el recurso si es del tipo que pedimos: varios
+        // servidores contestan un Bundle (o un OperationOutcome) a un GET por
+        // id, y guardarlo tal cual hacía perder el nombre y el NPI publicados.
+        const wantType = k.split('/')[0];
+        if (r.ok && r.json && r.json.resourceType === wantType) resolved.set(k, r.json);
       }
     }
 
@@ -515,7 +593,9 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
       return {
         organization: org?.name || r.organization?.display || null,
         organizationNpi: org ? npiOf(org) : null,
-        network: (r.network || []).map((n) => n.display).filter(Boolean),
+        network: (r.network || [])
+          .map((n) => n.display || resolved.get(refKey(n))?.name || null)
+          .filter(Boolean),
         // Compatibilidad: `specialty` sigue siendo un array de textos.
         specialty: (r.specialty || []).map((s) => s.text || s.coding?.[0]?.display).filter(Boolean),
         // Nuevo: taxonomía con código NUCC cuando la aseguradora lo publica.
@@ -570,6 +650,7 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
       publishedNpi: practitionerRes ? npiOf(practitionerRes) : null,
       addresses,
       taxonomies,
+      // Planes/redes en los que el proveedor figura ACTIVO en esta aseguradora.
       networks: [...new Set(roles.flatMap((r) => r.network))],
       organizations: [...new Set(roles.map((r) => r.organization).filter(Boolean))],
       lastUpdated: roles.map((r) => r.lastUpdated).filter(Boolean).sort().pop() || null,

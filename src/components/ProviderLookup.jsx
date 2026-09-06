@@ -571,7 +571,7 @@ export default function ProviderLookup() {
                         const roles = r.roles || [];
                         const addrs = r.addresses || [];
                         const taxes = r.taxonomies || [];
-                        const nets = (r.networks || []).slice(0, 2);
+                        const allNets = r.networks || [];
                         const orgs = (r.organizations || []).slice(0, 2);
                         const addrCmp = compareAddresses(addrs, nppes);
                         const taxCmp = compareTaxonomies(taxes, nppes);
@@ -622,13 +622,18 @@ export default function ProviderLookup() {
                                 : null}
                             </div>
 
-                            {(phone || nets.length) && (
-                              <div className="v-muted">
-                                {phone ? `☎ ${phone}` : ""}
-                                {phone && nets.length ? " · " : ""}
-                                {nets.length ? `Red: ${nets.join(", ")}` : ""}
-                              </div>
-                            )}
+                            <div>
+                              <span className="v-muted">📋 Planes activos:</span>{" "}
+                              {allNets.length ? (
+                                <strong>{allNets.slice(0, 4).join(" · ")}</strong>
+                              ) : (
+                                <span className="v-muted">la aseguradora no publica el plan</span>
+                              )}
+                              {allNets.length > 4 ? (
+                                <span className="v-muted"> +{allNets.length - 4} más</span>
+                              ) : null}
+                            </div>
+                            {phone && <div className="v-muted">☎ {phone}</div>}
                             {r.lastUpdated && (
                               <div className="v-muted">
                                 Publicado/actualizado por la aseguradora: {new Date(r.lastUpdated).toLocaleDateString()}
