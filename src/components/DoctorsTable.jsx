@@ -7,6 +7,7 @@ import {
   doctorCredentials,
 } from "../utils/credStatus";
 import { deaCheck, DEA_STATE_META } from "../utils/dea";
+import ProviderRecord from "./ProviderRecord.jsx";
 
 export default function DoctorsTable() {
   const empty = () => ({
@@ -298,52 +299,14 @@ export default function DoctorsTable() {
         <button onClick={openAddModal} className="text-sky-300 hover:underline text-sm">+ Add Doctor</button>
       </div>
 
-      {/* Modal Detalle de credenciales */}
-      {detailFor && (() => {
-        const creds = doctorCredentials(detailFor).map((c) => ({ ...c, status: statusOf(c.date), days: daysUntil(c.date) }));
-        return (
-          <div className="modal-backdrop" onClick={() => setDetailFor(null)}>
-            <div className="modal guide-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="guide-head">
-                <div>
-                  <h3 style={{ margin: 0 }}>{detailFor.name}</h3>
-                  <div className="guide-sub">
-                    NPI {detailFor.npi || "—"} · Licencia {detailFor.license || "—"} · CAQH {detailFor.caqh || "—"}
-                    {detailFor.taxonomy ? ` · ${detailFor.taxonomy}` : ""}
-                  </div>
-                </div>
-                <button className="btn-cancel" onClick={() => setDetailFor(null)}>Cerrar</button>
-              </div>
-
-              <table className="cred-detail">
-                <thead>
-                  <tr><th>Credencial</th><th>Vence</th><th>Estado</th><th>Acción</th></tr>
-                </thead>
-                <tbody>
-                  {creds.map((c) => (
-                    <tr key={c.key}>
-                      <td>{c.label}{c.key === "caqh" && c.base ? ` (atestado ${new Date(c.base).toLocaleDateString()})` : ""}</td>
-                      <td>{c.date ? new Date(c.date).toLocaleDateString() : "—"}</td>
-                      <td>
-                        <span className={`sem-pill ${STATUS_META[c.status].cls}`}>
-                          {c.date ? `${c.days}d` : "sin fecha"}
-                        </span>
-                      </td>
-                      <td className="cred-action">{c.action}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="guide-note">
-                CAQH vence 120 días después de la última atestación. Medicare revalida cada 5 años (verifica tu fecha en CMS). Plazos pueden cambiar; confirma en cada portal.
-              </p>
-              <div className="mt-4 flex justify-end">
-                <button className="btn-red" onClick={() => { setDetailFor(null); openEditModal(detailFor); }}>Editar fechas</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {/* Ficha completa del proveedor */}
+      {detailFor && (
+        <ProviderRecord
+          doctor={detailFor}
+          onClose={() => setDetailFor(null)}
+          onEdit={(d) => openEditModal(d)}
+        />
+      )}
 
       {/* Modal Add/Edit */}
       {showModal && (

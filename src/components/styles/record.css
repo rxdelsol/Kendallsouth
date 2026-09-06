@@ -1,0 +1,94 @@
+/* src/components/styles/record.css
+   Ficha del proveedor. Tema claro propio, contenido dentro de .rec-* para
+   convivir con el resto de la app sin tocarla.
+   El color es un reloj: lo único cromático mide cuánto falta para vencer. */
+.rec{
+  --paper:#ECEFEC; --card:#FBFCFB;
+  --ink:#17293A; --ink-2:#3E5266; --ink-3:#6C7F91;
+  --rule:#D3DAD5; --rule-2:#E4E9E5;
+  --t-ok:#2E6F5E;  --t-ok-bg:#E0EDE8;
+  --t-mid:#9B6B12; --t-mid-bg:#F5EAD5;
+  --t-hot:#A63A2C; --t-hot-bg:#F6E2DE;
+  --t-none:#8695A0; --t-none-bg:#E7EBEC;
+  background:var(--paper); color:var(--ink);
+  font-family:"Archivo","Segoe UI",system-ui,sans-serif; font-size:14px; line-height:1.5;
+  border-radius:4px; overflow:hidden;
+  width:min(1080px, 96vw); max-height:92vh; overflow-y:auto;
+}
+.rec *{box-sizing:border-box}
+.rec .eyebrow{font-size:10.5px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3)}
+.rec .mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+.rec .sheet{background:var(--card); border:1px solid var(--rule); border-radius:3px; margin:14px}
+.rec .sechead{
+  display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+  padding:11px 18px; border-top:1px solid var(--rule); border-bottom:1px solid var(--rule-2);
+}
+.rec .sechead > span:last-child{font-size:11.5px; color:var(--ink-3)}
+
+/* encabezado */
+.rec-top{
+  display:flex; align-items:flex-start; justify-content:space-between; gap:16px;
+  padding:14px 18px; background:var(--card); border-bottom:1px solid var(--rule);
+}
+.rec-close{
+  font:inherit; font-size:12px; border:1px solid var(--rule); background:var(--paper);
+  color:var(--ink-2); border-radius:3px; padding:5px 11px; cursor:pointer;
+}
+.rec-close:hover{border-color:var(--ink-3); color:var(--ink)}
+.rec-name{
+  font-family:"Spectral",Georgia,serif; font-weight:500; font-size:27px; line-height:1.12;
+  margin:2px 0 4px; letter-spacing:-.02em;
+}
+.rec-role{color:var(--ink-2); font-size:13px; margin:0 0 11px}
+.rec-facts{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1px; background:var(--rule-2); border:1px solid var(--rule-2)}
+.rec-fact{background:var(--card); padding:6px 10px}
+.rec-fact .eyebrow{display:block; margin-bottom:1px}
+.rec-fact .v{font-family:"IBM Plex Mono",monospace; font-size:12.5px}
+.rec-stamp{border:1px solid currentColor; border-radius:2px; padding:8px 13px; text-align:center; min-width:120px}
+.rec-stamp .n{display:block; font-family:"IBM Plex Mono",monospace; font-size:23px; font-weight:600; line-height:1}
+.rec-stamp .u{display:block; font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; margin-top:4px}
+.s-ok{color:var(--t-ok); background:var(--t-ok-bg)}
+.s-mid{color:var(--t-mid); background:var(--t-mid-bg)}
+.s-hot{color:var(--t-hot); background:var(--t-hot-bg)}
+.s-none{color:var(--t-none); background:var(--t-none-bg)}
+
+/* credenciales */
+.rec-ledger{padding:2px 18px 12px}
+.rec-row{display:grid; grid-template-columns:minmax(0,1fr) 84px 116px; gap:12px; align-items:center; padding:9px 0; border-bottom:1px solid var(--rule-2)}
+.rec-row:last-child{border-bottom:0}
+.rec-row .k{font-size:13px; font-weight:500}
+.rec-row .k small{display:block; font-weight:400; color:var(--ink-3); font-size:11px}
+.rec-meter{height:3px; background:var(--rule-2); position:relative}
+.rec-meter i{position:absolute; left:0; top:0; bottom:0}
+.i-ok{background:var(--t-ok)} .i-mid{background:var(--t-mid)} .i-hot{background:var(--t-hot)}
+.rec-when{text-align:right; font-family:"IBM Plex Mono",monospace; font-size:12px}
+.rec-when b{display:block; font-weight:600}
+.rec-when small{color:var(--ink-3); font-size:10.5px; font-family:"Archivo",sans-serif}
+.rec-when.none{color:var(--t-none); font-family:"Archivo",sans-serif; font-size:11.5px}
+
+/* seguros por línea de negocio */
+.rec-lineas{display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:1px; background:var(--rule-2)}
+.rec-linea{background:var(--card); padding:11px 15px 13px}
+.rec-lhead{display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:7px}
+.rec-lcount{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; color:var(--t-ok)}
+.rec-lcount.zero{color:var(--t-hot)}
+.rec-chips{display:flex; flex-wrap:wrap; gap:5px; margin-bottom:5px}
+.rec-chip{display:inline-flex; align-items:baseline; gap:5px; font-size:11.5px; padding:2px 7px; border-radius:2px; border:1px solid transparent}
+.rec-chip small{font-size:9.5px; opacity:.75; font-family:"IBM Plex Mono",monospace}
+.rec-chip.yes{background:var(--t-ok-bg); color:var(--t-ok)}
+.rec-chip.no{color:var(--ink-3); border-color:var(--rule); text-decoration:line-through}
+.rec-none{margin:0 0 5px; font-size:11.5px; color:var(--t-hot)}
+.rec-empty{margin:0; padding:14px 18px; color:var(--ink-3); font-size:12.5px}
+
+/* solicitar contrato */
+.rec-apply{width:100%; border-collapse:collapse; font-size:13px}
+.rec-apply th{text-align:left; padding:8px 18px; border-bottom:1px solid var(--rule-2); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:700}
+.rec-apply td{padding:9px 18px; border-bottom:1px solid var(--rule-2); vertical-align:top}
+.rec-apply tr:last-child td{border-bottom:0}
+.rec-apply tbody tr:hover{background:var(--paper)}
+.rec-pn{font-weight:500; white-space:nowrap}
+.rec-link{display:inline-block; font-size:12px; font-weight:500; color:var(--ink); text-decoration:none; border-bottom:1.5px solid var(--ink); padding-bottom:1px}
+.rec-link:hover{color:var(--t-ok); border-color:var(--t-ok)}
+.rec-via{display:block; font-size:10.5px; color:var(--ink-3); margin-top:3px}
+.rec-foot{padding:10px 18px 16px; color:var(--ink-3); font-size:11px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap}
+.rec-foot button{font:inherit; font-size:12px; border:1px solid var(--ink); background:var(--ink); color:var(--card); border-radius:3px; padding:5px 12px; cursor:pointer}
