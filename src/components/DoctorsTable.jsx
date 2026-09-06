@@ -56,7 +56,7 @@ export default function DoctorsTable() {
   }, []);
 
   async function refreshFromNppes() {
-    if (!window.confirm("¿Actualizar TODOS los doctores desde el registro nacional NPPES?\nRefresca la taxonomía y rellena nombre/licencia faltantes. No borra tus datos.")) return;
+    if (!window.confirm("Refresh ALL providers from the national NPPES registry?\nUpdates taxonomy and fills in missing name/license. It does not delete your data.")) return;
     setRefreshing(true); setRefreshMsg(null);
     try {
       const res = await fetch("/api/refresh-doctors", { method: "POST" }).then((r) => r.json());
@@ -190,19 +190,19 @@ export default function DoctorsTable() {
       {/* Tarjetas resumen */}
       <div className="ins-summary">
         <button className={`sum-tile ${fExp === "" ? "active" : ""}`} onClick={() => setFExp("")}>
-          <span className="sum-num">{summary.total}</span><span className="sum-lbl">Doctores</span>
+          <span className="sum-num">{summary.total}</span><span className="sum-lbl">Providers</span>
         </button>
         <button className={`sum-tile t-expired ${fExp === "expired" ? "active" : ""}`} onClick={() => setFExp(fExp === "expired" ? "" : "expired")}>
-          <span className="sum-num">{summary.expired}</span><span className="sum-lbl">Con vencido</span>
+          <span className="sum-num">{summary.expired}</span><span className="sum-lbl">Expired</span>
         </button>
         <button className={`sum-tile t-30 ${fExp === "d30" ? "active" : ""}`} onClick={() => setFExp(fExp === "d30" ? "" : "d30")}>
-          <span className="sum-num">{summary.d30}</span><span className="sum-lbl">≤ 30 días</span>
+          <span className="sum-num">{summary.d30}</span><span className="sum-lbl">≤ 30 days</span>
         </button>
         <button className={`sum-tile t-60 ${fExp === "d60" ? "active" : ""}`} onClick={() => setFExp(fExp === "d60" ? "" : "d60")}>
-          <span className="sum-num">{summary.d60}</span><span className="sum-lbl">31–60 días</span>
+          <span className="sum-num">{summary.d60}</span><span className="sum-lbl">31–60 days</span>
         </button>
         <button className={`sum-tile t-nodate ${fExp === "nodate" ? "active" : ""}`} onClick={() => setFExp(fExp === "nodate" ? "" : "nodate")}>
-          <span className="sum-num">{summary.nodate}</span><span className="sum-lbl">Datos incompletos</span>
+          <span className="sum-num">{summary.nodate}</span><span className="sum-lbl">Incomplete data</span>
         </button>
       </div>
 
@@ -219,7 +219,7 @@ export default function DoctorsTable() {
         )}
         <div style={{ flex: 1 }} />
         <button className="btn-red" onClick={refreshFromNppes} disabled={refreshing} title="Consulta el registro nacional NPPES y refresca todos los doctores">
-          {refreshing ? "Actualizando…" : "🔄 Actualizar desde NPPES"}
+          {refreshing ? "Actualizando…" : "🔄 Refresh from NPPES"}
         </button>
       </div>
 
@@ -243,8 +243,8 @@ export default function DoctorsTable() {
               <th className="p-2">NPI</th>
               <th className="p-2">License</th>
               <th className="p-2">CAQH</th>
-              <th className="p-2">Estado de credenciales</th>
-              <th className="p-2">Próx. vence</th>
+              <th className="p-2">Credential status</th>
+              <th className="p-2">Next due</th>
               <th className="p-2">Actions</th>
             </tr>
           </thead>
@@ -287,7 +287,7 @@ export default function DoctorsTable() {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={7} className="p-4 text-slate-400">
-                  {list.length === 0 ? "No doctors added yet" : "Ningún doctor coincide con el filtro"}
+                  {list.length === 0 ? "No doctors added yet" : "No provider matches the filter"}
                 </td>
               </tr>
             )}
@@ -314,7 +314,7 @@ export default function DoctorsTable() {
           <div className="modal guide-modal">
             <h3>{isEditing ? "Edit Doctor" : "Add Doctor"}</h3>
 
-            <h4 className="form-section">Identificación</h4>
+            <h4 className="form-section">Identification</h4>
             <div className="grid grid-cols-2 gap-2 mt-1">
               <input placeholder="Name" value={doctor.name} onChange={(e) => setDoctor({ ...doctor, name: e.target.value })} className="p-2 rounded bg-[#081424]" />
               <input placeholder="NPI" value={doctor.npi} onChange={(e) => setDoctor({ ...doctor, npi: e.target.value })} className="p-2 rounded bg-[#081424]" />
@@ -351,16 +351,16 @@ export default function DoctorsTable() {
                   );
                 })()}
               </div>
-              <label className="form-date"><span>DEA vence</span>
+              <label className="form-date"><span>DEA expires</span>
                 <input type="date" value={doctor.deaExp || ""} onChange={(e) => setDoctor({ ...doctor, deaExp: e.target.value })} className="p-2 rounded bg-[#081424]" />
               </label>
-              <label className="form-date"><span>CAQH últ. atestación</span>
+              <label className="form-date"><span>CAQH last attestation</span>
                 <input type="date" value={doctor.caqhAttested || ""} onChange={(e) => setDoctor({ ...doctor, caqhAttested: e.target.value })} className="p-2 rounded bg-[#081424]" />
               </label>
-              <label className="form-date"><span>Malpractice vence</span>
+              <label className="form-date"><span>Malpractice expires</span>
                 <input type="date" value={doctor.malpracticeExp || ""} onChange={(e) => setDoctor({ ...doctor, malpracticeExp: e.target.value })} className="p-2 rounded bg-[#081424]" />
               </label>
-              <label className="form-date"><span>Medicare revalidación</span>
+              <label className="form-date"><span>Medicare revalidation</span>
                 <input type="date" value={doctor.medicareRevalidation || ""} onChange={(e) => setDoctor({ ...doctor, medicareRevalidation: e.target.value })} className="p-2 rounded bg-[#081424]" />
               </label>
             </div>

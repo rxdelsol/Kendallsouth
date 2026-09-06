@@ -3,14 +3,14 @@
 // Es como se factura, y es donde se ve el hueco: doce filas ordenadas por
 // aseguradora esconden que faltan tres de las cinco líneas de Medicare.
 
-export const LINEAS = ["Medicaid", "Medicare", "Comercial y marketplace"];
+export const LINEAS = ["Medicaid", "Medicare", "Commercial & Marketplace"];
 
 export function lineaDe(tipo, plan) {
   const t = String(tipo || "").toLowerCase();
   const n = String(plan || "").toLowerCase();
   if (t.includes("medicaid") || n.includes("medicaid")) return "Medicaid";
   if (t.includes("medicare") || n.includes("medicare")) return "Medicare";
-  return "Comercial y marketplace";
+  return "Commercial & Marketplace";
 }
 
 const esOut = (red) => String(red || "").toLowerCase().includes("out");

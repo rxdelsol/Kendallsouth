@@ -18,22 +18,22 @@
 
 // Primera letra: tipo de registrante.
 const TIPOS = {
-  A: "Hospital/Clínica (histórico)",
-  B: "Hospital/Clínica",
-  F: "Distribuidor",
-  G: "Programa del gobierno",
-  M: "Profesional de nivel medio (ARNP, PA)",
-  P: "Distribuidor de precursores",
-  R: "Distribuidor de precursores",
-  X: "Programa de tratamiento (Suboxone)",
+  A: "Hospital/Clinic (legacy)",
+  B: "Hospital/Clinic",
+  F: "Distributor",
+  G: "Government program",
+  M: "Mid-level practitioner (ARNP, PA)",
+  P: "Chemical distributor",
+  R: "Chemical distributor",
+  X: "Treatment program (Suboxone)",
 };
 
 export function deaCheck(dea, doctorName = "") {
   const raw = String(dea || "").trim().toUpperCase().replace(/[\s-]/g, "");
-  if (!raw) return { state: "empty", label: "Sin DEA cargado" };
+  if (!raw) return { state: "empty", label: "No DEA on file" };
 
   if (!/^[A-Z]{2}\d{7}$/.test(raw)) {
-    return { state: "bad", label: "Formato inválido: deben ser 2 letras y 7 dígitos" };
+    return { state: "bad", label: "Invalid format: must be 2 letters and 7 digits" };
   }
 
   const letras = raw.slice(0, 2);
@@ -45,12 +45,12 @@ export function deaCheck(dea, doctorName = "") {
   if (esperado !== d[6]) {
     return {
       state: "bad",
-      label: `Dígito verificador no coincide (debería terminar en ${esperado})`,
-      hint: "Suele ser un dígito mal copiado del certificado.",
+      label: `Check digit does not match (it should end in ${esperado})`,
+      hint: "Usually a digit mistyped from the certificate.",
     };
   }
 
-  const tipo = TIPOS[letras[0]] || (/[A-Z]/.test(letras[0]) ? "Profesional (médico, dentista, veterinario)" : null);
+  const tipo = TIPOS[letras[0]] || (/[A-Z]/.test(letras[0]) ? "Practitioner (physician, dentist, veterinarian)" : null);
 
   // La 2ª letra es la inicial del apellido. Solo lo marcamos como aviso:
   // hay casos legítimos (cambio de apellido tras casarse, registros de
@@ -60,13 +60,13 @@ export function deaCheck(dea, doctorName = "") {
   if (inicial && letras[1] !== inicial) {
     return {
       state: "warn",
-      label: `Verificador correcto, pero la 2ª letra (${letras[1]}) no es la inicial de "${apellido}"`,
-      hint: "Puede ser legítimo si hubo cambio de apellido; si no, revisá el número.",
+      label: `Check digit is correct, but the 2nd letter (${letras[1]}) is not the initial of "${apellido}"`,
+      hint: "This can be legitimate after a name change; otherwise verify the number.",
       tipo,
     };
   }
 
-  return { state: "ok", label: "Número válido", tipo };
+  return { state: "ok", label: "Valid number", tipo };
 }
 
 export const DEA_STATE_META = {

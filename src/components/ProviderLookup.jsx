@@ -11,7 +11,7 @@ import { deaCheck, DEA_STATE_META } from "../utils/dea";
 // FHIR_PAYERS en api/_lib/fhirDirectory.js). El buscador consulta el directorio
 // oficial EN VIVO de cada una para el NPI, exista o no en tu sistema.
 const DIR_PAYERS = [
-  // Con Provider Directory FHIR público (funcionan sin configurar nada).
+  // Con Provider Directory FHIR público (funcionan not configured nada).
   { key: "cigna", label: "Cigna", url: "https://hcpdirectory.cigna.com/web/public/consumer/directory/search" },
   { key: "devoted", label: "Devoted Health", url: "https://www.devoted.com/find-a-doctor/" },
   { key: "community_care_plan", label: "Community Care Plan", url: "https://ccpcares.org/find-a-provider/" },
@@ -30,7 +30,7 @@ const DIR_PAYERS = [
   // Sin API pública de directorio: solo verificación manual.
   { key: "oscar", label: "Oscar", noPublicApi: true, url: "https://www.hioscar.com/search",
     portal: "https://provider.hioscar.com/provider-credentialing-status",
-    portalLabel: "Estado de credencialización (requiere login)" },
+    portalLabel: "Credentialing status (login required)" },
   { key: "curative", label: "Curative", noPublicApi: true, url: "https://www.curative.com/find-care" },
   { key: "careplus", label: "CarePlus", noPublicApi: true, url: "https://www.careplushealthplans.com/resources/find-a-doctor/" },
   { key: "health_first", label: "Health First", noPublicApi: true, url: "https://www.hf.org/health-first-health-plans/find-a-provider" },
@@ -45,7 +45,7 @@ const DIR_PAYERS = [
 const DIR_QUERYABLE = DIR_PAYERS.filter((p) => !p.noPublicApi);
 
 // Cada aseguradora se consulta con este tope de espera. Pasado eso se marca
-// como "no respondió" en vez de dejar la tabla colgada.
+// como "no response" en vez de dejar la tabla colgada.
 const DIR_TIMEOUT_MS = 30000;
 
 // ── Comparación con NPPES ───────────────────────────────────────────────
@@ -118,7 +118,7 @@ function compareTaxonomies(payerTaxonomies, nppes) {
   return codes.some((c) => nppesAll.includes(c)) ? "match" : "diff";
 }
 
-// Busca un NPI en el registro NACIONAL (NPPES) — no solo en el tracker — y muestra
+// Busca un NPI en el record NACIONAL (NPPES) — no solo en el tracker — y muestra
 // al proveedor con su participación REAL en cada aseguradora (directorio oficial FHIR
 // en vivo) + verificación pública de Medicare. Funciona aunque el proveedor no esté
 // en tu sitio, y permite agregarlo/actualizarlo en tu sistema.
@@ -227,8 +227,8 @@ export default function ProviderLookup() {
     return a === b || a.includes(b) || b.includes(a);
   };
   const hasInTracker = (label) => docInsurances.some((i) => matchesPayer(i, label));
-  // ¿Tu sistema lo tiene como In Network con esa aseguradora? Sirve para
-  // marcar cuando el directorio contradice tus propios registros.
+  // ¿Your system has them as como In Network con esa aseguradora? Sirve para
+  // marcar cuando el directorio contradice tus propios records.
   const inNetworkInTracker = (label) =>
     docInsurances.some(
       (i) => matchesPayer(i, label) && !(i.network || "").toLowerCase().includes("out")
@@ -313,8 +313,8 @@ export default function ProviderLookup() {
           }
         } catch (e) {
           result = e?.name === "AbortError"
-            ? { ok: false, error: "el servidor de la aseguradora no respondió a tiempo" }
-            : { ok: false, error: "sin conexión" };
+            ? { ok: false, error: "the payer server did not respond in time" }
+            : { ok: false, error: "no connection" };
         }
         setDirectory((prev) => ({ ...(prev || {}), [p.key]: result }));
       })
@@ -337,7 +337,7 @@ export default function ProviderLookup() {
           network: "In Network",
           notes: [
             manual
-              ? `Verificado a mano en el directorio de ${payer.label} · ${new Date().toLocaleDateString()}`
+              ? `Verified by hand in the directory of ${payer.label} · ${new Date().toLocaleDateString()}`
               : `Directorio oficial ${payer.label} · ${new Date().toLocaleDateString()}`,
             plans.length ? `Planes: ${plans.join(", ")}` : null,
           ].filter(Boolean).join(" · "),
@@ -347,7 +347,7 @@ export default function ProviderLookup() {
       else { setDirMsg("error"); setDirErr(res.error || null); }
     } catch (e) {
       setDirMsg("error");
-      setDirErr("No se pudo contactar al servidor.");
+      setDirErr("Could not reach the server.");
     } finally {
       setSavingPayer(null);
     }
@@ -366,7 +366,7 @@ export default function ProviderLookup() {
   }
 
   async function saveNewDoctor() {
-    if (!addForm?.name) { alert("Falta el nombre."); return; }
+    if (!addForm?.name) { alert("Name is required."); return; }
     setAdding(true); setAddMsg(null);
     try {
       const res = await fetch("/api/save-doctor", {
@@ -397,9 +397,9 @@ export default function ProviderLookup() {
 
   return (
     <div className="bg-card rounded p-4">
-      <h2 className="text-sky-200 font-semibold mb-1">Buscar proveedor por NPI</h2>
+      <h2 className="text-sky-200 font-semibold mb-1">Search a provider by NPI</h2>
       <p className="text-slate-400 text-xs mb-3">
-        Escribe un <strong>NPI</strong> (se busca en el registro nacional NPPES, no solo en tu sitio) o un nombre.
+        Escribe un <strong>NPI</strong> (se busca en el record nacional NPPES, no solo en tu sitio) o un nombre.
         Al buscar por NPI se consulta además el <strong>directorio oficial en vivo</strong> de cada aseguradora
         (participación real), y podés agregar lo que falte a tu sistema. Medicare se verifica con datos públicos.
       </p>
@@ -407,21 +407,21 @@ export default function ProviderLookup() {
       <div className="ins-filters">
         <input
           className="flt-search"
-          placeholder="🔎 NPI (10 dígitos) o nombre del doctor…"
+          placeholder="🔎 NPI (10 digits) or provider name…"
           value={q}
           onChange={(e) => { setQ(e.target.value); setSelectedId(null); }}
           onKeyDown={onKey}
           autoFocus
         />
         <button className="btn-red" onClick={runSearch} disabled={searching}>
-          {searching ? "Buscando…" : "Buscar"}
+          {searching ? "Searching…" : "Search"}
         </button>
         {(q || provider || searched) && (
-          <button className="flt-clear" onClick={clearAll}>✕ Limpiar</button>
+          <button className="flt-clear" onClick={clearAll}>✕ Clear</button>
         )}
       </div>
 
-      {loading && <p className="text-slate-400 text-sm">Cargando…</p>}
+      {loading && <p className="text-slate-400 text-sm">Loading…</p>}
 
       {/* Varias coincidencias locales por nombre */}
       {!provider && matches.length > 1 && (
@@ -436,7 +436,7 @@ export default function ProviderLookup() {
 
       {/* NPI buscado pero no encontrado en NPPES */}
       {searched && isNpi(q) && !searching && nppes && !nppes.found && !localDoctor && (
-        <p className="text-slate-400 text-sm">El NPI {q} no aparece en el registro nacional NPPES.</p>
+        <p className="text-slate-400 text-sm">El NPI {q} no aparece en el record nacional NPPES.</p>
       )}
 
       {/* Ficha del proveedor */}
@@ -447,7 +447,7 @@ export default function ProviderLookup() {
               <h3 style={{ margin: 0 }}>
                 {provider.name}{" "}
                 <span className={`sem-pill ${provider.source === "local" ? "sem-ok" : "sem-90"}`} style={{ fontSize: 11 }}>
-                  {provider.source === "local" ? "En tu sistema" : "NPPES nacional"}
+                  {provider.source === "local" ? "In your system" : "NPPES nacional"}
                 </span>
               </h3>
               <div className="guide-sub">
@@ -457,30 +457,30 @@ export default function ProviderLookup() {
               </div>
             </div>
             {provider.source === "nppes" && !addOpen && (
-              <button className="btn-red" onClick={openAdd}>➕ Agregar a mis doctores</button>
+              <button className="btn-red" onClick={openAdd}>➕ Add to my providers</button>
             )}
           </div>
 
           {addMsg === "ok" && (
-            <div className="verify-box"><span className="v-ok">✓ Agregado a tus doctores. Ya aparece en Doctors y en la matriz. Las fechas que pusiste activan el semáforo y el aviso por email.</span></div>
+            <div className="verify-box"><span className="v-ok">✓ Added to your providers. It now appears in Doctors and in the matrix. The dates you entered drive the status colors and the email alert.</span></div>
           )}
           {addMsg === "warn" && (
-            <div className="verify-box"><span className="v-warn">✓ Agregado, pero las fechas de vencimiento NO se guardaron: falta correr la migración de Supabase (supabase-migration.sql). Después edítalo en Doctors para fijarlas.</span></div>
+            <div className="verify-box"><span className="v-warn">✓ Added, but the expiration dates were NOT saved: the Supabase migration (supabase-migration.sql) has not been run. Edit the provider in Doctors afterwards to set them.</span></div>
           )}
           {addMsg === "error" && (
-            <div className="verify-box"><span className="v-bad">No se pudo agregar. Revisa la conexión con Supabase.</span></div>
+            <div className="verify-box"><span className="v-bad">Could not add. Check the Supabase connection.</span></div>
           )}
 
           {addOpen && addForm && (
             <div className="verify-box">
               <h4 className="form-section" style={{ marginTop: 0 }}>Agregar proveedor a tus doctores</h4>
-              <p className="guide-note" style={{ marginTop: 0 }}>Pon las fechas de vencimiento para que el semáforo y el email te avisen cuando se venzan.</p>
+              <p className="guide-note" style={{ marginTop: 0 }}>Enter the expiration dates so the status colors and the email alert can warn you before they lapse.</p>
               <div className="grid grid-cols-2 gap-2">
                 <input className="p-2 rounded bg-[#081424]" placeholder="Nombre" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} />
                 <input className="p-2 rounded bg-[#081424]" placeholder="NPI" value={addForm.npi} onChange={(e) => setAddForm({ ...addForm, npi: e.target.value })} />
                 <input className="p-2 rounded bg-[#081424]" placeholder="License #" value={addForm.license} onChange={(e) => setAddForm({ ...addForm, license: e.target.value })} />
-                <input className="p-2 rounded bg-[#081424]" placeholder="Taxonomía" value={addForm.taxonomy} onChange={(e) => setAddForm({ ...addForm, taxonomy: e.target.value })} />
-                <label className="form-date"><span>Licencia vence</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.licenseExp} onChange={(e) => setAddForm({ ...addForm, licenseExp: e.target.value })} /></label>
+                <input className="p-2 rounded bg-[#081424]" placeholder="Taxonomy" value={addForm.taxonomy} onChange={(e) => setAddForm({ ...addForm, taxonomy: e.target.value })} />
+                <label className="form-date"><span>License expires</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.licenseExp} onChange={(e) => setAddForm({ ...addForm, licenseExp: e.target.value })} /></label>
                 <div>
                   <input className="p-2 rounded bg-[#081424]" placeholder="DEA #" style={{ width: "100%" }}
                     value={addForm.dea} onChange={(e) => setAddForm({ ...addForm, dea: e.target.value })} />
@@ -495,14 +495,14 @@ export default function ProviderLookup() {
                     );
                   })()}
                 </div>
-                <label className="form-date"><span>DEA vence</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.deaExp} onChange={(e) => setAddForm({ ...addForm, deaExp: e.target.value })} /></label>
-                <label className="form-date"><span>CAQH últ. atestación</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.caqhAttested} onChange={(e) => setAddForm({ ...addForm, caqhAttested: e.target.value })} /></label>
-                <label className="form-date"><span>Malpractice vence</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.malpracticeExp} onChange={(e) => setAddForm({ ...addForm, malpracticeExp: e.target.value })} /></label>
-                <label className="form-date"><span>Medicare revalidación</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.medicareRevalidation} onChange={(e) => setAddForm({ ...addForm, medicareRevalidation: e.target.value })} /></label>
+                <label className="form-date"><span>DEA expires</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.deaExp} onChange={(e) => setAddForm({ ...addForm, deaExp: e.target.value })} /></label>
+                <label className="form-date"><span>CAQH last attestation</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.caqhAttested} onChange={(e) => setAddForm({ ...addForm, caqhAttested: e.target.value })} /></label>
+                <label className="form-date"><span>Malpractice expires</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.malpracticeExp} onChange={(e) => setAddForm({ ...addForm, malpracticeExp: e.target.value })} /></label>
+                <label className="form-date"><span>Medicare revalidation</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.medicareRevalidation} onChange={(e) => setAddForm({ ...addForm, medicareRevalidation: e.target.value })} /></label>
               </div>
               <div className="mt-4 flex justify-end gap-2">
                 <button className="btn-cancel" onClick={() => setAddOpen(false)}>Cancelar</button>
-                <button className="btn-red" onClick={saveNewDoctor} disabled={adding}>{adding ? "Guardando…" : "Guardar doctor"}</button>
+                <button className="btn-red" onClick={saveNewDoctor} disabled={adding}>{adding ? "Saving…" : "Save doctor"}</button>
               </div>
             </div>
           )}
@@ -512,18 +512,18 @@ export default function ProviderLookup() {
             <div className="verify-box">
               <div className="verify-row">
                 <strong>NPPES:</strong>{" "}
-                {!nppes ? "no consultado" :
+                {!nppes ? "not checked" :
                   !nppes.found ? <span className="v-bad">NPI no encontrado</span> :
                   <>
-                    <span className={nppes.active ? "v-ok" : "v-bad"}>{nppes.active ? "Activo" : "Inactivo"}</span>
+                    <span className={nppes.active ? "v-ok" : "v-bad"}>{nppes.active ? "Active" : "Inactive"}</span>
                     {" · "}{nppes.name}{nppes.credential ? `, ${nppes.credential}` : ""}
                     {nppes.licenseState ? ` · Lic ${nppes.license || ""} (${nppes.licenseState})` : ""}
                   </>}
               </div>
               {nppes && nppes.found && (
                 <div className="verify-row">
-                  <strong>Como figura en NPPES:</strong>{" "}
-                  {nppes.address ? <>📍 {nppes.address}</> : <span className="v-muted">sin dirección de consulta</span>}
+                  <strong>As published in NPPES:</strong>{" "}
+                  {nppes.address ? <>📍 {nppes.address}</> : <span className="v-muted">no practice address</span>}
                   {nppes.taxonomyCode || nppes.taxonomy ? (
                     <> {" · "}🏷 {nppes.taxonomyCode ? <code>{nppes.taxonomyCode}</code> : null} {nppes.taxonomy || ""}</>
                   ) : null}
@@ -532,10 +532,10 @@ export default function ProviderLookup() {
               )}
               <div className="verify-row">
                 <strong>Medicare (PECOS):</strong>{" "}
-                {!medicare ? "no consultado" :
-                  !medicare.verified ? <span className="v-muted">no verificado ({medicare.reason || "sin configurar"})</span> :
-                  medicare.enrolled ? <span className="v-ok">Inscrito{medicare.state ? ` · ${medicare.state}` : ""}</span> :
-                  <span className="v-bad">No aparece en el padrón</span>}
+                {!medicare ? "not checked" :
+                  !medicare.verified ? <span className="v-muted">not verified ({medicare.reason || "not configured"})</span> :
+                  medicare.enrolled ? <span className="v-ok">Enrolled{medicare.state ? ` · ${medicare.state}` : ""}</span> :
+                  <span className="v-bad">Not found in the registry</span>}
               </div>
             </div>
           )}
@@ -545,27 +545,27 @@ export default function ProviderLookup() {
             <div className="verify-box">
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <h4 className="form-section" style={{ margin: 0 }}>
-                  Participación en aseguradoras — directorio oficial en vivo
+                  Payer participation — live official directory
                 </h4>
                 {dirLoading && (
                   <span className="v-muted" style={{ fontSize: 12 }}>
-                    Consultando… {Object.values(directory || {}).filter((x) => x !== undefined).length}/{DIR_QUERYABLE.length}
+                    Checking… {Object.values(directory || {}).filter((x) => x !== undefined).length}/{DIR_QUERYABLE.length}
                   </span>
                 )}
               </div>
               <p className="guide-note" style={{ marginTop: 4 }}>
                 Estado real publicado por cada aseguradora para este NPI — todas las que existen,
-                esté o no el proveedor en tu sistema. La columna <strong>Cómo aparece</strong> muestra la
+                esté o no el proveedor en tu sistema. La columna <strong>How they publish it</strong> muestra la
                 dirección, la taxonomía, el grupo y el teléfono tal como los publica cada aseguradora, y los
                 compara con NPPES: <span className="v-ok">✓ igual</span> /{" "}
                 <span className="v-bad">⚠ distinta</span>. Una dirección o taxonomía que no coincide es la
                 causa más común de denials por <em>provider not found</em>.
               </p>
 
-              {dirMsg === "ok" && <div className="v-ok" style={{ marginBottom: 6 }}>✓ Agregado a tu sistema. Ya aparece en la lista de seguros.</div>}
+              {dirMsg === "ok" && <div className="v-ok" style={{ marginBottom: 6 }}>✓ Added to your system. It now appears in the insurance list.</div>}
               {dirMsg === "error" && (
                 <div className="v-bad" style={{ marginBottom: 6 }}>
-                  No se pudo guardar{dirErr ? `: ${dirErr}` : ". El servidor no dio un motivo."}
+                  Could not save{dirErr ? `: ${dirErr}` : ". The server gave no reason."}
                 </div>
               )}
 
@@ -573,9 +573,9 @@ export default function ProviderLookup() {
                 <table className="min-w-full text-sm">
                   <thead className="text-slate-300">
                     <tr>
-                      <th className="p-2" style={{ textAlign: "left" }}>Aseguradora</th>
-                      <th className="p-2" style={{ textAlign: "left" }}>Estado en su directorio</th>
-                      <th className="p-2" style={{ textAlign: "left" }}>Cómo aparece</th>
+                      <th className="p-2" style={{ textAlign: "left" }}>Payer</th>
+                      <th className="p-2" style={{ textAlign: "left" }}>Status in their directory</th>
+                      <th className="p-2" style={{ textAlign: "left" }}>How they publish it</th>
                       <th className="p-2"></th>
                     </tr>
                   </thead>
@@ -587,23 +587,23 @@ export default function ProviderLookup() {
                       let detailEl = <span className="v-muted">—</span>;
                       let canAdd = false;
                       const dirLink = p.url ? (
-                        <a href={p.url} target="_blank" rel="noopener noreferrer">Verificar en su directorio ↗</a>
+                        <a href={p.url} target="_blank" rel="noopener noreferrer">Check their directory ↗</a>
                       ) : null;
                       if (p.noPublicApi) {
                         // No hay API que consultar. Si tu sistema ya lo tiene
                         // contratado, eso vale más que un "sin datos" a secas.
                         statusEl = inNetworkInTracker(p.label)
-                          ? <span className="badge-in">Según tu sistema ✓</span>
-                          : <span className="v-muted">Sin API pública</span>;
+                          ? <span className="badge-in">Per your system ✓</span>
+                          : <span className="v-muted">No public API</span>;
                         detailEl = (
                           <span>
-                            <span className="v-muted">Esta aseguradora no publica directorio consultable. </span>
+                            <span className="v-muted">This payer publishes no queryable directory. </span>
                             {dirLink}
                             {p.portal ? (
                               <>
                                 {" · "}
                                 <a href={p.portal} target="_blank" rel="noopener noreferrer">
-                                  {p.portalLabel || "Portal de proveedores"} ↗
+                                  {p.portalLabel || "Provider portal"} ↗
                                 </a>
                               </>
                             ) : null}
@@ -615,12 +615,12 @@ export default function ProviderLookup() {
                         statusEl = <span className="v-muted">Error ({r.error || "sin datos"})</span>;
                         detailEl = dirLink || <span className="v-muted">—</span>;
                       } else if (r && r.configured === false) {
-                        statusEl = <span className="v-muted">No configurado</span>;
+                        statusEl = <span className="v-muted">Not configured</span>;
                         detailEl = dirLink || <span className="v-muted">—</span>;
                       } else if (r && (r.inNetwork || r.listedOnly)) {
                         statusEl = r.inNetwork
-                          ? <span className="badge-in">En red ✓</span>
-                          : <span className="badge-in">En el directorio ✓</span>;
+                          ? <span className="badge-in">In network ✓</span>
+                          : <span className="badge-in">Listed in directory ✓</span>;
                         canAdd = !already;
                         const roles = r.roles || [];
                         const addrs = r.addresses || [];
@@ -636,8 +636,8 @@ export default function ProviderLookup() {
                           <div style={{ display: "grid", gap: 2, fontSize: 12, lineHeight: 1.45 }}>
                             <div>
                               {roles.length
-                                ? `${roles.length} registro${roles.length === 1 ? "" : "s"}`
-                                : "Publicado como proveedor (la aseguradora no publica el rol de red)"}
+                                ? `${roles.length} record${roles.length === 1 ? "" : "s"}`
+                                : "Published as a provider (the payer does not publish the network role)"}
                               {r.publishedName ? ` · ${r.publishedName}` : ""}
                               {orgs.length ? ` · ${orgs.join(", ")}` : ""}
                             </div>
@@ -648,15 +648,15 @@ export default function ProviderLookup() {
                                   <span className="v-muted">📍</span>{" "}
                                   {a.name ? <strong>{a.name}</strong> : null}{a.name ? " · " : ""}
                                   {a.full || "—"}
-                                  {i === 0 && addrCmp === "match" ? <span className="v-ok"> ✓ igual a NPPES</span> : null}
-                                  {i === 0 && addrCmp === "diff" ? <span className="v-bad"> ⚠ distinta de NPPES</span> : null}
+                                  {i === 0 && addrCmp === "match" ? <span className="v-ok"> ✓ matches NPPES</span> : null}
+                                  {i === 0 && addrCmp === "diff" ? <span className="v-bad"> ⚠ differs from NPPES</span> : null}
                                 </div>
                               ))
                             ) : (
-                              <div className="v-muted">📍 sin dirección publicada</div>
+                              <div className="v-muted">📍 no address published</div>
                             )}
                             {addrs.length > 2 && (
-                              <div className="v-muted">+{addrs.length - 2} dirección(es) más</div>
+                              <div className="v-muted">+{addrs.length - 2} more address(es)</div>
                             )}
 
                             <div>
@@ -670,27 +670,27 @@ export default function ProviderLookup() {
                                       {t.text || (t.code && !t.isNucc ? t.code : "")}
                                     </span>
                                   ))
-                                : <span className="v-muted">sin taxonomía publicada</span>}
-                              {taxCmp === "match" ? <span className="v-ok"> ✓ igual a NPPES</span> : null}
-                              {taxCmp === "diff" ? <span className="v-bad"> ⚠ distinta de NPPES</span> : null}
+                                : <span className="v-muted">no taxonomy published</span>}
+                              {taxCmp === "match" ? <span className="v-ok"> ✓ matches NPPES</span> : null}
+                              {taxCmp === "diff" ? <span className="v-bad"> ⚠ differs from NPPES</span> : null}
                               {taxes.length && taxCmp === "none"
-                                ? <span className="v-muted"> (sin código NUCC — no comparable)</span>
+                                ? <span className="v-muted"> (no NUCC code — not comparable)</span>
                                 : null}
                             </div>
 
                             <div>
-                              <span className="v-muted">📋 Planes activos:</span>{" "}
+                              <span className="v-muted">📋 Active plans:</span>{" "}
                               {allNets.length ? (
                                 <strong>{allNets.slice(0, 4).join(" · ")}</strong>
                               ) : p.url ? (
                                 <>
-                                  <span className="v-muted">no salen por la API — </span>
+                                  <span className="v-muted">not exposed by their API — </span>
                                   <a href={p.url} target="_blank" rel="noopener noreferrer">
-                                    verlos en el directorio de {p.label} ↗
+                                    see them in the directory of {p.label} ↗
                                   </a>
                                 </>
                               ) : (
-                                <span className="v-muted">la aseguradora no publica el plan</span>
+                                <span className="v-muted">the payer does not publish the plan</span>
                               )}
                               {allNets.length > 4 ? (
                                 <span className="v-muted"> +{allNets.length - 4} más</span>
@@ -699,28 +699,28 @@ export default function ProviderLookup() {
                             {phone && <div className="v-muted">☎ {phone}</div>}
                             {r.lastUpdated && (
                               <div className="v-muted">
-                                Publicado/actualizado por la aseguradora: {new Date(r.lastUpdated).toLocaleDateString()}
+                                Published/updated by the payer: {new Date(r.lastUpdated).toLocaleDateString()}
                               </div>
                             )}
                           </div>
                         );
                       } else if (r && r.foundPractitioner) {
-                        statusEl = <span className="badge-out">Sin rol activo</span>;
-                        detailEl = <span className="v-muted">Aparece pero sin red activa</span>;
+                        statusEl = <span className="badge-out">No active role</span>;
+                        detailEl = <span className="v-muted">Listed but with no active network</span>;
                         canAdd = false;
                       } else if (r && r.slow) {
-                        statusEl = <span className="v-muted">No respondió a tiempo</span>;
-                        detailEl = <span className="v-muted">Volvé a buscar en un momento</span>;
+                        statusEl = <span className="v-muted">Timed out</span>;
+                        detailEl = <span className="v-muted">Try the search again in a moment</span>;
                       } else if (r) {
-                        statusEl = <span className="v-muted">No aparece</span>;
+                        statusEl = <span className="v-muted">Not found</span>;
                         // La API de algunas aseguradoras devuelve vacío aunque el
                         // proveedor esté contratado. No lo damos por ausente
-                        // cuando contradice tus propios registros.
+                        // cuando contradice tus propios records.
                         if (inNetworkInTracker(p.label)) {
-                          statusEl = <span className="badge-out">⚠ Sin confirmar</span>;
+                          statusEl = <span className="badge-out">⚠ Unconfirmed</span>;
                           detailEl = (
                             <span>
-                              Tu sistema lo tiene <strong>In Network</strong>, pero el directorio no lo devuelve.{" "}
+                              Your system has them as <strong>In Network</strong>, but the directory does not return them.{" "}
                               {dirLink}
                             </span>
                           );
@@ -735,7 +735,7 @@ export default function ProviderLookup() {
                           <td className="p-2">{detailEl}</td>
                           <td className="p-2" style={{ textAlign: "right" }}>
                             {already ? (
-                              <span className="v-ok" style={{ fontSize: 11 }}>En tu sistema</span>
+                              <span className="v-ok" style={{ fontSize: 11 }}>In your system</span>
                             ) : !canAdd && (p.noPublicApi || r !== undefined) ? (
                               // Aunque la API no lo confirme, podés registrar lo
                               // que verificaste a mano en el directorio de la
@@ -745,10 +745,10 @@ export default function ProviderLookup() {
                                 className="flt-clear"
                                 style={{ padding: "4px 10px", fontSize: 11 }}
                                 disabled={savingPayer === p.key}
-                                title="Agregar a tu sistema como verificación manual"
+                                title="Add to your system as a manual verification"
                                 onClick={() => addFromDirectory(p, [], true)}
                               >
-                                {savingPayer === p.key ? "Guardando…" : "➕ Agregar manual"}
+                                {savingPayer === p.key ? "Saving…" : "➕ Add manually"}
                               </button>
                             ) : canAdd ? (
                               <button
@@ -757,7 +757,7 @@ export default function ProviderLookup() {
                                 disabled={savingPayer === p.key}
                                 onClick={() => addFromDirectory(p, (directory?.[p.key]?.networks) || [])}
                               >
-                                {savingPayer === p.key ? "Guardando…" : "➕ Agregar"}
+                                {savingPayer === p.key ? "Saving…" : "➕ Add"}
                               </button>
                             ) : null}
                           </td>
@@ -774,8 +774,8 @@ export default function ProviderLookup() {
                 onClick={() => setShowManual((v) => !v)}
               >
                 {showManual
-                  ? "Ocultar las que no tienen API pública"
-                  : `Mostrar ${DIR_PAYERS.length - DIR_QUERYABLE.length} aseguradoras sin API pública (verificación manual)`}
+                  ? "Hide payers with no public API"
+                  : `Show ${DIR_PAYERS.length - DIR_QUERYABLE.length} payers with no public API (manual check)`}
               </button>
             </div>
           )}
@@ -802,7 +802,7 @@ export default function ProviderLookup() {
                 ))}
               </div>
 
-              {/* Comprobación del número DEA. El vencimiento del registro no
+              {/* Comprobación del número DEA. El vencimiento del record no
                   es un dato público (la DEA vende el archivo vía NTIS), pero
                   que el número esté bien escrito sí se puede verificar acá. */}
               {(() => {
@@ -828,22 +828,22 @@ export default function ProviderLookup() {
 
           {/* Tabla de seguros */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-            <h4 className="form-section" style={{ margin: 0 }}>Seguros de este proveedor</h4>
+            <h4 className="form-section" style={{ margin: 0 }}>Insurance for this provider</h4>
             <label style={{ display: "flex", alignItems: "center", gap: 6, color: "#cbd5e1", fontSize: 12 }}>
               <input type="checkbox" checked={onlyActive} onChange={(e) => setOnlyActive(e.target.checked)} />
-              Solo activos (In Network)
+              Active only (In Network)
             </label>
           </div>
           <div className="overflow-auto">
             <table className="min-w-full text-sm">
               <thead className="text-slate-300">
                 <tr>
-                  <th className="p-2">Aseguradora</th>
-                  <th className="p-2">Tipo</th>
-                  <th className="p-2">Estado</th>
-                  <th className="p-2">Expiración</th>
-                  <th className="p-2">Días</th>
-                  <th className="p-2">Notas</th>
+                  <th className="p-2">Payer</th>
+                  <th className="p-2">Type</th>
+                  <th className="p-2">Status</th>
+                  <th className="p-2">Expiration</th>
+                  <th className="p-2">Days</th>
+                  <th className="p-2">Notes</th>
                 </tr>
               </thead>
               <tbody className="text-slate-200">
@@ -867,7 +867,7 @@ export default function ProviderLookup() {
                   <tr><td colSpan={6} className="p-4 text-slate-400">
                     {docInsurances.length === 0
                       ? (provider.source === "nppes"
-                          ? "Este proveedor no está en tu tracker, así que no hay seguros comerciales registrados. La participación en red comercial no existe como dato público — solo Medicare/Medicaid (arriba)."
+                          ? "This provider is not in your tracker, so there are no commercial contracts on file. Commercial network participation is not public data — only Medicare/Medicaid (above)."
                           : "Este doctor no tiene seguros registrados.")
                       : "No hay seguros In Network para mostrar."}
                   </td></tr>

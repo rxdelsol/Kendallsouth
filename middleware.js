@@ -54,9 +54,9 @@ async function cookieValida(valor, secreto) {
 }
 
 function paginaLogin(mensaje, estado = 401) {
-  const cuerpo = `<!doctype html><html lang="es"><head><meta charset="utf-8">
+  const cuerpo = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kendall South · Acceso</title>
+<title>Kendall South · Sign in</title>
 <style>
   :root{color-scheme:light}
   *{box-sizing:border-box}
@@ -77,12 +77,12 @@ function paginaLogin(mensaje, estado = 401) {
 </style></head><body>
 <form class="box" method="POST" autocomplete="on">
   <h1>Kendall South Medical Center</h1>
-  <p class="sub">Credentialing · acceso restringido</p>
-  <label for="p">Contraseña</label>
+  <p class="sub">Credentialing · restricted access</p>
+  <label for="p">Password</label>
   <input id="p" name="__password" type="password" autocomplete="current-password" autofocus required>
-  <button type="submit">Entrar</button>
+  <button type="submit">Sign in</button>
   ${mensaje ? `<p class="err">${mensaje}</p>` : ""}
-  <p class="foot">Esta información es confidencial. No compartas la contraseña por email.</p>
+  <p class="foot">This information is confidential. Do not share the password by email.</p>
 </form></body></html>`;
   return new Response(cuerpo, {
     status: estado,
@@ -102,7 +102,7 @@ export default async function middleware(req) {
   // parecería que funciona y estaría publicando los datos.
   if (!password || !secreto) {
     return paginaLogin(
-      "Falta configurar APP_PASSWORD y AUTH_SECRET en Vercel. El sitio permanece cerrado hasta entonces.",
+      "APP_PASSWORD and AUTH_SECRET are not set in Vercel. The site stays locked until they are.",
       503
     );
   }
@@ -118,7 +118,7 @@ export default async function middleware(req) {
         if (!igual(form.get("__password"), password)) {
           // Demora deliberada: encarece probar contraseñas a lo bruto.
           await new Promise((r) => setTimeout(r, 700));
-          return paginaLogin("Contraseña incorrecta.");
+          return paginaLogin("Incorrect password.");
         }
         const exp = String(Date.now() + DIAS * 864e5);
         const valor = exp + "." + (await firmar(exp, secreto));
@@ -143,7 +143,7 @@ export default async function middleware(req) {
 
   // Sin sesión: a las APIs se les responde JSON, no una página de login.
   if (url.pathname.startsWith("/api/")) {
-    return new Response(JSON.stringify({ ok: false, error: "No autenticado." }), {
+    return new Response(JSON.stringify({ ok: false, error: "Not authenticated." }), {
       status: 401,
       headers: { "content-type": "application/json", "cache-control": "no-store" },
     });
