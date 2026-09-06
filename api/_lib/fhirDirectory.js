@@ -21,6 +21,13 @@
 // entorno en Vercel), esta función devuelve configured:false sin
 // romper nada — igual que ya hace verify-medicare.js.
 //
+// Además del estado (en red / no aparece), devuelve CÓMO APARECE el
+// proveedor publicado en cada aseguradora: dirección(es) de consulta,
+// taxonomía NUCC, especialidad, teléfono, grupo/organización y redes.
+// Eso es lo que hay que comparar contra NPPES: la causa #1 de denials
+// por "provider not found" es que la dirección o la taxonomía que la
+// aseguradora tiene publicada no coincide con la que se factura.
+//
 // Variables de entorno por aseguradora (prefijo = payer.envPrefix):
 //   FHIR_<PREFIJO>_BASE      URL base del servidor FHIR (obligatoria)
 //   FHIR_<PREFIJO>_APIKEY    Si el pagador pide una API key simple,
@@ -31,6 +38,13 @@
 //   FHIR_<PREFIJO>_SCOPE            opcional
 
 const NPI_SYSTEM = 'http://hl7.org/fhir/sid/us-npi';
+const NUCC_SYSTEM = 'nucc.org/provider-taxonomy';
+
+// Techos de seguridad: sin esto, un servidor lento (ej. UHC/Optum) deja
+// la búsqueda colgada 30-40 segundos y se come el tiempo de la función.
+const REQUEST_TIMEOUT_MS = 9000;   // por llamada FHIR
+const MAX_REF_FETCHES = 24;        // Location/Organization sueltos a resolver
+const MAX_ROLES = 25;              // roles que devolvemos con detalle
 
 // Catálogo de aseguradoras soportadas. `family` debe coincidir con el
 // `family` que devuelve directoryInfoFor() en EligibilityCheck.jsx para
@@ -78,11 +92,23 @@ async function getBearerToken(cfg) {
 }
 
 async function fhirGet(base, path, headers) {
-  const r = await fetch(`${base}${path}`, { headers: { Accept: 'application/fhir+json, application/json', ...headers } });
-  const text = await r.text();
-  let json = null;
-  try { json = JSON.parse(text); } catch (e) { /* respuesta no-JSON */ }
-  return { ok: r.ok, status: r.status, json, text: json ? null : text.slice(0, 500) };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const r = await fetch(`${base}${path}`, {
+      headers: { Accept: 'application/fhir+json, application/json', ...headers },
+      signal: ctrl.signal,
+    });
+    const text = await r.text();
+    let json = null;
+    try { json = JSON.parse(text); } catch (e) { /* respuesta no-JSON */ }
+    return { ok: r.ok, status: r.status, json, text: json ? null : text.slice(0, 500) };
+  } catch (err) {
+    const timedOut = err?.name === 'AbortError';
+    return { ok: false, status: 0, json: null, timedOut, text: timedOut ? 'timeout' : String(err?.message || err) };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function entriesOf(bundle) {
@@ -97,11 +123,91 @@ function practitionerHasNpi(practitioner, npi) {
   return (practitioner?.identifier || []).some((id) => String(id.value || '').trim() === npi);
 }
 
+// ── Extracción de "cómo aparece" ────────────────────────────────────────
+
+// Dirección FHIR → texto plano + partes sueltas, para poder compararla
+// campo por campo contra la de NPPES.
+function mapAddress(a) {
+  if (!a) return null;
+  const line = (a.line || []).filter(Boolean).join(', ');
+  const cityState = [a.city, a.state].filter(Boolean).join(', ');
+  const full = [line, cityState, a.postalCode].filter(Boolean).join(' · ');
+  if (!full) return null;
+  return {
+    line: line || null,
+    city: a.city || null,
+    state: a.state || null,
+    postalCode: a.postalCode ? String(a.postalCode).trim() : null,
+    full,
+  };
+}
+
+function phoneOf(resource) {
+  const t = (resource?.telecom || []).find((x) => x.system === 'phone' && x.value);
+  return t ? String(t.value).trim() : null;
+}
+
+// Saca códigos de taxonomía NUCC de una lista de CodeableConcept.
+// Los servidores varían mucho: algunos publican el código NUCC real
+// (207Q00000X), otros solo el texto ("INTERNAL MEDICINE") con un coding
+// NullFlavor "UNK". Devolvemos las dos cosas por separado para no
+// inventar un código que la aseguradora no publicó.
+function mapCodeableConcepts(list) {
+  const out = [];
+  for (const cc of list || []) {
+    const codings = cc?.coding || [];
+    const nucc = codings.find((c) => String(c.system || '').includes(NUCC_SYSTEM));
+    const usable = codings.find((c) => c.code && String(c.code).toUpperCase() !== 'UNK');
+    const chosen = nucc || usable || null;
+    const text = cc?.text || chosen?.display || null;
+    if (!text && !chosen?.code) continue;
+    out.push({
+      text: text || null,
+      code: chosen?.code || null,
+      system: chosen?.system || null,
+      isNucc: !!nucc,
+    });
+  }
+  // dedup por code+text
+  const seen = new Set();
+  return out.filter((x) => {
+    const k = `${x.code || ''}|${(x.text || '').toUpperCase()}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+function refKey(ref) {
+  const s = typeof ref === 'string' ? ref : ref?.reference;
+  if (!s) return null;
+  // "Location/123", "https://host/fhir/Location/123" → "Location/123"
+  const m = String(s).match(/([A-Za-z]+)\/([^/?#]+)$/);
+  return m ? `${m[1]}/${m[2]}` : null;
+}
+
+function nameOfPractitioner(p) {
+  const n = (p?.name || [])[0];
+  if (!n) return null;
+  if (n.text) return n.text;
+  const given = (n.given || []).filter(Boolean).join(' ');
+  return [given, n.family].filter(Boolean).join(' ').trim() || null;
+}
+
+function npiOf(resource) {
+  const id = (resource?.identifier || []).find(
+    (x) => String(x.system || '').includes('us-npi') || /^\d{10}$/.test(String(x.value || '').trim())
+  );
+  return id ? String(id.value).trim() : null;
+}
+
+// ── Verificación ────────────────────────────────────────────────────────
+
 // Verifica un NPI (y, si hace falta, el nombre) contra el Provider Directory
 // FHIR de `payerKey`. Devuelve { ok, configured, inNetwork, foundPractitioner,
-// roles, reason?, raw? }. Si `debug` es true, incluye la respuesta FHIR cruda
-// (para ajustar el mapeo de campos la primera vez que conectas un pagador
-// nuevo — igual que Availity).
+// roles, publishedName, publishedNpi, addresses, taxonomies, reason?, raw? }.
+// Si `debug` es true, incluye la respuesta FHIR cruda (para ajustar el mapeo
+// de campos la primera vez que conectas un pagador nuevo — igual que Availity).
 export async function verifyProviderDirectory(payerKey, npi, doctorName = '', debug = false) {
   const payer = FHIR_PAYERS[payerKey];
   if (!payer) return { ok: false, error: `Aseguradora desconocida: ${payerKey}` };
@@ -115,6 +221,8 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
     };
   }
 
+  const startedAt = Date.now();
+
   try {
     const headers = {};
     if (cfg.apikey) headers.apikey = cfg.apikey;
@@ -123,13 +231,33 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
     });
     if (token) headers.Authorization = `Bearer ${token}`;
 
+    // Los recursos referenciados (Location, Organization, Practitioner) son
+    // los que traen la dirección y la taxonomía publicadas. Se piden con
+    // _include en la misma llamada; si el servidor no lo soporta, se
+    // resuelven después uno por uno.
+    const INCLUDES =
+      '&_include=PractitionerRole:location' +
+      '&_include=PractitionerRole:organization' +
+      '&_include=PractitionerRole:practitioner';
+
+    // Caché de recursos incluidos en cualquier bundle que veamos.
+    const resolved = new Map(); // "Location/123" → resource
+    const absorb = (bundle) => {
+      for (const res of entriesOf(bundle)) {
+        if (res.resourceType && res.id) resolved.set(`${res.resourceType}/${res.id}`, res);
+      }
+    };
+
     // 1) Intento directo: PractitionerRole encadenado por NPI del practitioner.
     //    Muchos servidores Plan-Net soportan esta búsqueda encadenada en una sola llamada.
-    const chained = await fhirGet(
-      cfg.base,
-      `/PractitionerRole?practitioner.identifier=${encodeURIComponent(NPI_SYSTEM + '|' + npi)}&active=true&_count=50`,
-      headers
-    );
+    const chainedQ = `/PractitionerRole?practitioner.identifier=${encodeURIComponent(NPI_SYSTEM + '|' + npi)}&active=true&_count=50`;
+    let chained = await fhirGet(cfg.base, chainedQ + INCLUDES, headers);
+    // Algunos servidores rechazan _include desconocidos con 400: reintentar sin él.
+    if (!chained.ok && !chained.timedOut) {
+      const plain = await fhirGet(cfg.base, chainedQ, headers);
+      if (plain.ok) chained = plain;
+    }
+    absorb(chained.json);
 
     let roleResources = chained.ok && chained.json ? entriesOf(chained.json).filter((r) => r.resourceType === 'PractitionerRole') : [];
     let foundPractitioner = null;
@@ -142,6 +270,7 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
       // 2) Alternativa en dos pasos: buscar el Practitioner por NPI y luego su(s) PractitionerRole.
       const pr = await fhirGet(cfg.base, `/Practitioner?identifier=${encodeURIComponent(NPI_SYSTEM + '|' + npi)}`, headers);
       twoStepPractitionerSearch = pr;
+      absorb(pr.json);
       let practitioners = pr.ok && pr.json ? entriesOf(pr.json).filter((r) => r.resourceType === 'Practitioner') : [];
       foundPractitioner = practitioners[0] || null;
       searchStrategy = 'two-step-identifier';
@@ -156,6 +285,7 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
       let byFamilySearch = null;
       if (!foundPractitioner && doctorName) {
         byNameSearch = await fhirGet(cfg.base, `/Practitioner?name=${encodeURIComponent(doctorName)}&_count=20`, headers);
+        absorb(byNameSearch.json);
         byNameCandidates = byNameSearch.ok && byNameSearch.json ? entriesOf(byNameSearch.json).filter((r) => r.resourceType === 'Practitioner') : [];
         foundPractitioner = byNameCandidates.find((p) => practitionerHasNpi(p, npi)) || null;
         searchStrategy = 'name-then-npi-match';
@@ -169,6 +299,7 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
           const lastName = doctorName.trim().split(/\s+/).pop();
           if (lastName && lastName.toLowerCase() !== doctorName.trim().toLowerCase()) {
             byFamilySearch = await fhirGet(cfg.base, `/Practitioner?family=${encodeURIComponent(lastName)}&_count=20`, headers);
+            absorb(byFamilySearch.json);
             const familyCandidates = byFamilySearch.ok && byFamilySearch.json ? entriesOf(byFamilySearch.json).filter((r) => r.resourceType === 'Practitioner') : [];
             foundPractitioner = familyCandidates.find((p) => practitionerHasNpi(p, npi)) || null;
             if (foundPractitioner) {
@@ -186,7 +317,11 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
           foundPractitioner: false,
           inNetwork: false,
           roles: [],
+          addresses: [],
+          taxonomies: [],
           searchStrategy,
+          elapsedMs: Date.now() - startedAt,
+          ...(chained.timedOut ? { slow: true, reason: 'El servidor de la aseguradora no respondió a tiempo.' } : {}),
           ...(debug
             ? {
                 raw: {
@@ -208,33 +343,110 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
       //    error) con el id pelado.
       // 2) el filtro `active=true` — algunos servidores (ej. UHC/Optum)
       //    lo ignoran o rechazan y devuelven 0 resultados con él puesto.
-      // Probamos las combinaciones en orden y nos quedamos con la primera
-      // que traiga resultados, para no perder roles solo por una diferencia
-      // de formato/parámetros soportados por el servidor.
-      const practitionerRefCandidates = [foundPractitioner.id, `Practitioner/${foundPractitioner.id}`];
-      for (const ref of practitionerRefCandidates) {
-        const roles = await fhirGet(cfg.base, `/PractitionerRole?practitioner=${encodeURIComponent(ref)}&active=true&_count=50`, headers);
-        if (!twoStepRolesSearch) twoStepRolesSearch = roles;
-        if (roles.ok && roles.json) {
-          roleResources = entriesOf(roles.json).filter((r) => r.resourceType === 'PractitionerRole');
-        }
-        if (roleResources.length) break;
-
-        const rolesNoFilter = await fhirGet(cfg.base, `/PractitionerRole?practitioner=${encodeURIComponent(ref)}&_count=50`, headers);
-        if (!twoStepRolesSearchNoFilter) twoStepRolesSearchNoFilter = rolesNoFilter;
-        if (rolesNoFilter.ok && rolesNoFilter.json) {
-          roleResources = entriesOf(rolesNoFilter.json).filter((r) => r.resourceType === 'PractitionerRole');
-        }
-        if (roleResources.length) break;
+      // Antes se probaban en serie (hasta 4 llamadas encadenadas: por eso
+      // UnitedHealthcare tardaba ~30 s). Ahora van las 4 en paralelo y nos
+      // quedamos con la primera de la lista de prioridad que traiga roles.
+      const refs = [foundPractitioner.id, `Practitioner/${foundPractitioner.id}`];
+      const attempts = [];
+      for (const ref of refs) {
+        attempts.push({ ref, filtered: true, path: `/PractitionerRole?practitioner=${encodeURIComponent(ref)}&active=true&_count=50` });
+        attempts.push({ ref, filtered: false, path: `/PractitionerRole?practitioner=${encodeURIComponent(ref)}&_count=50` });
+      }
+      const settled = await Promise.all(attempts.map((a) => fhirGet(cfg.base, a.path + INCLUDES, headers).then((r) => ({ ...a, res: r }))));
+      for (const a of settled) {
+        absorb(a.res.json);
+        if (a.filtered && !twoStepRolesSearch) twoStepRolesSearch = a.res;
+        if (!a.filtered && !twoStepRolesSearchNoFilter) twoStepRolesSearchNoFilter = a.res;
+      }
+      for (const a of settled) {
+        if (!a.res.ok || !a.res.json) continue;
+        const found = entriesOf(a.res.json).filter((r) => r.resourceType === 'PractitionerRole');
+        if (found.length) { roleResources = found; break; }
       }
     }
 
-    const activeRoles = roleResources.filter((r) => r.active !== false);
-    const roles = activeRoles.map((r) => ({
-      organization: r.organization?.display || null,
-      network: (r.network || []).map((n) => n.display).filter(Boolean),
-      specialty: (r.specialty || []).map((s) => s.text || s.coding?.[0]?.display).filter(Boolean),
-    }));
+    const activeRoles = roleResources.filter((r) => r.active !== false).slice(0, MAX_ROLES);
+
+    // Resolver las referencias que el servidor no mandó con _include.
+    // Son las que traen la dirección publicada (Location) y el grupo
+    // (Organization) — el dato que hay que comparar contra NPPES.
+    const wanted = new Set();
+    for (const r of activeRoles) {
+      for (const l of r.location || []) { const k = refKey(l); if (k && !resolved.has(k)) wanted.add(k); }
+      const o = refKey(r.organization); if (o && !resolved.has(o)) wanted.add(o);
+    }
+    const practitionerRef = refKey(foundPractitioner ? `Practitioner/${foundPractitioner.id}` : activeRoles[0]?.practitioner);
+    if (practitionerRef && !resolved.has(practitionerRef)) wanted.add(practitionerRef);
+
+    const toFetch = [...wanted].slice(0, MAX_REF_FETCHES);
+    if (toFetch.length) {
+      const fetched = await Promise.all(toFetch.map((k) => fhirGet(cfg.base, `/${k}`, headers).then((r) => [k, r])));
+      for (const [k, r] of fetched) {
+        if (r.ok && r.json && r.json.resourceType) resolved.set(k, r.json);
+      }
+    }
+
+    const practitionerRes = (practitionerRef && resolved.get(practitionerRef)) || foundPractitioner || null;
+
+    const roles = activeRoles.map((r) => {
+      const locations = (r.location || [])
+        .map((l) => resolved.get(refKey(l)))
+        .filter(Boolean)
+        .map((loc) => ({
+          name: loc.name || null,
+          address: mapAddress(loc.address),
+          phone: phoneOf(loc) || null,
+        }))
+        .filter((l) => l.address || l.name);
+
+      const org = resolved.get(refKey(r.organization)) || null;
+
+      return {
+        organization: org?.name || r.organization?.display || null,
+        organizationNpi: org ? npiOf(org) : null,
+        network: (r.network || []).map((n) => n.display).filter(Boolean),
+        // Compatibilidad: `specialty` sigue siendo un array de textos.
+        specialty: (r.specialty || []).map((s) => s.text || s.coding?.[0]?.display).filter(Boolean),
+        // Nuevo: taxonomía con código NUCC cuando la aseguradora lo publica.
+        taxonomies: mapCodeableConcepts(r.specialty),
+        roleCodes: mapCodeableConcepts(r.code),
+        locations,
+        phone: phoneOf(r),
+        lastUpdated: r.meta?.lastUpdated || null,
+      };
+    });
+
+    // Resúmenes planos: todo lo publicado por esta aseguradora, sin repetir.
+    // Es lo que la pantalla compara contra NPPES.
+    const addrSeen = new Set();
+    const addresses = [];
+    for (const role of roles) {
+      for (const l of role.locations) {
+        const key = (l.address?.full || l.name || '').toUpperCase();
+        if (!key || addrSeen.has(key)) continue;
+        addrSeen.add(key);
+        addresses.push({ name: l.name, phone: l.phone, ...(l.address || {}) });
+      }
+    }
+
+    const taxSeen = new Set();
+    const taxonomies = [];
+    for (const role of roles) {
+      for (const t of role.taxonomies) {
+        const key = `${t.code || ''}|${(t.text || '').toUpperCase()}`;
+        if (taxSeen.has(key)) continue;
+        taxSeen.add(key);
+        taxonomies.push(t);
+      }
+    }
+    // La taxonomía "de verdad" (código NUCC) suele venir en las
+    // qualification del Practitioner, no en el PractitionerRole.
+    for (const t of mapCodeableConcepts((practitionerRes?.qualification || []).map((q) => q.code))) {
+      const key = `${t.code || ''}|${(t.text || '').toUpperCase()}`;
+      if (taxSeen.has(key)) continue;
+      taxSeen.add(key);
+      taxonomies.push(t);
+    }
 
     return {
       ok: true,
@@ -242,21 +454,32 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
       foundPractitioner: !!(foundPractitioner || activeRoles.length),
       inNetwork: activeRoles.length > 0,
       roles,
+      // Cómo aparece publicado el proveedor en ESTA aseguradora:
+      publishedName: nameOfPractitioner(practitionerRes),
+      publishedNpi: practitionerRes ? npiOf(practitionerRes) : null,
+      addresses,
+      taxonomies,
+      networks: [...new Set(roles.flatMap((r) => r.network))],
+      organizations: [...new Set(roles.map((r) => r.organization).filter(Boolean))],
+      lastUpdated: roles.map((r) => r.lastUpdated).filter(Boolean).sort().pop() || null,
       searchStrategy,
+      elapsedMs: Date.now() - startedAt,
       ...(debug
         ? {
             raw: {
               chained: chained.json,
               practitionerId: foundPractitioner?.id || null,
+              practitionerResource: practitionerRes,
               twoStepPractitionerSearch: twoStepPractitionerSearch?.json,
               twoStepRolesSearch: twoStepRolesSearch?.json,
               twoStepRolesSearchNoFilter: twoStepRolesSearchNoFilter?.json,
+              resolvedKeys: [...resolved.keys()],
               roleResources,
             },
           }
         : {}),
     };
   } catch (err) {
-    return { ok: false, configured: true, error: String(err.message || err) };
+    return { ok: false, configured: true, error: String(err.message || err), elapsedMs: Date.now() - startedAt };
   }
 }

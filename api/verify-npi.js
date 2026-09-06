@@ -24,6 +24,18 @@ export default async function handler(req, res) {
     const b = rec.basic || {};
     const tax = (rec.taxonomies || []).find((t) => t.primary) || (rec.taxonomies || [])[0] || {};
     const loc = (rec.addresses || []).find((a) => a.address_purpose === 'LOCATION') || (rec.addresses || [])[0] || {};
+    const mail = (rec.addresses || []).find((a) => a.address_purpose === 'MAILING') || null;
+
+    // Direccion tal cual la publica NPPES, en una sola linea, para poder
+    // compararla contra la que publica cada aseguradora en su directorio.
+    const addrLine = (a) => {
+      if (!a) return null;
+      const street = [a.address_1, a.address_2].filter(Boolean).join(', ');
+      const cityState = [a.city, a.state].filter(Boolean).join(', ');
+      const zip = a.postal_code ? String(a.postal_code).replace(/^(\d{5})(\d{4})$/, '$1-$2') : '';
+      const full = [street, cityState, zip].filter(Boolean).join(' \u00b7 ');
+      return full || null;
+    };
     const fullName = rec.enumeration_type === 'NPI-2'
       ? (b.organization_name || '')
       : `${b.first_name || ''} ${b.last_name || ''}`.trim();
@@ -45,6 +57,21 @@ export default async function handler(req, res) {
       licenseState: tax.state || null,
       city: loc.city || null,
       state: loc.state || null,
+      // Direccion de consulta (practice location) completa + telefono.
+      addressLine: [loc.address_1, loc.address_2].filter(Boolean).join(', ') || null,
+      postalCode: loc.postal_code ? String(loc.postal_code).replace(/^(\d{5})(\d{4})$/, '$1-$2') : null,
+      address: addrLine(loc),
+      mailingAddress: addrLine(mail),
+      phone: loc.telephone_number || null,
+      fax: loc.fax_number || null,
+      // Todas las taxonomias declaradas, no solo la primaria.
+      taxonomies: (rec.taxonomies || []).map((t) => ({
+        code: t.code || null,
+        desc: t.desc || null,
+        primary: !!t.primary,
+        license: t.license || null,
+        state: t.state || null,
+      })),
     };
 
     if (expectName) {

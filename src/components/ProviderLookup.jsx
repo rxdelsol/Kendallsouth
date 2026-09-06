@@ -21,6 +21,80 @@ const DIR_PAYERS = [
   { key: "wellcare", label: "WellCare" },
 ];
 
+// Cada aseguradora se consulta con este tope de espera. Pasado eso se marca
+// como "no respondió" en vez de dejar la tabla colgada.
+const DIR_TIMEOUT_MS = 30000;
+
+// ── Comparación con NPPES ───────────────────────────────────────────────
+// El motivo #1 de denials por "provider not found" es que la dirección o la
+// taxonomía que la aseguradora tiene publicada no coincide con la que se
+// factura. Estas funciones normalizan lo justo para no marcar diferencias
+// falsas por abreviaturas o puntuación.
+const ADDR_ABBR = [
+  [/\bSTREET\b/g, "ST"], [/\bAVENUE\b/g, "AVE"], [/\bROAD\b/g, "RD"],
+  [/\bDRIVE\b/g, "DR"], [/\bBOULEVARD\b/g, "BLVD"], [/\bCOURT\b/g, "CT"],
+  [/\bLANE\b/g, "LN"], [/\bPLACE\b/g, "PL"], [/\bTERRACE\b/g, "TER"],
+  [/\bHIGHWAY\b/g, "HWY"], [/\bPARKWAY\b/g, "PKWY"], [/\bCIRCLE\b/g, "CIR"],
+  [/\bSUITE\b/g, "STE"], [/\bUNIT\b/g, "STE"], [/\bAPARTMENT\b/g, "STE"], [/\bAPT\b/g, "STE"],
+  [/\bSOUTHWEST\b/g, "SW"], [/\bSOUTHEAST\b/g, "SE"],
+  [/\bNORTHWEST\b/g, "NW"], [/\bNORTHEAST\b/g, "NE"],
+  [/\bNORTH\b/g, "N"], [/\bSOUTH\b/g, "S"], [/\bEAST\b/g, "E"], [/\bWEST\b/g, "W"],
+];
+
+function normAddr(v) {
+  let t = String(v || "").toUpperCase().replace(/[.,#]/g, " ");
+  for (const [re, rep] of ADDR_ABBR) t = t.replace(re, rep);
+  return t.replace(/\s+/g, " ").trim();
+}
+
+// Número + calle, sin suite ni ciudad/ZIP: es lo que de verdad tiene que
+// coincidir. Las direcciones llegan a veces como línea suelta ("9740 SW 88TH ST
+// STE 200") y a veces como cadena completa con " · " de separador, así que
+// primero nos quedamos con el primer tramo.
+function streetKey(v) {
+  let t = normAddr(v).split("\u00b7")[0];
+  t = t.replace(/\bSTE\s*[\w-]+/g, " ");
+  return t.replace(/\s+/g, " ").trim();
+}
+
+// ZIP a 5 dígitos, tolerando "33176-3012" y "331763012".
+function zip5(v) {
+  const d = String(v || "").replace(/\D/g, "");
+  return d.length >= 5 ? d.slice(0, 5) : null;
+}
+
+// ¿Alguna de las direcciones publicadas por la aseguradora coincide con la de
+// NPPES? Compara calle y ZIP por separado, nunca la cadena entera (si no, la
+// ciudad o un ZIP+4 marcarían diferencia donde no la hay).
+// Devuelve "match" | "diff" | "none".
+function compareAddresses(payerAddresses, nppes) {
+  const wantStreet = streetKey(nppes?.addressLine || nppes?.address);
+  const wantZip = zip5(nppes?.postalCode || nppes?.address);
+  if (!wantStreet && !wantZip) return "none";
+  const list = (payerAddresses || []).filter((a) => a && (a.line || a.full));
+  if (!list.length) return "none";
+  const hit = list.some((a) => {
+    const gotStreet = streetKey(a.line || a.full);
+    const gotZip = zip5(a.postalCode || a.full);
+    const streetOk = !!(wantStreet && gotStreet &&
+      (gotStreet === wantStreet || gotStreet.startsWith(wantStreet) || wantStreet.startsWith(gotStreet)));
+    const zipOk = wantZip && gotZip ? wantZip === gotZip : true;
+    return streetOk && zipOk;
+  });
+  return hit ? "match" : "diff";
+}
+
+// Compara taxonomías. Solo marcamos diferencia cuando la aseguradora publica
+// un código NUCC de verdad; si solo publica texto libre ("INTERNAL MEDICINE")
+// no se puede afirmar que esté mal.
+function compareTaxonomies(payerTaxonomies, nppes) {
+  const codes = (payerTaxonomies || []).map((t) => t.code).filter((c) => c && /^\w{9,10}X$/i.test(c));
+  const nppesCodes = (nppes?.taxonomies || []).map((t) => t.code).filter(Boolean);
+  const nppesAll = nppesCodes.length ? nppesCodes : [nppes?.taxonomyCode].filter(Boolean);
+  if (!codes.length || !nppesAll.length) return "none";
+  return codes.some((c) => nppesAll.includes(c)) ? "match" : "diff";
+}
+
 // Busca un NPI en el registro NACIONAL (NPPES) — no solo en el tracker — y muestra
 // al proveedor con su participación REAL en cada aseguradora (directorio oficial FHIR
 // en vivo) + verificación pública de Medicare. Funciona aunque el proveedor no esté
@@ -190,19 +264,30 @@ export default function ProviderLookup() {
   }
 
   // Consulta el Provider Directory FHIR oficial de las 9 aseguradoras en paralelo.
+  // Cada una se pinta EN CUANTO responde (antes se esperaba a las 9 y la tabla
+  // quedaba en "Consultando…" ~40 s por culpa del servidor más lento).
   async function fetchDirectory(npi, name) {
-    const entries = await Promise.all(
+    setDirectory(Object.fromEntries(DIR_PAYERS.map((p) => [p.key, undefined])));
+    await Promise.all(
       DIR_PAYERS.map(async (p) => {
+        const url = `/api/verify-provider-directory?payer=${p.key}&npi=${encodeURIComponent(npi)}${name ? `&name=${encodeURIComponent(name)}` : ""}`;
+        let result;
         try {
-          const url = `/api/verify-provider-directory?payer=${p.key}&npi=${encodeURIComponent(npi)}${name ? `&name=${encodeURIComponent(name)}` : ""}`;
-          const r = await fetch(url).then((x) => x.json());
-          return [p.key, r];
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), DIR_TIMEOUT_MS);
+          try {
+            result = await fetch(url, { signal: ctrl.signal }).then((x) => x.json());
+          } finally {
+            clearTimeout(timer);
+          }
         } catch (e) {
-          return [p.key, { ok: false, error: "sin conexión" }];
+          result = e?.name === "AbortError"
+            ? { ok: false, error: "el servidor de la aseguradora no respondió a tiempo" }
+            : { ok: false, error: "sin conexión" };
         }
+        setDirectory((prev) => ({ ...(prev || {}), [p.key]: result }));
       })
     );
-    setDirectory(Object.fromEntries(entries));
   }
 
   // Agrega/actualiza el seguro en tu sistema a partir del directorio oficial.
@@ -383,6 +468,16 @@ export default function ProviderLookup() {
                     {nppes.licenseState ? ` · Lic ${nppes.license || ""} (${nppes.licenseState})` : ""}
                   </>}
               </div>
+              {nppes && nppes.found && (
+                <div className="verify-row">
+                  <strong>Como figura en NPPES:</strong>{" "}
+                  {nppes.address ? <>📍 {nppes.address}</> : <span className="v-muted">sin dirección de consulta</span>}
+                  {nppes.taxonomyCode || nppes.taxonomy ? (
+                    <> {" · "}🏷 {nppes.taxonomyCode ? <code>{nppes.taxonomyCode}</code> : null} {nppes.taxonomy || ""}</>
+                  ) : null}
+                  {nppes.phone ? <> {" · "}☎ {nppes.phone}</> : null}
+                </div>
+              )}
               <div className="verify-row">
                 <strong>Medicare (PECOS):</strong>{" "}
                 {!medicare ? "no consultado" :
@@ -400,11 +495,19 @@ export default function ProviderLookup() {
                 <h4 className="form-section" style={{ margin: 0 }}>
                   Participación en aseguradoras — directorio oficial en vivo
                 </h4>
-                {dirLoading && <span className="v-muted" style={{ fontSize: 12 }}>Consultando…</span>}
+                {dirLoading && (
+                  <span className="v-muted" style={{ fontSize: 12 }}>
+                    Consultando… {Object.values(directory || {}).filter((x) => x !== undefined).length}/{DIR_PAYERS.length}
+                  </span>
+                )}
               </div>
               <p className="guide-note" style={{ marginTop: 4 }}>
                 Estado real publicado por cada aseguradora para este NPI — todas las que existen,
-                esté o no el proveedor en tu sistema.
+                esté o no el proveedor en tu sistema. La columna <strong>Cómo aparece</strong> muestra la
+                dirección, la taxonomía, el grupo y el teléfono tal como los publica cada aseguradora, y los
+                compara con NPPES: <span className="v-ok">✓ igual</span> /{" "}
+                <span className="v-bad">⚠ distinta</span>. Una dirección o taxonomía que no coincide es la
+                causa más común de denials por <em>provider not found</em>.
               </p>
 
               {dirMsg === "ok" && <div className="v-ok" style={{ marginBottom: 6 }}>✓ Agregado a tu sistema. Ya aparece en la lista de seguros.</div>}
@@ -437,18 +540,79 @@ export default function ProviderLookup() {
                         statusEl = <span className="badge-in">En red ✓</span>;
                         canAdd = !already;
                         const roles = r.roles || [];
-                        const specs = [...new Set(roles.flatMap((x) => x.specialty || []))].slice(0, 3);
-                        const nets = [...new Set(roles.flatMap((x) => x.network || []))].slice(0, 2);
+                        const addrs = r.addresses || [];
+                        const taxes = r.taxonomies || [];
+                        const nets = (r.networks || []).slice(0, 2);
+                        const orgs = (r.organizations || []).slice(0, 2);
+                        const addrCmp = compareAddresses(addrs, nppes);
+                        const taxCmp = compareTaxonomies(taxes, nppes);
+                        const shownAddrs = addrs.slice(0, 2);
+                        const phone = addrs.map((a) => a.phone).find(Boolean) ||
+                          roles.map((x) => x.phone).find(Boolean) || null;
                         detailEl = (
-                          <span>
-                            {roles.length} registro{roles.length === 1 ? "" : "s"}
-                            {specs.length ? ` · ${specs.join(", ")}` : ""}
-                            {nets.length ? ` · ${nets.join(", ")}` : ""}
-                          </span>
+                          <div style={{ display: "grid", gap: 2, fontSize: 12, lineHeight: 1.45 }}>
+                            <div>
+                              {roles.length} registro{roles.length === 1 ? "" : "s"}
+                              {r.publishedName ? ` · ${r.publishedName}` : ""}
+                              {orgs.length ? ` · ${orgs.join(", ")}` : ""}
+                            </div>
+
+                            {shownAddrs.length ? (
+                              shownAddrs.map((a, i) => (
+                                <div key={i}>
+                                  <span className="v-muted">📍</span>{" "}
+                                  {a.name ? <strong>{a.name}</strong> : null}{a.name ? " · " : ""}
+                                  {a.full || "—"}
+                                  {i === 0 && addrCmp === "match" ? <span className="v-ok"> ✓ igual a NPPES</span> : null}
+                                  {i === 0 && addrCmp === "diff" ? <span className="v-bad"> ⚠ distinta de NPPES</span> : null}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="v-muted">📍 sin dirección publicada</div>
+                            )}
+                            {addrs.length > 2 && (
+                              <div className="v-muted">+{addrs.length - 2} dirección(es) más</div>
+                            )}
+
+                            <div>
+                              <span className="v-muted">🏷</span>{" "}
+                              {taxes.length
+                                ? taxes.slice(0, 3).map((t, i) => (
+                                    <span key={i}>
+                                      {i ? " · " : ""}
+                                      {t.code && t.isNucc ? <code>{t.code}</code> : null}
+                                      {t.code && t.isNucc && t.text ? " " : ""}
+                                      {t.text || (t.code && !t.isNucc ? t.code : "")}
+                                    </span>
+                                  ))
+                                : <span className="v-muted">sin taxonomía publicada</span>}
+                              {taxCmp === "match" ? <span className="v-ok"> ✓ igual a NPPES</span> : null}
+                              {taxCmp === "diff" ? <span className="v-bad"> ⚠ distinta de NPPES</span> : null}
+                              {taxes.length && taxCmp === "none"
+                                ? <span className="v-muted"> (sin código NUCC — no comparable)</span>
+                                : null}
+                            </div>
+
+                            {(phone || nets.length) && (
+                              <div className="v-muted">
+                                {phone ? `☎ ${phone}` : ""}
+                                {phone && nets.length ? " · " : ""}
+                                {nets.length ? `Red: ${nets.join(", ")}` : ""}
+                              </div>
+                            )}
+                            {r.lastUpdated && (
+                              <div className="v-muted">
+                                Publicado/actualizado por la aseguradora: {new Date(r.lastUpdated).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
                         );
                       } else if (r && r.foundPractitioner) {
                         statusEl = <span className="badge-out">Sin rol activo</span>;
                         detailEl = <span className="v-muted">Aparece pero sin red activa</span>;
+                      } else if (r && r.slow) {
+                        statusEl = <span className="v-muted">No respondió a tiempo</span>;
+                        detailEl = <span className="v-muted">Volvé a buscar en un momento</span>;
                       } else if (r) {
                         statusEl = <span className="v-muted">No aparece</span>;
                       }
