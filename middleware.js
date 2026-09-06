@@ -95,6 +95,15 @@ function paginaLogin(mensaje, estado = 401) {
 }
 
 export default async function middleware(req) {
+  // robots.txt se responde sin sesión y de verdad: devolver la página de
+  // acceso en su lugar deja a los rastreadores sin instrucciones y rompe a
+  // cualquier cliente que lo consulte antes de pedir una URL.
+  if (new URL(req.url).pathname === "/robots.txt") {
+    return new Response("User-agent: *\nDisallow: /\n", {
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+
   const password = process.env.APP_PASSWORD;
   const secreto = process.env.AUTH_SECRET;
 
