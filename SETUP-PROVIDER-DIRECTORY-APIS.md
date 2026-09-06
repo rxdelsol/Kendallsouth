@@ -245,3 +245,52 @@ dirección y el teléfono publicados, y manda a su directorio de consumidor
 (`hcpdirectory.cigna.com`) para ver los planes, que ahí sí aparecen —
 SureFit, HMO/Network, Open Access Plus, PPO. Ese directorio es un sistema
 aparte, no FHIR.
+
+---
+
+## Acceso restringido (middleware.js)
+
+Hasta ahora el sitio era **público**: cualquiera con la URL podía leer
+`/api/get-doctors` y `/api/get-insurances` — NPIs, licencias, CAQH y contratos —
+y llamar a `/api/delete-doctor`. `middleware.js` cierra la puerta antes de que
+la petición llegue a la app o a las APIs.
+
+Va como **Edge Middleware de Vercel**, que no cuenta contra el tope de 12
+funciones del plan Hobby (confirmalo igual en el resumen del deploy).
+
+### Qué crear en Vercel → Settings → Environment Variables
+
+| Variable | Qué poner |
+|---|---|
+| `APP_PASSWORD` | La contraseña que compartirá el equipo |
+| `AUTH_SECRET` | Una cadena larga al azar (32+ caracteres). Solo firma la cookie; no se escribe en ningún lado |
+
+Ponelas vos y hacé **Redeploy**. Mientras falte alguna, el sitio queda
+**cerrado** y lo dice en pantalla: nunca se abre solo. Es a propósito —
+abrirse ante un error de configuración sería el peor comportamiento posible.
+
+Para generar el `AUTH_SECRET`, en una terminal:
+`openssl rand -base64 32`
+
+### Cómo funciona
+
+- Sin sesión, cualquier página devuelve el formulario de acceso y cualquier
+  `/api/*` devuelve `401` en JSON (no una página de login, que rompería el
+  front).
+- Al entrar bien, se guarda una cookie firmada con HMAC-SHA256, `HttpOnly`,
+  `Secure`, `SameSite=Lax`, válida **7 días**. La contraseña no viaja en la
+  cookie ni queda guardada en el navegador.
+- La comparación de la contraseña es de tiempo constante, y un intento fallido
+  espera 700 ms para encarecer la prueba a lo bruto.
+- El cron de vencimientos (`/api/cron-check-expirations`) queda exento: lo
+  dispara Vercel y no lleva sesión de navegador.
+
+### Lo que esto NO es
+
+Es **una contraseña compartida**, no cuentas por persona. No hay registro de
+quién entró ni quién borró algo, y si alguien deja la clínica hay que cambiar
+la contraseña para todos. Alcanza para que los datos dejen de estar públicos,
+que es el problema urgente. Si en algún momento se necesita saber quién hizo
+cada cambio, o si se llegara a guardar información de pacientes, esto se queda
+corto y hay que pasar a cuentas individuales (por ejemplo Supabase Auth, que ya
+está en el proyecto).
