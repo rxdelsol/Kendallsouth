@@ -189,7 +189,7 @@ Vercel — la variable de entorno siempre gana.
 
 | Aseguradora | URL base | Estado |
 |---|---|---|
-| Cigna | `https://p-hi2.digitaledge.cigna.com/ProviderDirectory/v1` | Verificada en vivo, devuelve datos reales |
+| Cigna | `https://p-hi2.digitaledge.cigna.com/ProviderDirectory/v1` | Verificada en vivo — ver la limitación abajo |
 | Devoted Health | `https://fhir.devoted.com/fhir` | Verificada en vivo |
 | Community Care Plan | `https://ccpcmsioapi.zeomega.com/t/ccpprd.com/fhir/v1/ProviderDirectory/` | Verificada en vivo |
 | Ambetter · Sunshine · Simply · WellCare | `https://iopc-pd.api.centene.com/iopc/pd/fhir/providerdirectory` | Centene, una sola API para las 4 marcas |
@@ -228,3 +228,20 @@ directorio para chequear a mano. Están ocultas por defecto detrás del botón
 > responde sin autenticación, pero es el servidor de **Patient Access**, no el
 > directorio: `PractitionerRole` devuelve `total: 0` y `Practitioner` devuelve
 > 253 registros con el nombre en blanco. No conectarlo como directorio.
+
+### Limitación conocida de Cigna
+
+Su API publica al proveedor como `Practitioner` activo, con dirección, teléfono
+y titulación — pero **no hay forma de recuperar sus `PractitionerRole`**. Se
+probaron todas las variantes: `practitioner=<id>`, `practitioner=Practitioner/<id>`,
+`practitioner:identifier=<npi>`, `practitioner.identifier=<system>|<npi>`,
+`identifier=<npi>` (400) y `_revinclude=PractitionerRole:practitioner`. Todas
+devuelven vacío, y no es que el recurso esté vacío: una consulta suelta a
+`PractitionerRole` devuelve registros con redes y taxonomía NUCC. Tampoco
+respeta `_include`.
+
+Consecuencia práctica: para Cigna la app muestra **"En el directorio ✓"** con la
+dirección y el teléfono publicados, y manda a su directorio de consumidor
+(`hcpdirectory.cigna.com`) para ver los planes, que ahí sí aparecen —
+SureFit, HMO/Network, Open Access Plus, PPO. Ese directorio es un sistema
+aparte, no FHIR.

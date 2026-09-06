@@ -641,6 +641,13 @@ export default function ProviderLookup() {
                               <span className="v-muted">📋 Planes activos:</span>{" "}
                               {allNets.length ? (
                                 <strong>{allNets.slice(0, 4).join(" · ")}</strong>
+                              ) : p.url ? (
+                                <>
+                                  <span className="v-muted">no salen por la API — </span>
+                                  <a href={p.url} target="_blank" rel="noopener noreferrer">
+                                    verlos en el directorio de {p.label} ↗
+                                  </a>
+                                </>
                               ) : (
                                 <span className="v-muted">la aseguradora no publica el plan</span>
                               )}
