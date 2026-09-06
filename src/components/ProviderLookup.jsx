@@ -481,7 +481,20 @@ export default function ProviderLookup() {
                 <input className="p-2 rounded bg-[#081424]" placeholder="License #" value={addForm.license} onChange={(e) => setAddForm({ ...addForm, license: e.target.value })} />
                 <input className="p-2 rounded bg-[#081424]" placeholder="Taxonomía" value={addForm.taxonomy} onChange={(e) => setAddForm({ ...addForm, taxonomy: e.target.value })} />
                 <label className="form-date"><span>Licencia vence</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.licenseExp} onChange={(e) => setAddForm({ ...addForm, licenseExp: e.target.value })} /></label>
-                <input className="p-2 rounded bg-[#081424]" placeholder="DEA #" value={addForm.dea} onChange={(e) => setAddForm({ ...addForm, dea: e.target.value })} />
+                <div>
+                  <input className="p-2 rounded bg-[#081424]" placeholder="DEA #" style={{ width: "100%" }}
+                    value={addForm.dea} onChange={(e) => setAddForm({ ...addForm, dea: e.target.value })} />
+                  {(() => {
+                    const dc = deaCheck(addForm.dea, addForm.name);
+                    if (dc.state === "empty") return null;
+                    const meta = DEA_STATE_META[dc.state];
+                    return (
+                      <div className={meta.cls} style={{ fontSize: 11, marginTop: 3 }}>
+                        {meta.icon} {dc.label}
+                      </div>
+                    );
+                  })()}
+                </div>
                 <label className="form-date"><span>DEA vence</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.deaExp} onChange={(e) => setAddForm({ ...addForm, deaExp: e.target.value })} /></label>
                 <label className="form-date"><span>CAQH últ. atestación</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.caqhAttested} onChange={(e) => setAddForm({ ...addForm, caqhAttested: e.target.value })} /></label>
                 <label className="form-date"><span>Malpractice vence</span><input type="date" className="p-2 rounded bg-[#081424]" value={addForm.malpracticeExp} onChange={(e) => setAddForm({ ...addForm, malpracticeExp: e.target.value })} /></label>
@@ -794,13 +807,18 @@ export default function ProviderLookup() {
                   que el número esté bien escrito sí se puede verificar acá. */}
               {(() => {
                 const dc = deaCheck(localDoctor?.dea, localDoctor?.name);
-                if (dc.state === "empty") return null;
                 const meta = DEA_STATE_META[dc.state];
                 return (
                   <div className="verify-row" style={{ marginTop: 6, fontSize: 12 }}>
-                    <strong>DEA {localDoctor.dea}:</strong>{" "}
+                    <strong>DEA{localDoctor?.dea ? ` ${localDoctor.dea}` : ""}:</strong>{" "}
                     <span className={meta.cls}>{meta.icon} {dc.label}</span>
                     {dc.tipo ? <span className="v-muted"> · {dc.tipo}</span> : null}
+                    {dc.state === "empty" ? (
+                      <span className="v-muted">
+                        {" "}— cargalo con Edit. El vencimiento sale del certificado: la DEA no
+                        lo publica gratis.
+                      </span>
+                    ) : null}
                     {dc.hint ? <div className="v-muted">{dc.hint}</div> : null}
                   </div>
                 );
