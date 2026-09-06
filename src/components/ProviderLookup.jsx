@@ -219,11 +219,17 @@ export default function ProviderLookup() {
     : docInsurances;
 
   // ¿Ya existe este seguro (por nombre) en el tracker para este proveedor?
-  const hasInTracker = (label) =>
-    docInsurances.some((i) => {
-      const a = norm(i.name), b = norm(label);
-      return a === b || a.includes(b) || b.includes(a);
-    });
+  const matchesPayer = (i, label) => {
+    const a = norm(i.name), b = norm(label);
+    return a === b || a.includes(b) || b.includes(a);
+  };
+  const hasInTracker = (label) => docInsurances.some((i) => matchesPayer(i, label));
+  // ¿Tu sistema lo tiene como In Network con esa aseguradora? Sirve para
+  // marcar cuando el directorio contradice tus propios registros.
+  const inNetworkInTracker = (label) =>
+    docInsurances.some(
+      (i) => matchesPayer(i, label) && !(i.network || "").toLowerCase().includes("out")
+    );
 
   const stats = useMemo(() => {
     const s = { active: 0, out: 0, soon: 0, expired: 0 };
@@ -672,6 +678,20 @@ export default function ProviderLookup() {
                         detailEl = <span className="v-muted">Volvé a buscar en un momento</span>;
                       } else if (r) {
                         statusEl = <span className="v-muted">No aparece</span>;
+                        // La API de algunas aseguradoras devuelve vacío aunque el
+                        // proveedor esté contratado. No lo damos por ausente
+                        // cuando contradice tus propios registros.
+                        if (inNetworkInTracker(p.label)) {
+                          statusEl = <span className="badge-out">⚠ Sin confirmar</span>;
+                          detailEl = (
+                            <span>
+                              Tu sistema lo tiene <strong>In Network</strong>, pero el directorio no lo devuelve.{" "}
+                              {dirLink}
+                            </span>
+                          );
+                        } else if (dirLink) {
+                          detailEl = dirLink;
+                        }
                       }
                       return (
                         <tr key={p.key} className="border-t border-slate-800">
