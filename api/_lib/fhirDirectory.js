@@ -48,6 +48,7 @@ const MAX_ROLES = 25;              // roles que devolvemos con detalle
 const MAX_NAME_PAGES = 8;          // páginas a recorrer al buscar por apellido
 const NAME_SCAN_BUDGET_MS = 22000; // techo total de la búsqueda por nombre
 const NAME_PAGE_SIZE = 200;        // antes 20: con 20 nunca aparecía un apellido común
+const RETRY_PAUSE_MS = 600;        // pausa antes de reintentar un 429/503
 
 // Catálogo de aseguradoras. Cubre las que operan en FLORIDA.
 // `family` debe coincidir con el `family` que devuelve directoryInfoFor() en
@@ -169,12 +170,18 @@ async function getBearerToken(cfg) {
   return j.access_token;
 }
 
-async function fhirGet(base, path, headers) {
+async function fhirGetOnce(base, path, headers) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
   try {
     const r = await fetch(`${base}${path}`, {
-      headers: { Accept: 'application/fhir+json, application/json', ...headers },
+      headers: {
+        // Cabeceras convencionales: algunos gateways devuelven vacío ante un
+        // Accept compuesto o sin User-Agent.
+        Accept: 'application/fhir+json',
+        'User-Agent': 'KendallSouthCredentialing/1.0 (provider directory check)',
+        ...headers,
+      },
       signal: ctrl.signal,
     });
     const text = await r.text();
@@ -187,6 +194,19 @@ async function fhirGet(base, path, headers) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Una ráfaga de consultas seguidas contra el mismo gateway puede toparse con
+// un límite de tasa, y un 429 se veía igual que "sin resultados". Reintenta
+// una vez con una pausa corta.
+async function fhirGet(base, path, headers) {
+  let r = await fhirGetOnce(base, path, headers);
+  if (r.status === 429 || r.status === 503) {
+    await new Promise((res) => setTimeout(res, RETRY_PAUSE_MS));
+    r = await fhirGetOnce(base, path, headers);
+    r.retried = true;
+  }
+  return r;
 }
 
 function entriesOf(bundle) {
@@ -318,15 +338,17 @@ async function scanPractitionersForNpi(base, path, headers, npi, deadline) {
       ? await fhirGet('', url, headers)
       : await fhirGet(base, url, headers);
     pages += 1;
-    if (!r.ok || !r.json) return { found: null, bundle: r.json || lastBundle, pages, scanned, res: r };
+    if (!r.ok || !r.json) {
+      return { found: null, bundle: r.json || lastBundle, pages, scanned, res: r, status: r.status, ok: false };
+    }
     lastBundle = r.json;
     const people = entriesOf(r.json).filter((x) => x.resourceType === 'Practitioner');
     scanned += people.length;
     const hit = people.find((x) => practitionerHasNpi(x, npi));
-    if (hit) return { found: hit, bundle: r.json, pages, scanned, res: r };
+    if (hit) return { found: hit, bundle: r.json, pages, scanned, res: r, status: r.status, ok: true };
     url = nextLinkOf(r.json, base);
   }
-  return { found: null, bundle: lastBundle, pages, scanned };
+  return { found: null, bundle: lastBundle, pages, scanned, ok: true, status: 200 };
 }
 
 // ── Verificación ────────────────────────────────────────────────────────
@@ -457,7 +479,7 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
           cfg.base, `/Practitioner?name=${encodeURIComponent(doctorName)}&_count=${NAME_PAGE_SIZE}`, headers, npi, deadline
         );
         byNameSearch = full.res || null;
-        nameScanLog.push({ q: `name=${doctorName}`, pages: full.pages, scanned: full.scanned, hit: !!full.found });
+        nameScanLog.push({ q: `name=${doctorName}`, pages: full.pages, scanned: full.scanned, hit: !!full.found, status: full.status, ok: full.ok, body: full.res?.text || null });
         if (full.found) { foundPractitioner = full.found; searchStrategy = 'name-then-npi-match'; }
 
         // 3b) Por apellido — probando los compuestos, acotando con el nombre de
@@ -477,7 +499,7 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
               if (Date.now() > deadline) break;
               const scan = await scanPractitionersForNpi(cfg.base, q, headers, npi, deadline);
               if (!byFamilySearch) byFamilySearch = scan.res || null;
-              nameScanLog.push({ q, pages: scan.pages, scanned: scan.scanned, hit: !!scan.found });
+              nameScanLog.push({ q, pages: scan.pages, scanned: scan.scanned, hit: !!scan.found, status: scan.status, ok: scan.ok, body: scan.res?.text || null });
               if (scan.found) {
                 foundPractitioner = scan.found;
                 byFamilySearch = scan.res || byFamilySearch;
