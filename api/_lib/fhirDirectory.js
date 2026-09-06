@@ -126,7 +126,17 @@ export const FHIR_PAYERS = {
   },
 
   // ── Sin Provider Directory FHIR público: hay que verificar a mano ──────
-  oscar: { envPrefix: 'OSCAR', label: 'Oscar', noPublicApi: true, directoryUrl: 'https://www.hioscar.com/search' },
+  // Oscar no publica Provider Directory FHIR (comprobado: no existen
+  // api./fhir./provider-directory./directory./developers.hioscar.com, y las
+  // rutas /fhir/metadata, /.well-known/smart-configuration y /cms-data-index.json
+  // dan 404). Su portal de proveedores sí tiene consulta de estado de
+  // credencialización, pero requiere login: por eso va como enlace, no como API.
+  oscar: {
+    envPrefix: 'OSCAR', label: 'Oscar', noPublicApi: true,
+    directoryUrl: 'https://www.hioscar.com/search',
+    portalUrl: 'https://provider.hioscar.com/provider-credentialing-status',
+    portalLabel: 'Estado de credencialización (requiere login)',
+  },
   curative: { envPrefix: 'CURATIVE', label: 'Curative', noPublicApi: true, directoryUrl: 'https://www.curative.com/find-care' },
   careplus: { envPrefix: 'CAREPLUS', label: 'CarePlus', noPublicApi: true, directoryUrl: 'https://www.careplushealthplans.com/resources/find-a-doctor/' },
   health_first: { envPrefix: 'HEALTHFIRST', label: 'Health First', noPublicApi: true, directoryUrl: 'https://www.hf.org/health-first-health-plans/find-a-provider' },
@@ -368,6 +378,8 @@ export async function verifyProviderDirectory(payerKey, npi, doctorName = '', de
       configured: false,
       noPublicApi: true,
       directoryUrl: payer.directoryUrl || null,
+      portalUrl: payer.portalUrl || null,
+      portalLabel: payer.portalLabel || null,
       reason: `${payer.label} no publica un Provider Directory FHIR consultable. Hay que verificar en su directorio.`,
     };
   }

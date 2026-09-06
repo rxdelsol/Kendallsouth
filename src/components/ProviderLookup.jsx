@@ -27,7 +27,9 @@ const DIR_PAYERS = [
   { key: "aetna_better_health", label: "Aetna Better Health FL", url: "https://www.aetnabetterhealth.com/florida/find-provider.html" },
   { key: "avmed", label: "AvMed", url: "https://www.avmed.org/find-a-provider" },
   // Sin API pública de directorio: solo verificación manual.
-  { key: "oscar", label: "Oscar", noPublicApi: true, url: "https://www.hioscar.com/search" },
+  { key: "oscar", label: "Oscar", noPublicApi: true, url: "https://www.hioscar.com/search",
+    portal: "https://provider.hioscar.com/provider-credentialing-status",
+    portalLabel: "Estado de credencialización (requiere login)" },
   { key: "curative", label: "Curative", noPublicApi: true, url: "https://www.curative.com/find-care" },
   { key: "careplus", label: "CarePlus", noPublicApi: true, url: "https://www.careplushealthplans.com/resources/find-a-doctor/" },
   { key: "health_first", label: "Health First", noPublicApi: true, url: "https://www.hf.org/health-first-health-plans/find-a-provider" },
@@ -319,7 +321,7 @@ export default function ProviderLookup() {
   }
 
   // Agrega/actualiza el seguro en tu sistema a partir del directorio oficial.
-  async function addFromDirectory(payer, plans = []) {
+  async function addFromDirectory(payer, plans = [], manual = false) {
     if (!provider) return;
     setSavingPayer(payer.key); setDirMsg(null); setDirErr(null);
     try {
@@ -333,7 +335,9 @@ export default function ProviderLookup() {
           doctorName: provider.name,
           network: "In Network",
           notes: [
-            `Directorio oficial ${payer.label} · ${new Date().toLocaleDateString()}`,
+            manual
+              ? `Verificado a mano en el directorio de ${payer.label} · ${new Date().toLocaleDateString()}`
+              : `Directorio oficial ${payer.label} · ${new Date().toLocaleDateString()}`,
             plans.length ? `Planes: ${plans.join(", ")}` : null,
           ].filter(Boolean).join(" · "),
         }),
@@ -572,8 +576,25 @@ export default function ProviderLookup() {
                         <a href={p.url} target="_blank" rel="noopener noreferrer">Verificar en su directorio ↗</a>
                       ) : null;
                       if (p.noPublicApi) {
-                        statusEl = <span className="v-muted">Sin API pública</span>;
-                        detailEl = dirLink || <span className="v-muted">—</span>;
+                        // No hay API que consultar. Si tu sistema ya lo tiene
+                        // contratado, eso vale más que un "sin datos" a secas.
+                        statusEl = inNetworkInTracker(p.label)
+                          ? <span className="badge-in">Según tu sistema ✓</span>
+                          : <span className="v-muted">Sin API pública</span>;
+                        detailEl = (
+                          <span>
+                            <span className="v-muted">Esta aseguradora no publica directorio consultable. </span>
+                            {dirLink}
+                            {p.portal ? (
+                              <>
+                                {" · "}
+                                <a href={p.portal} target="_blank" rel="noopener noreferrer">
+                                  {p.portalLabel || "Portal de proveedores"} ↗
+                                </a>
+                              </>
+                            ) : null}
+                          </span>
+                        );
                       } else if (r === undefined) {
                         statusEl = <span className="v-muted">…</span>;
                       } else if (r && r.ok === false) {
@@ -701,6 +722,20 @@ export default function ProviderLookup() {
                           <td className="p-2" style={{ textAlign: "right" }}>
                             {already ? (
                               <span className="v-ok" style={{ fontSize: 11 }}>En tu sistema</span>
+                            ) : !canAdd && (p.noPublicApi || r !== undefined) ? (
+                              // Aunque la API no lo confirme, podés registrar lo
+                              // que verificaste a mano en el directorio de la
+                              // aseguradora. Queda anotado como verificación
+                              // manual, no como dato del API.
+                              <button
+                                className="flt-clear"
+                                style={{ padding: "4px 10px", fontSize: 11 }}
+                                disabled={savingPayer === p.key}
+                                title="Agregar a tu sistema como verificación manual"
+                                onClick={() => addFromDirectory(p, [], true)}
+                              >
+                                {savingPayer === p.key ? "Guardando…" : "➕ Agregar manual"}
+                              </button>
                             ) : canAdd ? (
                               <button
                                 className="btn-red"
