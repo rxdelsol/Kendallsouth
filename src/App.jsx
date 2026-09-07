@@ -1,29 +1,20 @@
 import React, { useState } from 'react'
-import Header from './components/Header.jsx'
+import Shell from './components/Shell.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import DoctorsTable from './components/DoctorsTable.jsx'
 import InsurancePayers from './components/InsurancePayers.jsx'
 import ProviderLookup from './components/ProviderLookup.jsx'
 import EligibilityCheck from './components/EligibilityCheck.jsx'
-import FileManager from './components/FileManager.jsx'
 
 export default function App(){
   const [route, setRoute] = useState('dashboard')
   return (
-    <div className="min-h-screen">
-      <Header onNav={setRoute} />
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="flex gap-3 mt-4 items-center"><div style={{flex:1}} />
-          <FileManager />
-        </div>
-        <main className="mt-6">
-          {route==='dashboard' && <Dashboard />}
-          {route==='doctors' && <DoctorsTable />}
-          {route==='insurances' && <InsurancePayers />}
-          {route==='provider' && <ProviderLookup />}
-          {route==='eligibility' && <EligibilityCheck />}
-        </main>
-      </div>
-    </div>
+    <Shell route={route} onNav={setRoute}>
+      {route==='dashboard' && <Dashboard />}
+      {route==='doctors' && <DoctorsTable />}
+      {route==='insurances' && <InsurancePayers />}
+      {route==='provider' && <ProviderLookup />}
+      {route==='eligibility' && <EligibilityCheck />}
+    </Shell>
   )
 }

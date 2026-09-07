@@ -36,3 +36,23 @@
 .d-mid{ color:var(--mid); font-weight:600 }
 .d-ok{ color:var(--ok) }
 .pg-empty{ margin:0; padding:18px; color:var(--muted); font-size:12.5px; text-align:center }
+
+/* Tarjetas de resumen con círculo de ícono. El color del círculo es el mismo
+   del semáforo — no se agrega una paleta decorativa aparte. */
+.kpi-row{ display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin:4px 0 18px }
+.kpi{
+  display:flex; align-items:center; gap:13px; background:var(--surface);
+  border:1px solid var(--line); border-radius:var(--r); padding:14px 16px; box-shadow:var(--shadow);
+}
+.kpi-ic{ width:42px; height:42px; border-radius:50%; display:grid; place-items:center; flex:none }
+.kpi-ic svg{ width:21px; height:21px }
+.kpi-ic.acc{ background:var(--accent-soft); color:var(--accent) }
+.kpi-ic.ok{ background:var(--ok-bg); color:var(--ok) }
+.kpi-ic.hot{ background:var(--hot-bg); color:var(--hot) }
+.kpi-ic.mid{ background:var(--mid-bg); color:var(--mid) }
+.kpi-txt{ min-width:0 }
+.kpi-txt small{ display:block; font-size:10px; font-weight:700; letter-spacing:.11em; text-transform:uppercase; color:var(--muted) }
+.kpi-txt b{ display:block; font-size:26px; font-weight:600; line-height:1.1; margin-top:2px }
+.kpi-txt b.acc{ color:var(--accent) } .kpi-txt b.ok{ color:var(--ok) }
+.kpi-txt b.hot{ color:var(--hot) }   .kpi-txt b.mid{ color:var(--mid) }
+.kpi-txt em{ display:block; font-style:normal; font-size:11px; color:var(--hot); margin-top:1px }

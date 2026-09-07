@@ -211,42 +211,37 @@ export default function Dashboard() {
         <p className="ks-muted text-sm">Loading...</p>
       ) : (
         <>
-          {/* Tarjetas de resumen (sobre lista filtrada) */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="rounded-xl ks-field p-4">
-              <p className="ks-muted text-xs uppercase">Total</p>
-              <p className="text-3xl font-semibold ks-accent">
-                {stats.total}
-              </p>
+          {/* Tarjetas de resumen. El círculo con ícono da un ancla visual
+              para leer las cuatro de un vistazo; el color es el mismo del
+              semáforo, no uno decorativo. */}
+          <div className="kpi-row">
+            <div className="kpi">
+              <span className="kpi-ic acc">
+                <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-8 9a8 8 0 0 1 16 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+              </span>
+              <span className="kpi-txt"><small>Total</small><b className="acc">{stats.total}</b></span>
             </div>
-
-            <div className="rounded-xl ks-field p-4">
-              <p className="ks-muted text-xs uppercase">In Network</p>
-              <p className="text-3xl font-semibold ks-ok">
-                {stats.inNetwork}
-              </p>
+            <div className="kpi">
+              <span className="kpi-ic ok">
+                <svg viewBox="0 0 24 24"><path d="M4 12.5l5.2 5L20 6.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </span>
+              <span className="kpi-txt"><small>In network</small><b className="ok">{stats.inNetwork}</b></span>
             </div>
-
-            <div className="rounded-xl ks-field p-4">
-              <p className="ks-muted text-xs uppercase">Out of Network</p>
-              <p className="text-3xl font-semibold text-rose-300">
-                {stats.outNetwork}
-              </p>
+            <div className="kpi">
+              <span className="kpi-ic hot">
+                <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
+              </span>
+              <span className="kpi-txt"><small>Out of network</small><b className="hot">{stats.outNetwork}</b></span>
             </div>
-
-            <div className="rounded-xl ks-field p-4">
-              <p className="ks-muted text-xs uppercase">
-                Expiring ≤ 60 days
-              </p>
-              <p className="text-3xl font-semibold text-amber-300">
-                {stats.expiringSoon}
-              </p>
-              <p className="text-xs ks-muted mt-1">
-                Expired:{" "}
-                <span className="text-rose-300 font-semibold">
-                  {stats.expired}
-                </span>
-              </p>
+            <div className="kpi">
+              <span className="kpi-ic mid">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+              </span>
+              <span className="kpi-txt">
+                <small>Expiring ≤ 60 days</small>
+                <b className={stats.expiringSoon ? "mid" : ""}>{stats.expiringSoon}</b>
+                {stats.expired > 0 && <em>{stats.expired} expired</em>}
+              </span>
             </div>
           </div>
 

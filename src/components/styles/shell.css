@@ -1,0 +1,46 @@
+/* src/components/styles/shell.css — marco: barra lateral + barra superior */
+.sh{ display:grid; grid-template-columns:212px minmax(0,1fr); min-height:100vh }
+@media (max-width:900px){ .sh{ grid-template-columns:1fr } }
+
+.sh-side{
+  background:linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar-2) 100%);
+  color:var(--sidebar-ink); display:flex; flex-direction:column; padding:16px 12px 18px;
+  position:sticky; top:0; height:100vh;
+}
+@media (max-width:900px){ .sh-side{ position:static; height:auto } }
+.sh-brand{ background:#fff; border-radius:8px; padding:9px 10px; margin-bottom:18px; line-height:0 }
+.sh-brand img{ width:100%; height:auto; display:block }
+
+.sh-nav{ display:flex; flex-direction:column; gap:2px; flex:1 }
+.sh-navitem{
+  display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+  font:inherit; font-size:13.5px; color:var(--sidebar-muted); background:none; border:0;
+  padding:9px 11px; border-radius:8px; cursor:pointer;
+}
+.sh-navitem svg{ width:18px; height:18px; flex:none }
+.sh-navitem:hover{ background:rgba(255,255,255,.07); color:#fff }
+.sh-navitem[aria-current="true"]{ background:var(--accent); color:#fff; font-weight:500 }
+.sh-navitem:focus-visible{ outline:2px solid #fff; outline-offset:-2px }
+
+.sh-foot{ margin-top:18px; padding-top:14px; border-top:1px solid rgba(255,255,255,.12) }
+.sh-quote{ margin:0; font-family:"Spectral",Georgia,serif; font-size:13px; line-height:1.4; color:#fff }
+.sh-place{ margin:6px 0 0; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--sidebar-muted) }
+
+.sh-main{ min-width:0; display:flex; flex-direction:column }
+.sh-top{
+  display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap;
+  background:var(--surface); border-bottom:1px solid var(--line); padding:14px 22px;
+}
+.sh-titles h1{ margin:0; font-size:20px; font-weight:600 }
+.sh-titles p{ margin:1px 0 0; font-size:12px; color:var(--muted) }
+.sh-tools{ display:flex; align-items:center; gap:14px; flex-wrap:wrap }
+.sh-user{ display:flex; align-items:center; gap:9px }
+.sh-avatar{
+  width:34px; height:34px; border-radius:50%; display:grid; place-items:center;
+  background:var(--accent-soft); color:var(--accent-2); font-weight:600; font-size:12px;
+}
+.sh-uname{ font-size:13px; font-weight:500; line-height:1.2 }
+.sh-uname small{ display:block; font-weight:400; font-size:11px; color:var(--muted) }
+@media (max-width:700px){ .sh-uname{ display:none } }
+
+.sh-body{ padding:20px 22px 44px; max-width:1400px; width:100%; }
