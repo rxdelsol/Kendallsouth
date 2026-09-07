@@ -1,0 +1,38 @@
+/* src/components/styles/groups.css
+   Contratos agrupados por aseguradora. El encabezado tiene que responder de
+   un vistazo: cuántos contratos y si falta alguna línea. */
+.pg{ border:1px solid var(--line); border-radius:3px; background:var(--surface); margin-bottom:10px; overflow:hidden }
+.pg-head{
+  display:grid; grid-template-columns:minmax(120px,1fr) auto 96px auto 18px;
+  gap:14px; align-items:center; width:100%; text-align:left; font:inherit; color:inherit;
+  background:var(--surface); border:0; border-bottom:1px solid var(--line2);
+  padding:10px 14px; cursor:pointer;
+}
+.pg-head:hover{ background:var(--page) }
+.pg-head:focus-visible{ outline:2px solid var(--ink); outline-offset:-2px }
+.pg-name{ font-weight:600; font-size:14px }
+.pg-count{ font-size:11.5px; color:var(--muted); white-space:nowrap }
+/* Barra de cobertura: la porción llena es lo que está en red. Una barra se
+   compara entre aseguradoras de un vistazo; dos pastillas con números, no. */
+.pg-bar{ height:5px; background:var(--hot-bg); border-radius:3px; overflow:hidden; display:block }
+.pg-bar i{ display:block; height:100%; background:var(--ok); border-radius:3px }
+.pg-state{ font-size:11.5px; white-space:nowrap }
+.pg-state.full{ color:var(--ok) }
+.pg-state.gap{ color:var(--hot); font-weight:600 }
+.pg-chev{ font-family:"IBM Plex Mono",monospace; color:var(--muted); text-align:center }
+
+.pg-table{ width:100%; border-collapse:collapse; font-size:13px }
+.pg-table th{
+  text-align:left; padding:7px 14px; border-bottom:1px solid var(--line2);
+  font-size:9.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); font-weight:700;
+}
+.pg-table td{ padding:8px 14px; border-bottom:1px solid var(--line2) }
+.pg-table tr:last-child td{ border-bottom:0 }
+.pg-table tbody tr:hover{ background:var(--page) }
+.pg-table .num{ text-align:right }
+.pg-table .q{ color:var(--muted); font-size:12px }
+.pg-table .mono{ font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:12px }
+.d-hot{ color:var(--hot); font-weight:600 }
+.d-mid{ color:var(--mid); font-weight:600 }
+.d-ok{ color:var(--ok) }
+.pg-empty{ margin:0; padding:18px; color:var(--muted); font-size:12.5px; text-align:center }

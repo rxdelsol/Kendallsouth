@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import Header from './components/Header.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import DoctorsTable from './components/DoctorsTable.jsx'
-import InsurancesTable from './components/InsurancesTable.jsx'
+import InsurancePayers from './components/InsurancePayers.jsx'
 import ProviderLookup from './components/ProviderLookup.jsx'
 import EligibilityCheck from './components/EligibilityCheck.jsx'
 import FileManager from './components/FileManager.jsx'
@@ -19,7 +19,7 @@ export default function App(){
         <main className="mt-6">
           {route==='dashboard' && <Dashboard />}
           {route==='doctors' && <DoctorsTable />}
-          {route==='insurances' && <InsurancesTable />}
+          {route==='insurances' && <InsurancePayers />}
           {route==='provider' && <ProviderLookup />}
           {route==='eligibility' && <EligibilityCheck />}
         </main>

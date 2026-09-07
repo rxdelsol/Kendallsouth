@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { agruparPorAseguradora } from "../utils/coverage";
+import "./styles/groups.css";
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -131,6 +133,10 @@ export default function Dashboard() {
     };
   }, [allInsurances, filters]);
 
+  const grupos = useMemo(() => agruparPorAseguradora(filtered), [filtered]);
+  const [cerrados, setCerrados] = useState({});
+  const alternar = (n) => setCerrados((p) => ({ ...p, [n]: !p[n] }));
+
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
@@ -244,67 +250,71 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Tabla detallada (como antes) */}
-          <div className="overflow-auto">
-            <table className="min-w-full text-sm">
-              <thead className="ks-ink2">
-                <tr>
-                  <th className="p-2 text-left">Insurance</th>
-                  <th className="p-2 text-left">Type</th>
-                  <th className="p-2 text-left">Doctor</th>
-                  <th className="p-2 text-left">Network</th>
-                  <th className="p-2 text-left">Expiration</th>
-                  <th className="p-2 text-left">Days Left</th>
-                  <th className="p-2 text-left">Notes</th>
-                </tr>
-              </thead>
-              <tbody className="ks-ink">
-                {filtered.map((ins) => {
-                  const d = ins._daysLeft;
-                  let colorClass = "";
-                  if (typeof d === "number") {
-                    if (d < 0) colorClass = "text-rose-300";
-                    else if (d <= 60) colorClass = "text-amber-300";
-                    else colorClass = "ks-ok";
-                  }
+          {/* Contratos agrupados por aseguradora, no una lista plana:
+              Aetna, Aetna Medicare y Aetna Medicaid son la misma aseguradora,
+              y verlos sueltos esconde qué líneas faltan. Los grupos se ordenan
+              por riesgo — primero los que tienen contratos fuera de red. */}
+          {grupos.map((g) => {
+            const abierto = !cerrados[g.nombre];
+            const pctDentro = g.total ? Math.round((g.dentro / g.total) * 100) : 0;
+            return (
+              <section className="pg" key={g.nombre}>
+                <button
+                  type="button"
+                  className="pg-head"
+                  aria-expanded={abierto}
+                  onClick={() => alternar(g.nombre)}
+                >
+                  <span className="pg-name">{g.nombre}</span>
+                  <span className="pg-count">{g.total} contract{g.total === 1 ? "" : "s"}</span>
+                  <span className="pg-bar" title={`${g.dentro} in network · ${g.fuera} out`}>
+                    <i style={{ width: pctDentro + "%" }} />
+                  </span>
+                  <span className={`pg-state ${g.fuera ? "gap" : "full"}`}>
+                    {g.fuera ? `${g.fuera} out of network` : "All in network"}
+                  </span>
+                  <span className="pg-chev">{abierto ? "\u2212" : "+"}</span>
+                </button>
 
-                  return (
-                    <tr key={ins.id} className="border-t border-slate-800">
-                      <td className="p-2">{ins.name}</td>
-                      <td className="p-2">{ins.type}</td>
-                      <td className="p-2">{ins.doctorName || ""}</td>
-                      <td className="p-2">
-                        {ins.network === "In Network" ? (
-                          <span className="badge-in">In Network</span>
-                        ) : (
-                          <span className="badge-out">Out of Network</span>
-                        )}
-                      </td>
-                      <td className="p-2">
-                        {ins.expiration
-                          ? new Date(ins.expiration).toLocaleDateString()
-                          : ""}
-                      </td>
-                      <td className={`p-2 ${colorClass}`}>
-                        {typeof d === "number" ? d : ""}
-                      </td>
-                      <td className="p-2">{ins.notes}</td>
-                    </tr>
-                  );
-                })}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="p-4 ks-muted text-center"
-                    >
-                      No results for current filters
-                    </td>
-                  </tr>
+                {abierto && (
+                  <div className="overflow-auto">
+                    <table className="pg-table">
+                      <thead>
+                        <tr>
+                          <th>Plan</th><th>Type</th><th>Provider</th><th>Network</th>
+                          <th>Expiration</th><th className="num">Days left</th><th>Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {g.filas.map((ins) => {
+                          const d = ins._daysLeft;
+                          const cls = typeof d !== "number" || isNaN(d) ? "" : d < 0 ? "d-hot" : d <= 60 ? "d-hot" : d <= 90 ? "d-mid" : "d-ok";
+                          return (
+                            <tr key={ins.id}>
+                              <td>{ins.name}</td>
+                              <td className="q">{ins.type}</td>
+                              <td>{ins.doctorName || <span className="q">no provider</span>}</td>
+                              <td>
+                                {String(ins.network || "").toLowerCase().includes("out")
+                                  ? <span className="badge-out">Out of Network</span>
+                                  : <span className="badge-in">In Network</span>}
+                              </td>
+                              <td className="mono">{ins.expiration ? new Date(ins.expiration).toLocaleDateString() : "\u2014"}</td>
+                              <td className={`num mono ${cls}`}>{typeof d === "number" && !isNaN(d) ? d : "\u2014"}</td>
+                              <td className="q">{ins.notes}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
+              </section>
+            );
+          })}
+          {grupos.length === 0 && (
+            <p className="pg-empty">No results for current filters</p>
+          )}
 
           <p className="ks-muted text-xs mt-3">
             Showing data from Supabase table <code>insurances</code> with
