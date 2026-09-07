@@ -26,6 +26,10 @@ export default async function handler(req, res) {
       network: row.network,
       expiration: row.expiration,
       notes: row.notes,
+      // Fecha de alta, para el panel de actividad reciente del Dashboard.
+      // Si la tabla todavía no tiene la columna, queda en null y el panel
+      // simplemente no muestra la hora — no inventa una.
+      createdAt: row.created_at ?? null,
     }));
 
     return res.status(200).json({ ok: true, data: mapped });

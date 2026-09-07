@@ -99,3 +99,33 @@
   box-shadow:var(--shadow); padding:14px 16px; margin-bottom:16px;
 }
 .filterbar label{ font-size:10px; font-weight:700; letter-spacing:.11em; text-transform:uppercase; color:var(--muted) }
+
+/* Fila de fecha y saludo. Confirma que lo de abajo es de hoy. */
+.greet{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px }
+.greet-date, .greet-hi{
+  display:inline-flex; align-items:center; gap:8px; font-size:12.5px;
+  background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:7px 14px; box-shadow:var(--shadow);
+}
+.greet-date svg, .greet-hi svg{ width:15px; height:15px }
+.greet-date{ color:var(--ink2) } .greet-date svg{ color:var(--accent) }
+.greet-hi{ margin-left:auto; color:var(--ink2) } .greet-hi svg{ color:var(--mid) }
+.greet-hi b{ font-weight:600; color:var(--ink) }
+
+.panel > h3{ display:flex; align-items:center; justify-content:space-between; gap:10px }
+.panel-link{
+  font:inherit; font-size:11.5px; font-weight:500; color:var(--accent);
+  background:none; border:0; padding:0; cursor:pointer;
+}
+.panel-link:hover{ text-decoration:underline }
+
+/* Actividad reciente: solo altas reales de la base. */
+.feed{ list-style:none; margin:0; padding:4px 6px }
+.feed li{ display:grid; grid-template-columns:32px minmax(0,1fr) auto; gap:11px; align-items:center; padding:9px 10px; border-radius:8px }
+.feed li:hover{ background:var(--page) }
+.feed-av{ width:32px; height:32px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:600 }
+.feed-av.acc{ background:var(--accent-soft); color:var(--accent-2) }
+.feed-av.ok{ background:var(--ok-bg); color:var(--ok) }
+.feed-tx{ min-width:0 }
+.feed-tx b{ display:block; font-size:12.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.feed-tx small{ display:block; font-size:11.5px; color:var(--muted) }
+.feed-when{ font-size:11px; color:var(--muted); white-space:nowrap }

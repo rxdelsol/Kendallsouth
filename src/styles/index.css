@@ -17,6 +17,7 @@
   --hot:#C42B24; --hot-bg:#FCE4E2;
   --idle:#7189A8; --idle-bg:#EDF2FA;
   --shadow:0 1px 2px rgba(15,44,86,.05), 0 10px 26px -16px rgba(15,44,86,.35);
+  --shadow-lg:0 2px 6px rgba(15,44,86,.07), 0 18px 44px -20px rgba(15,44,86,.42);
   --r:10px;
 }
 body{ background:var(--page); color:var(--ink);

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { PageHead } from "./Shell.jsx";
 import { agruparPorAseguradora } from "../utils/coverage";
 import { applyLinkFor } from "../data/payerApply";
 import "./styles/payers.css";
@@ -69,20 +70,16 @@ export default function InsurancePayers() {
   if (filas === null) return <div className="ks-card rounded p-4"><p className="py-empty">Loading insurance contracts…</p></div>;
 
   return (
-    <div className="ks-card rounded p-4">
-      <div className="py-head">
-        <div>
-          <h2 className="py-title">Insurances</h2>
-          <p className="py-sub">Select a payer to see its contracted providers.</p>
-        </div>
-        <span className="py-total">{grupos.length} payers · {filas.length} contracts</span>
-      </div>
+    <div>
+      <PageHead icono="insurances" titulo="Insurances" sub="Select an insurance to view active providers">
+        <span className="py-total">{grupos.length} payers &middot; {filas.length} contracts</span>
+      </PageHead>
 
-      <div className="py-split">
+      <div className="panel py-split">
         <aside className="py-list">
           <input
             className="flt-search py-search"
-            placeholder="🔎 Search payer…"
+            placeholder="Search insurance…"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />

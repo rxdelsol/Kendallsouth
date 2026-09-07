@@ -1,337 +1,252 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { agruparPorAseguradora } from "../utils/coverage";
+import { agruparPorAseguradora, familiaDe } from "../utils/coverage";
+import { statusOf, daysUntil } from "../utils/credStatus";
 import Donut, { CATEGORICA } from "./Donut";
+import { PageHead } from "./Shell.jsx";
 import "./styles/groups.css";
 
-export default function Dashboard() {
+const saludo = (h) => (h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
+
+// Hace cuánto, en palabras. Devuelve null si no hay fecha: prefiero no
+// mostrar hora a mostrar una inventada.
+function hace(iso) {
+  if (!iso) return null;
+  const t = new Date(iso);
+  if (isNaN(t)) return null;
+  const m = Math.floor((Date.now() - t.getTime()) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return m + "m ago";
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + "h ago";
+  const d = Math.floor(h / 24);
+  if (d < 30) return d + "d ago";
+  return t.toLocaleDateString();
+}
+
+const inicial = (n) =>
+  String(n || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+
+export default function Dashboard({ onNav }) {
   const [loading, setLoading] = useState(true);
-  const [allInsurances, setAllInsurances] = useState([]);
-
-  const [filters, setFilters] = useState({
-    search: "",
-    doctor: "all",
-    network: "all",
-    expiration: "all", // all | expiring | expired | active
-  });
-
-  // Cargar insurances desde la API
-  async function loadData() {
-    try {
-      const res = await fetch("/api/get-insurances");
-      const data = await res.json();
-
-      if (!data.ok) {
-        console.error(data.error);
-        setLoading(false);
-        return;
-      }
-
-      setAllInsurances(data.data || []);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error loading dashboard:", error);
-      setLoading(false);
-    }
-  }
+  const [seguros, setSeguros] = useState([]);
+  const [doctores, setDoctores] = useState([]);
+  const [filtros, setFiltros] = useState({ search: "", doctor: "all", network: "all", expiration: "all" });
 
   useEffect(() => {
-    loadData();
+    Promise.all([
+      fetch("/api/get-insurances").then((r) => r.json()).catch(() => ({})),
+      fetch("/api/get-doctors").then((r) => r.json()).catch(() => ({})),
+    ])
+      .then(([s, d]) => {
+        setSeguros(s && s.ok ? s.data || [] : []);
+        setDoctores(d && d.ok ? d.data || [] : []);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  const daysLeft = (expiration) => {
-    if (!expiration) return null;
-    const expDate = new Date(expiration);
-    const today = new Date();
-    const diffMs = expDate.getTime() - today.getTime();
-    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  };
+  const hoy = new Date();
 
-  // Opciones de doctores para el filtro
-  const doctorOptions = useMemo(() => {
-    const set = new Set();
-    allInsurances.forEach((ins) => {
-      if (ins.doctorName && ins.doctorName.trim() !== "") {
-        set.add(ins.doctorName.trim());
-      }
-    });
-    return Array.from(set).sort();
-  }, [allInsurances]);
-
-  // Aplicar filtros + calcular stats
-  const { filtered, stats } = useMemo(() => {
-    const today = new Date();
-
-    let filteredList = allInsurances.map((i) => ({
-      ...i,
-      _daysLeft: daysLeft(i.expiration),
-    }));
-
-    // Filtro por texto (insurance name)
-    if (filters.search.trim() !== "") {
-      const term = filters.search.toLowerCase();
-      filteredList = filteredList.filter((i) =>
-        (i.name || "").toLowerCase().includes(term)
-      );
-    }
-
-    // Filtro por doctor
-    if (filters.doctor !== "all") {
-      filteredList = filteredList.filter(
-        (i) => (i.doctorName || "") === filters.doctor
-      );
-    }
-
-    // Filtro por network
-    if (filters.network !== "all") {
-      filteredList = filteredList.filter(
-        (i) => i.network === filters.network
-      );
-    }
-
-    // Filtro por estado de expiración
-    filteredList = filteredList.filter((i) => {
-      const d = i._daysLeft;
-      if (d === null || isNaN(d)) {
-        // si no tiene fecha, solo mostrar si no se está filtrando por estado
-        return filters.expiration === "all";
-      }
-      if (filters.expiration === "expiring") {
-        return d >= 0 && d <= 60;
-      }
-      if (filters.expiration === "expired") {
-        return d < 0;
-      }
-      if (filters.expiration === "active") {
-        return d > 60;
-      }
-      return true; // all
-    });
-
-    // Stats basados en la lista FILTRADA
-    let inNetwork = 0;
-    let outNetwork = 0;
-    let expiringSoon = 0;
-    let expired = 0;
-
-    filteredList.forEach((i) => {
-      if (i.network === "In Network") inNetwork++;
-      if (i.network === "Out of Network") outNetwork++;
-      if (typeof i._daysLeft === "number") {
-        if (i._daysLeft < 0) expired++;
-        else if (i._daysLeft <= 60) expiringSoon++;
-      }
-    });
-
-    return {
-      filtered: filteredList,
-      stats: {
-        total: filteredList.length,
-        inNetwork,
-        outNetwork,
-        expiringSoon,
-        expired,
-      },
-    };
-  }, [allInsurances, filters]);
-
-  const grupos = useMemo(() => agruparPorAseguradora(filtered), [filtered]);
-  const [cerrados, setCerrados] = useState({});
-  const alternar = (n) => setCerrados((p) => ({ ...p, [n]: !p[n] }));
-
-  // Dona 1: contratos por aseguradora. Solo las cuatro primeras familias
-  // reciben color propio; el resto se pliega en "Other". No se generan
-  // colores nuevos para una quinta o sexta aseguradora — una paleta
-  // categórica sirve para identificar, y a partir de cinco hues nadie
-  // distingue cuál es cuál.
-  const donaAseguradoras = useMemo(() => {
-    const top = grupos.slice().sort((a, b) => b.total - a.total);
-    const cabeza = top.slice(0, CATEGORICA.length).map((g) => ({ nombre: g.nombre, valor: g.total }));
-    const resto = top.slice(CATEGORICA.length).reduce((a, g) => a + g.total, 0);
-    if (resto > 0) cabeza.push({ nombre: "Other", valor: resto, color: "var(--idle)" });
-    return cabeza;
-  }, [grupos]);
-
-  // Dona 2: estado de red. Acá sí van los colores del semáforo, porque
-  // "fuera de red" es un estado, no una categoría cualquiera.
-  const donaRed = useMemo(() => {
-    const sin = stats.total - stats.inNetwork - stats.outNetwork;
-    const d = [
-      { nombre: "In network", valor: stats.inNetwork, color: "var(--ok)" },
-      { nombre: "Out of network", valor: stats.outNetwork, color: "var(--hot)" },
-    ];
-    if (sin > 0) d.push({ nombre: "Not set", valor: sin, color: "var(--idle)" });
-    return d.filter((x) => x.valor > 0);
-  }, [stats]);
-
-  // Vencimientos por tramo, con los mismos cortes que usa el resto del
-  // sistema (30 / 60 / 90) para que una fecha no salga roja en un lado y
-  // verde en el otro.
-  const tramos = useMemo(() => {
-    const t = { venc: 0, d30: 0, d60: 0, d90: 0, ok: 0, sin: 0 };
-    filtered.forEach((i) => {
-      const d = i._daysLeft;
-      if (typeof d !== "number" || isNaN(d)) t.sin++;
-      else if (d < 0) t.venc++;
-      else if (d <= 30) t.d30++;
-      else if (d <= 60) t.d60++;
-      else if (d <= 90) t.d90++;
-      else t.ok++;
-    });
-    return t;
-  }, [filtered]);
-
-  // En lugar de un registro de actividad —que no existe en los datos y no
-  // voy a inventar— este panel muestra dónde están los huecos reales:
-  // aseguradoras con contratos fuera de red.
-  const huecos = useMemo(
-    () => grupos.filter((g) => g.fuera > 0).slice(0, 6),
-    [grupos]
+  // ---- Filtros sobre los contratos (alimentan las tablas de abajo) ----
+  const opcionesDoctor = useMemo(
+    () => Array.from(new Set(seguros.map((i) => (i.doctorName || "").trim()).filter(Boolean))).sort(),
+    [seguros]
   );
 
-  const pct = (n) => (stats.total ? Math.round((n / stats.total) * 100) : 0);
+  const filtrados = useMemo(() => {
+    let l = seguros.map((i) => ({ ...i, _daysLeft: daysUntil(i.expiration) }));
+    const t = filtros.search.trim().toLowerCase();
+    if (t) l = l.filter((i) => (i.name || "").toLowerCase().includes(t));
+    if (filtros.doctor !== "all") l = l.filter((i) => (i.doctorName || "") === filtros.doctor);
+    if (filtros.network !== "all") l = l.filter((i) => i.network === filtros.network);
+    if (filtros.expiration !== "all")
+      l = l.filter((i) => {
+        const d = i._daysLeft;
+        if (d === null) return false;
+        if (filtros.expiration === "expiring") return d >= 0 && d <= 60;
+        if (filtros.expiration === "expired") return d < 0;
+        return d > 60;
+      });
+    return l;
+  }, [seguros, filtros]);
 
-  const handleFilterChange = (field, value) => {
-    setFilters((prev) => ({ ...prev, [field]: value }));
-  };
+  // ---- Métricas a nivel de PROVEEDOR (es lo que cuentan las tarjetas) ----
+  // "In network" = el proveedor tiene al menos un contrato dentro de red.
+  // El resto no tiene ninguno. Las dos categorías son excluyentes y suman
+  // el total, que es lo que hace legible un porcentaje.
+  const metricas = useMemo(() => {
+    const porDoctor = new Map();
+    doctores.forEach((d) => porDoctor.set((d.name || "").trim(), { dentro: false, contratos: 0 }));
+    seguros.forEach((s) => {
+      const k = (s.doctorName || "").trim();
+      if (!k) return;
+      if (!porDoctor.has(k)) porDoctor.set(k, { dentro: false, contratos: 0 });
+      const e = porDoctor.get(k);
+      e.contratos += 1;
+      if (!String(s.network || "").toLowerCase().includes("out")) e.dentro = true;
+    });
+    let dentro = 0;
+    porDoctor.forEach((v) => { if (v.dentro) dentro += 1; });
+    const total = porDoctor.size;
+
+    // Vencimientos por proveedor: cuenta el peor de sus credenciales y de
+    // sus contratos, con los mismos cortes que usa el resto del sistema.
+    let d30 = 0, d60 = 0, resto = 0, vencidos = 0;
+    porDoctor.forEach((_v, nombre) => {
+      const doc = doctores.find((x) => (x.name || "").trim() === nombre) || {};
+      const fechas = [doc.licenseExp, doc.deaExp, doc.malpracticeExp, doc.medicareRevalidation]
+        .concat(seguros.filter((s) => (s.doctorName || "").trim() === nombre).map((s) => s.expiration))
+        .filter(Boolean);
+      const dias = fechas.map(daysUntil).filter((n) => n !== null);
+      if (!dias.length) { resto += 1; return; }
+      const min = Math.min(...dias);
+      if (min < 0) vencidos += 1;
+      else if (min <= 30) d30 += 1;
+      else if (min <= 60) d60 += 1;
+      else resto += 1;
+    });
+
+    return { total, dentro, fuera: total - dentro, d30, d60, resto, vencidos };
+  }, [doctores, seguros]);
+
+  const pct = (n, sobre) => (sobre ? Math.round((n / sobre) * 100) : 0);
+
+  // ---- Dona 1: proveedores por aseguradora ----
+  // Cada porción son los proveedores distintos inscritos en esa aseguradora.
+  // Un proveedor puede estar en varias, así que el centro cuenta inscripciones
+  // (proveedor × aseguradora), no cabezas — el porcentaje es sobre eso.
+  const donaSeguros = useMemo(() => {
+    const m = new Map();
+    seguros.forEach((s) => {
+      const f = familiaDe(s.name);
+      if (!m.has(f)) m.set(f, new Set());
+      if (s.doctorName) m.get(f).add(s.doctorName.trim());
+    });
+    const lista = [...m.entries()].map(([nombre, set]) => ({ nombre, valor: set.size })).sort((a, b) => b.valor - a.valor);
+    const cabeza = lista.slice(0, CATEGORICA.length);
+    const cola = lista.slice(CATEGORICA.length).reduce((a, x) => a + x.valor, 0);
+    if (cola > 0) cabeza.push({ nombre: "Other", valor: cola, color: "var(--idle)" });
+    return cabeza;
+  }, [seguros]);
+
+  // ---- Dona 2: estado de red, a nivel de proveedor ----
+  // Acá sí van los colores del semáforo: "fuera de red" es un estado, no una
+  // categoría cualquiera, y reutilizar el verde/rojo de otra cosa los gastaría.
+  const donaRed = useMemo(
+    () => [
+      { nombre: "In network", valor: metricas.dentro, color: "var(--ok)" },
+      { nombre: "Out of network", valor: metricas.fuera, color: "var(--hot)" },
+    ].filter((d) => d.valor > 0),
+    [metricas]
+  );
+
+  // ---- Actividad reciente ----
+  // Altas reales de la base, ordenadas por fecha de creación. No hay bitácora
+  // de ediciones en el esquema, así que este panel dice exactamente lo que
+  // puede saber — "provider added", "contract added" — y nada más.
+  const actividad = useMemo(() => {
+    const a = [
+      ...doctores.map((d) => ({ clave: "d" + d.id, quien: d.name, que: "New provider added", cuando: d.createdAt, ini: inicial(d.name), tono: "acc" })),
+      ...seguros.map((s) => ({ clave: "i" + s.id, quien: s.name, que: (s.doctorName ? s.doctorName + " · " : "") + "contract added", cuando: s.createdAt, ini: inicial(s.name), tono: "ok" })),
+    ].filter((x) => x.cuando);
+    a.sort((x, y) => new Date(y.cuando) - new Date(x.cuando));
+    return a.slice(0, 5);
+  }, [doctores, seguros]);
+
+  const grupos = useMemo(() => agruparPorAseguradora(filtrados), [filtrados]);
+  const [cerrados, setCerrados] = useState({});
+  const alternar = (n) => setCerrados((p) => ({ ...p, [n]: !p[n] }));
+  const cambiar = (k, v) => setFiltros((p) => ({ ...p, [k]: v }));
 
   return (
     <div className="dash-page">
-      {/* Los filtros van en su propia barra, arriba de todo: filtran el
-          tablero entero —tarjetas, donas y tabla— así que no pertenecen
-          dentro de ninguno de los paneles. */}
-      <div className="filterbar">
-        {/* Filtro por texto (insurance) */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs ks-muted">Insurance</label>
-          <input
-            className="p-2 rounded ks-field text-sm"
-            placeholder="Search by name…"
-            value={filters.search}
-            onChange={(e) => handleFilterChange("search", e.target.value)}
-          />
-        </div>
+      <PageHead icono="dashboard" titulo="Dashboard" sub="Credentialing status across every provider and payer" />
 
-        {/* Filtro por doctor */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs ks-muted">Doctor</label>
-          <select
-            className="p-2 rounded ks-field text-sm"
-            value={filters.doctor}
-            onChange={(e) => handleFilterChange("doctor", e.target.value)}
-          >
-            <option value="all">All</option>
-            {doctorOptions.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Filtro por network */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs ks-muted">Network</label>
-          <select
-            className="p-2 rounded ks-field text-sm"
-            value={filters.network}
-            onChange={(e) => handleFilterChange("network", e.target.value)}
-          >
-            <option value="all">All</option>
-            <option value="In Network">In Network</option>
-            <option value="Out of Network">Out of Network</option>
-          </select>
-        </div>
-
-        {/* Filtro por estado de expiración */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs ks-muted">Expiration</label>
-          <select
-            className="p-2 rounded ks-field text-sm"
-            value={filters.expiration}
-            onChange={(e) => handleFilterChange("expiration", e.target.value)}
-          >
-            <option value="all">All</option>
-            <option value="expiring">Expiring ≤ 60 days</option>
-            <option value="expired">Expired</option>
-            <option value="active">Active &gt; 60 days</option>
-          </select>
-        </div>
+      {/* Fila de contexto: la fecha y el saludo. Es la línea que confirma que
+          los números de abajo son de hoy. */}
+      <div className="greet">
+        <span className="greet-date">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+          {hoy.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+        </span>
+        <span className="greet-hi">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+          {saludo(hoy.getHours())}, <b>Kendall South</b>
+        </span>
       </div>
 
       {loading ? (
-        <p className="ks-muted text-sm">Loading...</p>
+        <p className="ks-muted text-sm">Loading…</p>
       ) : (
         <>
-          {/* Tarjetas de resumen. El círculo con ícono da un ancla visual
-              para leer las cuatro de un vistazo; el color es el mismo del
-              semáforo, no uno decorativo. */}
           <div className="kpi-row">
             <div className="kpi">
-              <span className="kpi-ic acc">
-                <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-8 9a8 8 0 0 1 16 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-              </span>
-              <span className="kpi-txt"><small>Total</small><b className="acc">{stats.total}</b></span>
+              <span className="kpi-ic acc"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-8 9a8 8 0 0 1 16 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg></span>
+              <span className="kpi-txt"><small>Total providers</small><b className="acc">{metricas.total}</b></span>
             </div>
             <div className="kpi">
-              <span className="kpi-ic ok">
-                <svg viewBox="0 0 24 24"><path d="M4 12.5l5.2 5L20 6.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </span>
-              <span className="kpi-txt"><small>In network</small><b className="ok">{stats.inNetwork}</b><em className="q">{pct(stats.inNetwork)}% of contracts</em></span>
+              <span className="kpi-ic ok"><svg viewBox="0 0 24 24"><path d="M4 12.5l5.2 5L20 6.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+              <span className="kpi-txt"><small>In network</small><b className="ok">{metricas.dentro}</b><em className="q">{pct(metricas.dentro, metricas.total)}%</em></span>
             </div>
             <div className="kpi">
-              <span className="kpi-ic hot">
-                <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
-              </span>
-              <span className="kpi-txt"><small>Out of network</small><b className="hot">{stats.outNetwork}</b><em>{pct(stats.outNetwork)}% of contracts</em></span>
+              <span className="kpi-ic hot"><svg viewBox="0 0 24 24"><path d="M12 4l9 16H3zM12 10v4M12 17h.01" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+              <span className="kpi-txt"><small>Out of network</small><b className="hot">{metricas.fuera}</b><em className="q">{pct(metricas.fuera, metricas.total)}%</em></span>
             </div>
             <div className="kpi">
-              <span className="kpi-ic mid">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-              </span>
+              <span className="kpi-ic mid"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg></span>
               <span className="kpi-txt">
-                <small>Expiring ≤ 60 days</small>
-                <b className={stats.expiringSoon ? "mid" : ""}>{stats.expiringSoon}</b>
-                {stats.expired > 0 && <em>{stats.expired} expired</em>}
+                <small>Expiring &le; 60 days</small>
+                <b className={metricas.d30 + metricas.d60 ? "mid" : ""}>{metricas.d30 + metricas.d60}</b>
+                <em className={metricas.vencidos ? "" : "q"}>Expired {metricas.vencidos}</em>
               </span>
             </div>
           </div>
 
           <div className="dash-grid">
             <section className="panel">
-              <h3>Contracts by insurer</h3>
+              <h3>Providers by insurance</h3>
               <div className="panel-body">
-                <Donut datos={donaAseguradoras} etiquetaCentro="contracts" />
+                {donaSeguros.length ? (
+                  <Donut datos={donaSeguros} etiquetaCentro="enrollments" />
+                ) : (
+                  <p className="pg-empty">No contracts on file yet.</p>
+                )}
               </div>
             </section>
 
             <section className="panel">
               <h3>Network status</h3>
               <div className="panel-body">
-                <Donut datos={donaRed} etiquetaCentro="contracts" />
+                {donaRed.length ? (
+                  <Donut datos={donaRed} etiquetaCentro="providers" />
+                ) : (
+                  <p className="pg-empty">No providers on file yet.</p>
+                )}
               </div>
             </section>
           </div>
 
           <div className="dash-grid">
             <section className="panel">
-              <h3>Upcoming expirations</h3>
+              <h3>
+                Upcoming expirations
+                {onNav && (
+                  <button type="button" className="panel-link" onClick={() => onNav("doctors")}>View all</button>
+                )}
+              </h3>
               <table className="buckets">
                 <thead>
-                  <tr><th>Window</th><th className="num">Contracts</th><th className="num">Share</th></tr>
+                  <tr><th>Days left</th><th className="num">Providers</th><th className="num">% of total</th></tr>
                 </thead>
                 <tbody>
                   {[
-                    ["Already expired", tramos.venc, "b-hot"],
-                    ["Within 30 days", tramos.d30, "b-hot"],
-                    ["31 – 60 days", tramos.d60, "b-mid"],
-                    ["61 – 90 days", tramos.d90, "b-mid"],
-                    ["More than 90 days", tramos.ok, "b-ok"],
-                    ["No date on file", tramos.sin, "b-idle"],
+                    ["≤ 30 days", metricas.d30, "b-hot"],
+                    ["31 – 60 days", metricas.d60, "b-mid"],
+                    ["> 60 days", metricas.resto, "b-ok"],
                   ].map(([etq, n, cls]) => (
                     <tr key={etq}>
                       <td><span className={`dot ${cls}`} />{etq}</td>
                       <td className="num">{n}</td>
-                      <td className="num">{pct(n)}%</td>
+                      <td className="num">{pct(n, metricas.total)}%</td>
                     </tr>
                   ))}
                 </tbody>
@@ -339,74 +254,91 @@ export default function Dashboard() {
             </section>
 
             <section className="panel">
-              <h3>Where the gaps are</h3>
-              {huecos.length === 0 ? (
-                <p className="pg-empty">Every contract on file is in network.</p>
+              <h3>Recent activity</h3>
+              {actividad.length === 0 ? (
+                <p className="pg-empty">
+                  No dated records yet. Activity appears here as providers and contracts are added.
+                </p>
               ) : (
-                huecos.map((g) => (
-                  <div className="gapline" key={g.nombre}>
-                    <span>{g.nombre}</span>
-                    <span className="bar" title={`${g.fuera} of ${g.total} out of network`}>
-                      <i style={{ width: Math.round((g.fuera / g.total) * 100) + "%" }} />
-                    </span>
-                    <b>{g.fuera}/{g.total} out</b>
-                  </div>
-                ))
+                <ul className="feed">
+                  {actividad.map((a) => (
+                    <li key={a.clave}>
+                      <span className={"feed-av " + a.tono}>{a.ini}</span>
+                      <span className="feed-tx"><b>{a.quien}</b><small>{a.que}</small></span>
+                      <span className="feed-when">{hace(a.cuando)}</span>
+                    </li>
+                  ))}
+                </ul>
               )}
             </section>
           </div>
 
-          {/* Contratos agrupados por aseguradora, no una lista plana:
-              Aetna, Aetna Medicare y Aetna Medicaid son la misma aseguradora,
-              y verlos sueltos esconde qué líneas faltan. Los grupos se ordenan
-              por riesgo — primero los que tienen contratos fuera de red. */}
+          {/* Detalle: los contratos agrupados por aseguradora. Aetna, Aetna
+              Medicare y Aetna Medicaid son la misma aseguradora; verlos
+              sueltos esconde qué líneas faltan. Los grupos se ordenan por
+              riesgo — primero los que tienen contratos fuera de red. */}
+          <div className="filterbar">
+            <div className="flex flex-col gap-1">
+              <label>Insurance</label>
+              <input className="p-2 rounded ks-field text-sm" placeholder="Search by name…" value={filtros.search} onChange={(e) => cambiar("search", e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label>Provider</label>
+              <select className="p-2 rounded ks-field text-sm" value={filtros.doctor} onChange={(e) => cambiar("doctor", e.target.value)}>
+                <option value="all">All</option>
+                {opcionesDoctor.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label>Network</label>
+              <select className="p-2 rounded ks-field text-sm" value={filtros.network} onChange={(e) => cambiar("network", e.target.value)}>
+                <option value="all">All</option>
+                <option value="In Network">In Network</option>
+                <option value="Out of Network">Out of Network</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label>Expiration</label>
+              <select className="p-2 rounded ks-field text-sm" value={filtros.expiration} onChange={(e) => cambiar("expiration", e.target.value)}>
+                <option value="all">All</option>
+                <option value="expiring">Expiring &le; 60 days</option>
+                <option value="expired">Expired</option>
+                <option value="active">Active &gt; 60 days</option>
+              </select>
+            </div>
+          </div>
+
           {grupos.map((g) => {
             const abierto = !cerrados[g.nombre];
             const pctDentro = g.total ? Math.round((g.dentro / g.total) * 100) : 0;
             return (
               <section className="pg" key={g.nombre}>
-                <button
-                  type="button"
-                  className="pg-head"
-                  aria-expanded={abierto}
-                  onClick={() => alternar(g.nombre)}
-                >
+                <button type="button" className="pg-head" aria-expanded={abierto} onClick={() => alternar(g.nombre)}>
                   <span className="pg-name">{g.nombre}</span>
                   <span className="pg-count">{g.total} contract{g.total === 1 ? "" : "s"}</span>
-                  <span className="pg-bar" title={`${g.dentro} in network · ${g.fuera} out`}>
-                    <i style={{ width: pctDentro + "%" }} />
-                  </span>
-                  <span className={`pg-state ${g.fuera ? "gap" : "full"}`}>
-                    {g.fuera ? `${g.fuera} out of network` : "All in network"}
-                  </span>
-                  <span className="pg-chev">{abierto ? "\u2212" : "+"}</span>
+                  <span className="pg-bar" title={`${g.dentro} in network · ${g.fuera} out`}><i style={{ width: pctDentro + "%" }} /></span>
+                  <span className={`pg-state ${g.fuera ? "gap" : "full"}`}>{g.fuera ? `${g.fuera} out of network` : "All in network"}</span>
+                  <span className="pg-chev">{abierto ? "−" : "+"}</span>
                 </button>
 
                 {abierto && (
                   <div className="overflow-auto">
                     <table className="pg-table">
                       <thead>
-                        <tr>
-                          <th>Plan</th><th>Type</th><th>Provider</th><th>Network</th>
-                          <th>Expiration</th><th className="num">Days left</th><th>Notes</th>
-                        </tr>
+                        <tr><th>Plan</th><th>Type</th><th>Provider</th><th>Network</th><th>Expiration</th><th className="num">Days left</th><th>Notes</th></tr>
                       </thead>
                       <tbody>
                         {g.filas.map((ins) => {
-                          const d = ins._daysLeft;
-                          const cls = typeof d !== "number" || isNaN(d) ? "" : d < 0 ? "d-hot" : d <= 60 ? "d-hot" : d <= 90 ? "d-mid" : "d-ok";
+                          const st = statusOf(ins.expiration);
+                          const cls = st === "expired" || st === "d30" ? "d-hot" : st === "d60" || st === "d90" ? "d-mid" : st === "ok" ? "d-ok" : "";
                           return (
                             <tr key={ins.id}>
                               <td>{ins.name}</td>
                               <td className="q">{ins.type}</td>
                               <td>{ins.doctorName || <span className="q">no provider</span>}</td>
-                              <td>
-                                {String(ins.network || "").toLowerCase().includes("out")
-                                  ? <span className="badge-out">Out of Network</span>
-                                  : <span className="badge-in">In Network</span>}
-                              </td>
-                              <td className="mono">{ins.expiration ? new Date(ins.expiration).toLocaleDateString() : "\u2014"}</td>
-                              <td className={`num mono ${cls}`}>{typeof d === "number" && !isNaN(d) ? d : "\u2014"}</td>
+                              <td>{String(ins.network || "").toLowerCase().includes("out") ? <span className="badge-out">Out of Network</span> : <span className="badge-in">In Network</span>}</td>
+                              <td className="mono">{ins.expiration ? new Date(String(ins.expiration).slice(0, 10) + "T00:00:00").toLocaleDateString() : "—"}</td>
+                              <td className={`num mono ${cls}`}>{ins._daysLeft === null ? "—" : ins._daysLeft}</td>
                               <td className="q">{ins.notes}</td>
                             </tr>
                           );
@@ -418,14 +350,7 @@ export default function Dashboard() {
               </section>
             );
           })}
-          {grupos.length === 0 && (
-            <p className="pg-empty">No results for current filters</p>
-          )}
-
-          <p className="ks-muted text-xs mt-3">
-            Showing data from Supabase table <code>insurances</code> with
-            filters applied.
-          </p>
+          {grupos.length === 0 && <p className="pg-empty">No results for current filters</p>}
         </>
       )}
     </div>

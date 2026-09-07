@@ -243,7 +243,7 @@ export default function InsurancesTable() {
           <span className="sum-num">{summary.total}</span><span className="sum-lbl">Total</span>
         </button>
         <button className={`sum-tile t-expired ${fExp === "expired" ? "active" : ""}`} onClick={() => setFExp(fExp === "expired" ? "" : "expired")}>
-          <span className="sum-num">{summary.expired}</span><span className="sum-lbl">Vencidos</span>
+          <span className="sum-num">{summary.expired}</span><span className="sum-lbl">Expired</span>
         </button>
         <button className={`sum-tile t-30 ${fExp === "d30" ? "active" : ""}`} onClick={() => setFExp(fExp === "d30" ? "" : "d30")}>
           <span className="sum-num">{summary.d30}</span><span className="sum-lbl">≤ 30 días</span>
@@ -260,7 +260,7 @@ export default function InsurancesTable() {
       <div className="ins-filters">
         <input
           className="flt-search"
-          placeholder="🔎 Buscar (aseguradora, doctor, notas…)"
+          placeholder="Search payer, provider or notes…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />

@@ -1,0 +1,64 @@
+/* src/components/styles/lookup.css — pantalla NPI Lookup */
+
+/* De dónde sale el dato. Lo de esta pantalla se consulta en vivo contra el
+   registro nacional, no sale de la base local, y eso cambia cómo se lee. */
+.src-chip{
+  display:inline-flex; align-items:center; gap:7px; font-size:11.5px; color:var(--muted);
+  background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:6px 13px;
+}
+.src-chip b{ color:var(--ink); font-weight:600 }
+.src-live{ width:7px; height:7px; border-radius:50%; background:var(--ok); display:inline-block; margin-left:4px }
+
+.lk-search{ padding:14px 16px; margin-bottom:16px }
+.lk-row{ display:flex; align-items:center; gap:9px; flex-wrap:wrap }
+.lk-ic{ position:absolute; margin-left:12px; color:var(--muted); pointer-events:none; line-height:0 }
+.lk-ic svg{ width:16px; height:16px }
+.lk-input{
+  flex:1; min-width:220px; padding:9px 13px 9px 36px; font:inherit; font-size:13px;
+  background:var(--page); border:1px solid var(--line); border-radius:8px; color:var(--ink);
+}
+.lk-input:focus{ outline:none; border-color:var(--accent); background:var(--surface) }
+.lk-eg{ margin:9px 0 0; font-size:11.5px; color:var(--muted) }
+
+.lk-head{ display:flex; align-items:center; gap:13px; flex-wrap:wrap; padding:15px 17px; border-bottom:1px solid var(--line2) }
+.lk-av{
+  width:44px; height:44px; border-radius:50%; flex:none; display:grid; place-items:center;
+  background:var(--accent-soft); color:var(--accent-2); font-size:14px; font-weight:700;
+}
+.lk-id{ min-width:0; flex:1 }
+.lk-id h3{ margin:0; font-size:16.5px; font-weight:600 }
+.lk-id p{ margin:2px 0 0; font-size:12.5px; color:var(--muted) }
+.lk-id b{ color:var(--accent); font-weight:500 }
+.lk-state{
+  display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:500;
+  border-radius:999px; padding:5px 12px;
+}
+.lk-state i{ width:7px; height:7px; border-radius:50%; background:currentColor }
+.lk-state.on{ background:var(--ok-bg); color:var(--ok) }
+.lk-state.off{ background:var(--hot-bg); color:var(--hot) }
+
+.lk-tabs{ display:flex; gap:2px; padding:0 17px; border-bottom:1px solid var(--line); overflow-x:auto }
+.lk-tab{
+  font:inherit; font-size:12.5px; color:var(--muted); background:none; border:0;
+  border-bottom:2px solid transparent; padding:11px 13px; cursor:pointer; white-space:nowrap;
+}
+.lk-tab:hover{ color:var(--ink) }
+.lk-tab.on{ color:var(--accent); border-bottom-color:var(--accent); font-weight:600 }
+.lk-tab:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px }
+
+.lk-def{ width:100%; border-collapse:collapse; font-size:13px }
+.lk-def th{
+  width:210px; text-align:left; vertical-align:top; padding:9px 17px;
+  font-size:12px; font-weight:500; color:var(--muted); border-bottom:1px solid var(--line2);
+}
+.lk-def td{ padding:9px 17px; border-bottom:1px solid var(--line2); color:var(--ink) }
+.lk-def tr:last-child th, .lk-def tr:last-child td{ border-bottom:0 }
+.lk-def .mono{ font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:12.5px }
+.lk-sub{ display:block; font-size:10px; font-weight:400; letter-spacing:.06em; text-transform:uppercase; color:var(--idle); margin-top:2px }
+.lk-primary{
+  font-style:normal; font-size:9.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--accent); background:var(--accent-soft); border-radius:4px; padding:2px 5px; margin-left:7px;
+}
+.lk-none{ padding:22px 17px; text-align:center; color:var(--muted); font-size:12.5px }
+
+.npi-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); overflow:hidden }

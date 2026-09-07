@@ -1,0 +1,89 @@
+/* src/components/styles/providers.css — pantalla Providers */
+
+.btn-pri{
+  display:inline-flex; align-items:center; gap:7px; font:inherit; font-size:13px; font-weight:500;
+  background:var(--accent); color:#fff; border:0; border-radius:8px; padding:9px 15px; cursor:pointer;
+}
+.btn-pri svg{ width:15px; height:15px }
+.btn-pri:hover{ background:var(--accent-2) }
+.btn-pri:focus-visible{ outline:2px solid var(--accent); outline-offset:2px }
+
+/* Las tarjetas de resumen también filtran; el borde marca cuál está aplicada. */
+.kpi-btn{ text-align:left; cursor:pointer; font:inherit; color:inherit }
+.kpi-btn:hover{ border-color:var(--accent) }
+.kpi-btn.on{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-soft), var(--shadow) }
+.kpi-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px }
+
+.prov-table{ width:100%; border-collapse:collapse; font-size:13px }
+.prov-table th{
+  text-align:left; padding:9px 16px; border-bottom:1px solid var(--line);
+  font-size:9.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); font-weight:700;
+}
+.prov-table td{ padding:7px 16px; border-bottom:1px solid var(--line2); vertical-align:middle }
+.prov-table tbody tr:last-child td{ border-bottom:0 }
+.prov-table tbody tr:hover{ background:var(--page) }
+.prov-table .num{ text-align:right }
+.prov-table .q{ color:var(--muted); font-size:12px }
+.prov-table .mono{ font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:12px }
+.prov-table .act{ text-align:right; white-space:nowrap }
+
+/* El nombre es el botón que abre la ficha: el objetivo de clic más grande de
+   la fila es el que más se usa, no un ícono de 16px al final. */
+.prov-who{
+  display:inline-flex; align-items:center; gap:10px; font:inherit; text-align:left;
+  background:none; border:0; padding:2px 0; cursor:pointer; color:var(--ink); max-width:100%;
+}
+.prov-who:hover .prov-nm{ color:var(--accent) }
+.prov-who:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:6px }
+.prov-av{
+  width:31px; height:31px; border-radius:50%; flex:none; display:grid; place-items:center;
+  font-size:10.5px; font-weight:700; letter-spacing:.02em;
+}
+/* Identidad, no estado: por eso ninguno de estos es el verde/ámbar/rojo del
+   semáforo, que están reservados para vencimientos y red. */
+.av-a{ background:#E7EFFE; color:#1D4ED8 }
+.av-b{ background:#DCF2EF; color:#0F766E }
+.av-c{ background:#EDE9FE; color:#6D28D9 }
+.av-d{ background:#FDE8F3; color:#A21678 }
+.av-e{ background:#E4EEF6; color:#12608A }
+.av-f{ background:#EAEEF5; color:#3B5476 }
+.prov-nm{ font-size:13px; font-weight:500; line-height:1.25; min-width:0 }
+.prov-nm small{ display:block; font-size:10.5px; font-weight:400; color:var(--mid) }
+.prov-none{ padding:26px 16px; text-align:center; color:var(--muted); font-size:12.5px }
+
+.ic-btn{
+  width:27px; height:27px; border-radius:7px; border:1px solid var(--line); background:var(--surface);
+  color:var(--ink2); display:inline-grid; place-items:center; cursor:pointer; margin-left:5px;
+}
+.ic-btn svg{ width:14px; height:14px }
+.ic-btn:hover{ border-color:var(--accent); color:var(--accent) }
+.ic-btn.del:hover{ border-color:var(--hot); color:var(--hot) }
+.ic-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:1px }
+
+.pager{
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  padding:11px 16px; border-top:1px solid var(--line2);
+}
+.pager-txt{ font-size:12px; color:var(--muted) }
+.pager-nums{ display:flex; align-items:center; gap:4px; margin-left:auto }
+.pg-btn{
+  min-width:28px; height:28px; padding:0 7px; border-radius:7px; border:1px solid var(--line);
+  background:var(--surface); color:var(--ink2); font:inherit; font-size:12.5px; cursor:pointer;
+}
+.pg-btn:hover:not(:disabled){ border-color:var(--accent); color:var(--accent) }
+.pg-btn.on{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600 }
+.pg-btn:disabled{ opacity:.4; cursor:default }
+.pg-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:1px }
+.pg-gap{ color:var(--muted); padding:0 2px; font-size:12.5px }
+.pager-size select{ padding:5px 8px; font-size:12px }
+
+.prov-tools{ display:flex; gap:9px; flex-wrap:wrap; margin-top:12px }
+
+/* Ficha completa sobre la tabla: al cerrar se vuelve a la misma página. */
+.modal-record{ max-width:900px; width:min(900px, 94vw); max-height:88vh; overflow:auto; position:relative }
+.modal-x{
+  position:absolute; top:10px; right:12px; width:30px; height:30px; border-radius:8px;
+  border:1px solid var(--line); background:var(--surface); color:var(--ink2);
+  font-size:19px; line-height:1; cursor:pointer; z-index:2;
+}
+.modal-x:hover{ border-color:var(--hot); color:var(--hot) }

@@ -118,6 +118,20 @@ export default async function middleware(req) {
 
   const url = new URL(req.url);
 
+  // Cerrar sesión. La cookie es HttpOnly a propósito, así que el navegador no
+  // puede borrarla por su cuenta: tiene que pedirlo acá. Va en el middleware
+  // y no en /api para no gastar una de las 12 funciones del plan.
+  if (url.pathname === "/logout") {
+    return new Response(null, {
+      status: 303,
+      headers: {
+        location: "/",
+        "set-cookie": `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
+        "cache-control": "no-store",
+      },
+    });
+  }
+
   // Envío del formulario de acceso.
   if (req.method === "POST") {
     const ct = req.headers.get("content-type") || "";

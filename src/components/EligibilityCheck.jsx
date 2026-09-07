@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { daysUntil, statusOf } from "../utils/credStatus";
+import { PageHead } from "./Shell.jsx";
+import "./styles/matrix.css";
+import "./styles/matrix.css";
 
 // Debe coincidir con las claves de FHIR_PAYERS en api/_lib/fhirDirectory.js.
 // Solo metadatos (sin secretos ni lógica) — la verificación real vive en el
@@ -20,7 +23,7 @@ const FHIR_PAYER_KEYS = {
 // In Network / Out / Aplicó, según los datos del tracker (fuente de verdad para
 // las comerciales; no existe API pública de participación de red).
 //
-// Además, el botón "Verificar Medicare (CMS)" consulta EN VIVO el sistema oficial
+// Además, el botón "Verify Medicare (CMS)" consulta EN VIVO el sistema oficial
 // de CMS (PECOS) para confirmar automáticamente la inscripción en Medicare de cada
 // doctor. Es dato oficial y automático; los demás seguros comerciales siguen siendo
 // verificación manual porque no tienen API pública de red.
@@ -71,6 +74,7 @@ export default function EligibilityCheck() {
   const [insurances, setInsurances] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [payerQ, setPayerQ] = useState("");
+  const [fDoc, setFDoc] = useState("all");
   const [onlyGaps, setOnlyGaps] = useState(false);
 
   // Verificación automática de Medicare (CMS/PECOS), keyed por NPI.
@@ -285,11 +289,15 @@ export default function EligibilityCheck() {
     return { state, warn, tip };
   };
 
+  // Cuatro estados, cuatro clases. Los colores son los del semáforo del resto
+  // del sistema: dentro de red = ok, aplicó = a la espera, fuera = hot, sin
+  // registro = neutro. "Sin registro" NO es rojo: no saber si un proveedor
+  // está en una red es distinto de saber que no lo está.
   const meta = {
-    in: { bg: "#14532d", fg: "#bbf7d0", label: "In" },
-    applied: { bg: "#713f12", fg: "#fde68a", label: "Aplicó" },
-    out: { bg: "#4b1e1e", fg: "#fecaca", label: "Out" },
-    none: { bg: "transparent", fg: "#334155", label: "·" },
+    in: { cls: "mx-in", label: "In" },
+    applied: { cls: "mx-app", label: "Applied" },
+    out: { cls: "mx-out", label: "Out" },
+    none: { cls: "mx-none", label: "—" },
   };
 
   // Precalcular la matriz
@@ -305,267 +313,221 @@ export default function EligibilityCheck() {
     });
   }, [doctorRows, payers, insurances]);
 
-  const rowsToShow = onlyGaps
-    ? matrix.filter((r) => r.cells.some((c) => c.state === "out" || c.state === "applied"))
-    : matrix;
+  const rowsToShow = useMemo(() => {
+    let r = matrix;
+    if (fDoc !== "all") r = r.filter((x) => x.doc === fDoc);
+    if (onlyGaps) r = r.filter((x) => x.cells.some((c) => c.state === "out" || c.state === "applied"));
+    return r;
+  }, [matrix, fDoc, onlyGaps]);
 
-  const thBase = { position: "sticky", top: 0, background: "#0b1a33", zIndex: 2, padding: "6px 4px", fontSize: 11, color: "#9fb3d1", borderBottom: "1px solid #22385f", whiteSpace: "nowrap" };
-  const firstCol = { position: "sticky", left: 0, background: "#0d1b33", zIndex: 1, padding: "6px 10px", whiteSpace: "nowrap", borderRight: "1px solid #22385f", color: "#e6f6ff" };
+  // Monograma de la aseguradora para la cabecera de columna. No uso los logos
+  // de las aseguradoras: son marcas registradas de terceros y no me toca
+  // redistribuirlas dentro de la app.
+  const mono = (n) => String(n || "?").replace(/[^A-Za-z ]/g, "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+
+  const anyFhirBusy = Object.values(verifyingFhir).some(Boolean);
+  const [herramientas, setHerramientas] = useState(false);
 
   return (
-    <div className="ks-card rounded p-4">
-      <h2 className="ks-accent font-semibold mb-1">Provider × Payer — network participation</h2>
-      <p className="ks-muted text-xs mb-3">
-        Estado de cada doctor con cada aseguradora, según tu tracker. Pasa el cursor sobre una celda para ver tipo, vencimiento y notas.
-        <br />
-        Nota: la mayoría de los seguros comerciales no tiene una sola API tipo Medicare; varias sí publican su propio
-        Provider Directory oficial (obligado por CMS) pero hay que configurarlo — ver los botones ⚡ abajo y{" "}
-        <code>SETUP-PROVIDER-DIRECTORY-APIS.md</code>. El resto sigue reflejando lo que registras en Insurances.
-      </p>
+    <div>
+      <PageHead icono="matrix" titulo="Provider × Payer Network Participation"
+        sub="View each provider's participation status with different insurance payers" />
 
-      {/* Verificación automática oficial (CMS/PECOS) */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-        <button
-          onClick={verifyMedicare}
-          disabled={verifying}
-          style={{
-            background: verifying ? "#334155" : "#0e7490",
-            color: "#e0f2fe",
-            border: "none",
-            borderRadius: 6,
-            padding: "7px 12px",
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: verifying ? "default" : "pointer",
-          }}
-        >
-          {verifying ? `Verificando… ${verifiedDone}/${verifiedTotal}` : "⚡ Verificar Medicare (CMS oficial)"}
-        </button>
-        {hasMed && !verifying && (
-          <span style={{ color: "#bbf7d0", fontSize: 13 }}>
-            {medEnrolledCount}/{Object.keys(medStatus).length} inscritos en Medicare (PECOS)
-          </span>
-        )}
-        <span style={{ color: "#64748b", fontSize: 11 }}>
-          Dato oficial de CMS, en vivo.
-        </span>
-      </div>
-
-      {/* Verificación automática oficial por aseguradora comercial (Provider Directory FHIR) */}
-      {fhirButtons.length > 0 && (
-        <div style={{ marginBottom: 12, padding: "10px 12px", background: "#0b1a33", borderRadius: 8, border: "1px solid #22385f" }}>
-          <div style={{ color: "#e6f6ff", fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
-            ⚡ Verificar seguros comerciales (Provider Directory oficial)
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {(() => {
-              // Varias aseguradoras (Ambetter/Simply Healthcare/Sunshine
-              // Health/WellCare) comparten UN MISMO servidor FHIR de Centene.
-              // Si se lanzan dos o más verificaciones a la vez, cada una dispara
-              // 12 llamadas concurrentes (una por doctor) y ese servidor
-              // compartido recibe 24-48+ llamadas simultáneas — en la práctica
-              // esto lo satura y empieza a devolver "no encontrado" para
-              // doctores que sí están en la red (falsos negativos, confirmado
-              // probando la misma aseguradora sola vs. varias a la vez). Por
-              // eso mientras UNA verificación esté en curso, se deshabilitan
-              // TODAS las demás — se verifican de a una, en fila.
-              const anyFhirBusy = Object.values(verifyingFhir).some(Boolean);
-              return fhirButtons.map((b) => {
-                const busy = !!verifyingFhir[b.fhirKey];
-                const prog = fhirProgress[b.fhirKey];
-                const byNpi = fhirStatus[b.fhirKey];
-                const done = byNpi && !busy;
-                const configuredCount = done ? Object.values(byNpi).filter((s) => s.configured).length : 0;
-                const inCount = done ? Object.values(byNpi).filter((s) => s.inNetwork).length : 0;
-                const allUnconfigured = done && configuredCount === 0;
-                const disabledByOther = anyFhirBusy && !busy;
-                return (
-                  <button
-                    key={b.fhirKey}
-                    onClick={() => verifyFhirPayer(b.fhirKey)}
-                    disabled={busy || disabledByOther}
-                    title={
-                      disabledByOther
-                        ? "Espera a que termine la verificación en curso (varias aseguradoras comparten servidor — se hacen de a una para no saturarlo)"
-                        : done && allUnconfigured
-                        ? "No configurado aún — ver SETUP-PROVIDER-DIRECTORY-APIS.md"
-                        : `Verificar ${b.family} en su Provider Directory oficial`
-                    }
-                    style={{
-                      background: busy ? "#334155" : disabledByOther ? "#1e293b" : allUnconfigured ? "#3f2d0e" : "#0e7490",
-                      color: disabledByOther ? "#475569" : allUnconfigured ? "#fde68a" : "#e0f2fe",
-                      border: "none",
-                      borderRadius: 6,
-                      padding: "6px 10px",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: busy || disabledByOther ? "default" : "pointer",
-                    }}
-                  >
-                    {busy
-                      ? `${b.family}… ${prog?.done ?? 0}/${prog?.total ?? 0}`
-                      : done
-                      ? allUnconfigured
-                        ? `${b.family}: no configurado`
-                        : `${b.family}: ${inCount}/${configuredCount} en red`
-                      : `Verificar ${b.family}`}
-                  </button>
-                );
-              });
-            })()}
-          </div>
-          <div style={{ marginTop: 6, color: "#64748b", fontSize: 11 }}>
-            Cada aseguradora publica su propio Provider Directory (exigido por CMS); necesitas registrarte gratis en el
-            portal de developers de cada una y pegar sus claves en Vercel una vez — ver <code>SETUP-PROVIDER-DIRECTORY-APIS.md</code>.
-            Mientras no esté configurada, el botón lo dice claramente y no rompe nada.
-          </div>
-        </div>
-      )}
-
-      {/* Verificar en directorios oficiales (uno por seguro) */}
-      <div style={{ marginBottom: 12, padding: "10px 12px", background: "#0b1a33", borderRadius: 8, border: "1px solid #22385f" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span style={{ color: "#e6f6ff", fontWeight: 600, fontSize: 13 }}>🔗 Verificar en directorios oficiales</span>
-          <select
-            value={selDoc}
-            onChange={(e) => setSelDoc(e.target.value)}
-            style={{ background: "#0d1b33", color: "#e6f6ff", border: "1px solid #22385f", borderRadius: 6, padding: "5px 8px", fontSize: 13 }}
-          >
-            <option value="">— elige doctor —</option>
-            {doctorsWithNpi.map((d) => (
-              <option key={String(d.npi)} value={String(d.npi).trim()}>
-                {d.name} · NPI {d.npi}
-              </option>
-            ))}
+      <div className="filterbar">
+        <div className="flex flex-col gap-1">
+          <label>Provider</label>
+          <select className="p-2 rounded ks-field text-sm" value={fDoc} onChange={(e) => setFDoc(e.target.value)}>
+            <option value="all">All</option>
+            {doctorRows.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-          {dirButtons.map((b) => (
-            <button
-              key={b.family}
-              onClick={() => openDirectory(b.family, b.url)}
-              style={{ background: "#132b4d", color: "#cfe6ff", border: "1px solid #22385f", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-              title={`Abrir el directorio oficial de ${b.family} y copiar el NPI`}
-            >
-              {b.family}
-            </button>
+        <div className="flex flex-col gap-1">
+          <label>Insurance</label>
+          <input className="p-2 rounded ks-field text-sm" placeholder="Filter payer columns…" value={payerQ} onChange={(e) => setPayerQ(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label>Network</label>
+          <select className="p-2 rounded ks-field text-sm" value={onlyGaps ? "gaps" : "all"} onChange={(e) => setOnlyGaps(e.target.value === "gaps")}>
+            <option value="all">All providers</option>
+            <option value="gaps">Only providers with gaps</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="panel">
+        {/* La leyenda va arriba de la matriz y siempre visible: sin ella, una
+            celda de color no dice nada, y el color por sí solo nunca debería
+            ser la única forma de leer un estado — por eso cada celda lleva
+            además su palabra. */}
+        <div className="mx-legend">
+          {["in", "applied", "out", "none"].map((k) => (
+            <span key={k} className="mx-lg">
+              <i className={"mx-dot " + meta[k].cls} />
+              {k === "in" ? "In Network" : k === "applied" ? "Applied / Pending" : k === "out" ? "Out of Network" : "Not Listed"}
+            </span>
           ))}
+          <span className="mx-lg mx-note"><i className="mx-warn" /> expiring or expired</span>
+          <span className="mx-count">{rowsToShow.length} provider{rowsToShow.length === 1 ? "" : "s"} × {payers.length} payer{payers.length === 1 ? "" : "s"}</span>
         </div>
-        {copiedMsg && <div style={{ marginTop: 7, color: "#bbf7d0", fontSize: 12 }}>{copiedMsg}</div>}
-        <div style={{ marginTop: 4, color: "#64748b", fontSize: 11 }}>
-          Abre el directorio oficial del seguro y copia el NPI del doctor. Confirmas en la fuente autoritativa — sin datos inventados.
-        </div>
-      </div>
 
-      <div className="ins-filters">
-        <input
-          className="flt-search"
-          placeholder="🔎 Filtrar aseguradoras (columnas)…"
-          value={payerQ}
-          onChange={(e) => setPayerQ(e.target.value)}
-        />
-        <label style={{ display: "flex", alignItems: "center", gap: 6, color: "#cbd5e1", fontSize: 13 }}>
-          <input type="checkbox" checked={onlyGaps} onChange={(e) => setOnlyGaps(e.target.checked)} />
-          Solo doctores con Out/Aplicó
-        </label>
-        {(payerQ || onlyGaps) && (
-          <button className="flt-clear" onClick={() => { setPayerQ(""); setOnlyGaps(false); }}>✕ Limpiar</button>
-        )}
-      </div>
-
-      {/* Leyenda */}
-      <div style={{ display: "flex", gap: 12, margin: "6px 0 10px", flexWrap: "wrap", fontSize: 12 }}>
-        {["in", "applied", "out"].map((k) => (
-          <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "#cbd5e1" }}>
-            <span style={{ width: 14, height: 14, borderRadius: 3, background: meta[k].bg, display: "inline-block" }} />
-            {meta[k].label}
-          </span>
-        ))}
-        <span style={{ color: "#fbbf24" }}>• = por vencer / vencido</span>
-      </div>
-
-      <p className="ks-muted text-xs mb-2">
-        {rowsToShow.length} doctores × {payers.length} aseguradoras
-      </p>
-
-      <div className="overflow-auto" style={{ maxHeight: "70vh" }}>
-        <table style={{ borderCollapse: "separate", borderSpacing: 0, fontSize: 12 }}>
-          <thead>
-            <tr>
-              <th style={{ ...thBase, ...firstCol, top: 0, zIndex: 3 }}>Doctor</th>
-              <th style={{ ...thBase, textAlign: "center" }}>In</th>
-              <th style={{ ...thBase, textAlign: "center" }} title="Inscripción en Medicare según CMS/PECOS (dato oficial en vivo)">Medicare CMS</th>
-              {payers.map((p) => (
-                <th key={p} style={{ ...thBase, textAlign: "center", maxWidth: 92, overflow: "hidden", textOverflow: "ellipsis" }} title={p}>
-                  {p.length > 14 ? p.slice(0, 13) + "…" : p}
+        <div className="mx-wrap">
+          <table className="mx-table">
+            <thead>
+              <tr>
+                <th className="mx-first">Provider</th>
+                <th className="mx-num" title="Payers where this provider is in network">In</th>
+                <th title="Medicare enrollment per CMS/PECOS — official live data">
+                  <span className="mx-mono mx-cms">CMS</span>
+                  <span className="mx-pname">Medicare</span>
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rowsToShow.map((row) => {
-              const mc = medCell(row.doc);
-              return (
-                <tr key={row.doc}>
-                  <td style={firstCol}>{row.doc}</td>
-                  <td style={{ textAlign: "center", padding: "4px 6px", color: "#93c5fd", fontWeight: 700, borderBottom: "1px solid #16233b" }}>{row.inCount}</td>
-                  <td style={{ textAlign: "center", padding: "3px 4px", borderBottom: "1px solid #16233b" }}
-                      title={mc.kind === "in" ? ("Inscrito en Medicare · ID " + (mc.eid || "—")) : mc.kind === "review" ? "No aparece en CMS — revisar (puede ser normal según el tipo de proveedor)" : mc.kind === "sin-npi" ? "Sin NPI válido" : ""}>
-                    {mc.kind === "in" ? (
-                      <span style={{ background: "#14532d", color: "#bbf7d0", borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 700 }}>✓ Sí</span>
-                    ) : mc.kind === "review" ? (
-                      <span style={{ background: "#713f12", color: "#fde68a", borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 700 }}>⚠ Revisar</span>
-                    ) : mc.kind === "error" ? (
-                      <span style={{ color: "#fca5a5" }}>error</span>
-                    ) : mc.kind === "sin-npi" ? (
-                      <span style={{ color: "#334155" }}>—</span>
-                    ) : (
-                      <span style={{ color: "#334155" }}>·</span>
-                    )}
-                  </td>
-                  {row.cells.map((c) => {
-                    const m = meta[c.state];
-                    const fc = c.fhirKey ? fhirCell(c.fhirKey, row.doc) : null;
-                    const fcTip =
-                      fc?.kind === "in"
-                        ? "Confirmado en el Provider Directory oficial de la aseguradora (dato en vivo)"
-                        : fc?.kind === "review"
-                        ? `No aparece activo en el Provider Directory oficial — revisar${fc.reason ? " (" + fc.reason + ")" : ""}`
-                        : fc?.kind === "unconfigured"
-                        ? "Provider Directory oficial no configurado aún"
-                        : fc?.kind === "error"
-                        ? "Error consultando el Provider Directory oficial"
+                {payers.map((p) => (
+                  <th key={p} title={p}>
+                    <span className="mx-mono">{mono(p)}</span>
+                    <span className="mx-pname">{p}</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rowsToShow.map((row) => {
+                const mc = medCell(row.doc);
+                return (
+                  <tr key={row.doc}>
+                    <td className="mx-first">{row.doc}</td>
+                    <td className="mx-num"><b>{row.inCount}</b></td>
+                    <td title={mc.kind === "in" ? ("Enrolled in Medicare · ID " + (mc.eid || "—")) : mc.kind === "review" ? "Not found in CMS — worth checking (can be normal depending on provider type)" : mc.kind === "sin-npi" ? "No valid NPI on file" : "Not checked yet"}>
+                      {mc.kind === "in" ? <span className="mx-cell mx-in">In</span>
+                        : mc.kind === "review" ? <span className="mx-cell mx-app">Review</span>
+                        : mc.kind === "error" ? <span className="mx-cell mx-out">Error</span>
+                        : <span className="mx-cell mx-none">—</span>}
+                    </td>
+                    {row.cells.map((c) => {
+                      const m = meta[c.state];
+                      const fc = c.fhirKey ? fhirCell(c.fhirKey, row.doc) : null;
+                      const fcTip =
+                        fc?.kind === "in" ? "Confirmed in the payer's official Provider Directory (live data)"
+                        : fc?.kind === "review" ? `Not listed as active in the official Provider Directory — worth checking${fc.reason ? " (" + fc.reason + ")" : ""}`
+                        : fc?.kind === "unconfigured" ? "Official Provider Directory not configured yet"
+                        : fc?.kind === "error" ? "Error querying the official Provider Directory"
                         : "";
-                    // Si ya se verificó este pagador EN VIVO (Provider Directory oficial),
-                    // el resultado manda — mismo estilo "✓ Sí / ⚠ Revisar" que usa la
-                    // columna de Medicare, para que se vea idéntico. Si aún no se ha
-                    // verificado ese pagador (o no está configurado), se sigue mostrando
-                    // el estado manual de Insurances como antes.
+                      // Si ya se verificó EN VIVO contra el Provider Directory
+                      // oficial, ese resultado manda sobre lo cargado a mano:
+                      // es la fuente autoritativa. Si no se verificó, se sigue
+                      // mostrando lo que dice tu tracker.
+                      return (
+                        <td key={c.payer} title={[c.tip, fcTip].filter(Boolean).join(" | ")}>
+                          {fc?.kind === "in" ? <span className="mx-cell mx-in mx-live">In</span>
+                            : fc?.kind === "review" ? <span className="mx-cell mx-app mx-live">Review</span>
+                            : <span className={"mx-cell " + m.cls}>{m.label}{c.warn ? <i className="mx-warn" /> : null}</span>}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+              {rowsToShow.length === 0 && (
+                <tr><td className="mx-empty" colSpan={payers.length + 3}>No provider matches the current filters.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Verificación en vivo. Va debajo y plegada: la matriz es lo que se
+          mira todos los días; esto se usa cuando hay una duda concreta. */}
+      <section className="panel mx-tools">
+        <button type="button" className="mx-tools-head" aria-expanded={herramientas} onClick={() => setHerramientas((v) => !v)}>
+          <span>Verify against official sources</span>
+          <small>Live data from CMS and each payer&rsquo;s own Provider Directory</small>
+          <span className="pg-chev">{herramientas ? "\u2212" : "+"}</span>
+        </button>
+
+        {herramientas && (
+          <div className="mx-tools-body">
+            <div className="mx-tool-row">
+              <button className="btn-pri" onClick={verifyMedicare} disabled={verifying}>
+                {verifying ? `Checking… ${verifiedDone}/${verifiedTotal}` : "Verify Medicare (official CMS)"}
+              </button>
+              {hasMed && !verifying && (
+                <span className="v-ok" style={{ fontSize: 12.5 }}>
+                  {medEnrolledCount}/{Object.keys(medStatus).length} enrolled in Medicare (PECOS)
+                </span>
+              )}
+              <span className="mx-hint">Official CMS data, queried live.</span>
+            </div>
+
+            {fhirButtons.length > 0 && (
+              <div className="mx-tool-block">
+                <h4>Commercial payers &mdash; official Provider Directory</h4>
+                <div className="mx-chiprow">
+                  {fhirButtons.map((b) => {
+                    const busy = !!verifyingFhir[b.fhirKey];
+                    const prog = fhirProgress[b.fhirKey];
+                    const byNpi = fhirStatus[b.fhirKey];
+                    const done = byNpi && !busy;
+                    const configuredCount = done ? Object.values(byNpi).filter((s) => s.configured).length : 0;
+                    const inCount = done ? Object.values(byNpi).filter((s) => s.inNetwork).length : 0;
+                    const allUnconfigured = done && configuredCount === 0;
+                    // Ambetter, Simply, Sunshine y WellCare comparten UN
+                    // servidor FHIR de Centene. Dos verificaciones a la vez
+                    // disparan 24-48 llamadas simultáneas contra él y empieza
+                    // a devolver "no encontrado" para doctores que SÍ están en
+                    // la red — falsos negativos, comprobados probando una sola
+                    // aseguradora contra varias a la vez. Por eso van en fila.
+                    const disabledByOther = anyFhirBusy && !busy;
                     return (
-                      <td key={c.payer} title={[c.tip, fcTip].filter(Boolean).join(" | ")} style={{ textAlign: "center", padding: "3px 4px", borderBottom: "1px solid #16233b" }}>
-                        {fc?.kind === "in" ? (
-                          <span style={{ background: "#14532d", color: "#bbf7d0", borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 700 }}>✓ Sí</span>
-                        ) : fc?.kind === "review" ? (
-                          <span style={{ background: "#713f12", color: "#fde68a", borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 700 }}>⚠ Revisar</span>
-                        ) : c.state === "none" ? (
-                          <span style={{ color: "#334155" }}>·</span>
-                        ) : (
-                          <span style={{ background: m.bg, color: m.fg, borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
-                            {m.label}{c.warn ? " •" : ""}
-                          </span>
-                        )}
-                      </td>
+                      <button
+                        key={b.fhirKey}
+                        className={"mx-chip" + (busy ? " busy" : "") + (allUnconfigured ? " off" : "")}
+                        onClick={() => verifyFhirPayer(b.fhirKey)}
+                        disabled={busy || disabledByOther}
+                        title={disabledByOther
+                          ? "Wait for the running check to finish — several payers share one server, so they are queried one at a time"
+                          : done && allUnconfigured ? "Not configured yet — see SETUP-PROVIDER-DIRECTORY-APIS.md"
+                          : `Check ${b.family} in its official Provider Directory`}
+                      >
+                        {busy ? `${b.family}… ${prog?.done ?? 0}/${prog?.total ?? 0}`
+                          : done ? (allUnconfigured ? `${b.family}: not configured` : `${b.family}: ${inCount}/${configuredCount} in network`)
+                          : `Check ${b.family}`}
+                      </button>
                     );
                   })}
-                </tr>
-              );
-            })}
-            {rowsToShow.length === 0 && (
-              <tr><td style={{ padding: 16, color: "#94a3b8" }}>No hay datos para mostrar.</td></tr>
+                </div>
+                <p className="mx-hint">
+                  Each payer publishes its own Provider Directory (required by CMS). You register once, free, on that
+                  payer&rsquo;s developer portal and paste the keys into Vercel — see <code>SETUP-PROVIDER-DIRECTORY-APIS.md</code>.
+                  Until then the button says so and nothing breaks.
+                </p>
+              </div>
             )}
-          </tbody>
-        </table>
-      </div>
+
+            <div className="mx-tool-block">
+              <h4>Open a payer&rsquo;s directory</h4>
+              <div className="mx-tool-row">
+                <select className="p-2 rounded ks-field text-sm" value={selDoc} onChange={(e) => setSelDoc(e.target.value)}>
+                  <option value="">— choose a provider —</option>
+                  {doctorsWithNpi.map((d) => (
+                    <option key={String(d.npi)} value={String(d.npi).trim()}>{d.name} · NPI {d.npi}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mx-chiprow">
+                {dirButtons.map((b) => (
+                  <button key={b.family} className="mx-chip ghost" onClick={() => openDirectory(b.family, b.url)}
+                    title={`Open ${b.family}'s official directory and copy the NPI`}>
+                    {b.family}
+                  </button>
+                ))}
+              </div>
+              {copiedMsg && <p className="v-ok" style={{ fontSize: 12.5, marginTop: 7 }}>{copiedMsg}</p>}
+              <p className="mx-hint">
+                Opens the payer&rsquo;s own directory and copies the NPI, so you confirm against the authoritative
+                source rather than a number typed here.
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

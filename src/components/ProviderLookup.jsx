@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { PageHead } from "./Shell.jsx";
+import "./styles/lookup.css";
 import {
   daysUntil,
   statusOf,
@@ -125,6 +127,7 @@ function compareTaxonomies(payerTaxonomies, nppes) {
 export default function ProviderLookup() {
   const [doctors, setDoctors] = useState([]);
   const [insurances, setInsurances] = useState([]);
+  const [tab, setTab] = useState("details");
   const [q, setQ] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -395,30 +398,53 @@ export default function ProviderLookup() {
   const onKey = (e) => { if (e.key === "Enter") runSearch(); };
   const clearAll = () => { setQ(""); setSelectedId(null); setNppes(null); setMedicare(null); setSearched(false); };
 
-  return (
-    <div className="ks-card rounded p-4">
-      <h2 className="ks-accent font-semibold mb-1">Search a provider by NPI</h2>
-      <p className="ks-muted text-xs mb-3">
-        Escribe un <strong>NPI</strong> (se busca en el record nacional NPPES, no solo en tu sitio) o un nombre.
-        Al buscar por NPI se consulta además el <strong>directorio oficial en vivo</strong> de cada aseguradora
-        (participación real), y podés agregar lo que falte a tu sistema. Medicare se verifica con datos públicos.
-      </p>
+  const TABS = [
+    ["details", "Details"],
+    ["addresses", "Addresses"],
+    ["taxonomy", "Taxonomy"],
+    ["ids", "Other Identifiers"],
+  ];
 
-      <div className="ins-filters">
-        <input
-          className="flt-search"
-          placeholder="🔎 NPI (10 digits) or provider name…"
-          value={q}
-          onChange={(e) => { setQ(e.target.value); setSelectedId(null); }}
-          onKeyDown={onKey}
-          autoFocus
-        />
-        <button className="btn-red" onClick={runSearch} disabled={searching}>
-          {searching ? "Searching…" : "Search"}
-        </button>
-        {(q || provider || searched) && (
-          <button className="flt-clear" onClick={clearAll}>✕ Clear</button>
-        )}
+  const fechaNppes = (v) => {
+    if (!v) return null;
+    const t = new Date(String(v).slice(0, 10) + "T00:00:00");
+    return isNaN(t) ? v : t.toLocaleDateString();
+  };
+
+  return (
+    <div>
+      <PageHead icono="provider" titulo="NPI Lookup" sub="Search NPI and view provider details (NPPES)">
+        {/* Decir de dónde sale el dato no es adorno: lo de esta pantalla se
+            consulta en vivo contra el registro nacional, no sale de la base
+            local, y eso cambia cómo se lee un resultado. */}
+        <span className="src-chip">
+          Data source: <b>NPPES</b>
+          <i className="src-live" /> Live
+        </span>
+      </PageHead>
+
+      <div className="panel lk-search">
+        <div className="lk-row">
+          <span className="lk-ic">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm10 17l-5.2-5.2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+          </span>
+          <input
+            className="lk-input"
+            placeholder="Enter NPI (10 digits) or provider name…"
+            value={q}
+            onChange={(e) => { setQ(e.target.value); setSelectedId(null); }}
+            onKeyDown={onKey}
+            autoFocus
+          />
+          <button className="btn-pri" onClick={runSearch} disabled={searching}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm10 17l-5.2-5.2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+            {searching ? "Searching…" : "Search"}
+          </button>
+          {(q || provider || searched) && (
+            <button className="flt-clear" onClick={clearAll}>Clear</button>
+          )}
+        </div>
+        <p className="lk-eg">Example: 1386262719</p>
       </div>
 
       {loading && <p className="ks-muted text-sm">Loading…</p>}
@@ -436,30 +462,109 @@ export default function ProviderLookup() {
 
       {/* NPI buscado pero no encontrado en NPPES */}
       {searched && isNpi(q) && !searching && nppes && !nppes.found && !localDoctor && (
-        <p className="ks-muted text-sm">El NPI {q} no aparece en el record nacional NPPES.</p>
+        <p className="ks-muted text-sm">NPI {q} does not appear in the national NPPES registry.</p>
       )}
 
       {/* Ficha del proveedor */}
       {provider && (
         <div className="npi-card">
-          <div className="npi-head">
-            <div>
-              <h3 style={{ margin: 0 }}>
-                {provider.name}{" "}
-                <span className={`sem-pill ${provider.source === "local" ? "sem-ok" : "sem-90"}`} style={{ fontSize: 11 }}>
-                  {provider.source === "local" ? "In your system" : "NPPES nacional"}
-                </span>
-              </h3>
-              <div className="guide-sub">
-                NPI {provider.npi || "—"}
-                {localDoctor ? ` · Licencia ${localDoctor.license || "—"} · CAQH ${localDoctor.caqh || "—"}` : ""}
-                {nppes && nppes.found ? ` · ${nppes.taxonomy || ""}${nppes.city ? " · " + nppes.city + ", " + (nppes.state || "") : ""}` : ""}
-              </div>
+          <div className="lk-head">
+            <span className="lk-av">{String(provider.name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase()}</span>
+            <div className="lk-id">
+              <h3>{provider.name}</h3>
+              <p>
+                NPI <b className="mono">{provider.npi || "—"}</b>
+                {nppes && nppes.found && nppes.taxonomy ? <> &middot; {nppes.taxonomy}</> : null}
+              </p>
             </div>
+            {/* El estado sale del campo status de NPPES, no de si encontramos
+                o no el registro: un NPI puede existir y estar desactivado. */}
+            {nppes && nppes.found && (
+              <span className={"lk-state " + (nppes.active ? "on" : "off")}>
+                <i /> {nppes.active ? "Active" : "Inactive"}
+              </span>
+            )}
             {provider.source === "nppes" && !addOpen && (
-              <button className="btn-red" onClick={openAdd}>➕ Add to my providers</button>
+              <button className="btn-pri" onClick={openAdd}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                Add to my providers
+              </button>
             )}
           </div>
+
+          {nppes && nppes.found && (
+            <>
+              <div className="lk-tabs" role="tablist">
+                {TABS.map(([id, etq]) => (
+                  <button key={id} type="button" role="tab" aria-selected={tab === id}
+                    className={"lk-tab" + (tab === id ? " on" : "")} onClick={() => setTab(id)}>
+                    {etq}
+                  </button>
+                ))}
+              </div>
+
+              <table className="lk-def">
+                <tbody>
+                  {tab === "details" && (
+                    <>
+                      <tr><th>Full Name</th><td>{nppes.name || "—"}{nppes.credential ? ", " + nppes.credential : ""}</td></tr>
+                      <tr><th>NPI</th><td className="mono">{nppes.npi}</td></tr>
+                      <tr><th>Provider Type</th><td>{nppes.type === "NPI-2" ? "Organization" : "Individual"}</td></tr>
+                      <tr><th>Specialty</th><td>{nppes.taxonomy || "—"}</td></tr>
+                      <tr><th>Taxonomy</th><td>{nppes.taxonomyCode ? nppes.taxonomyCode + " – " + (nppes.taxonomy || "") : "—"}</td></tr>
+                      <tr><th>NPI Enumeration Type</th><td>{nppes.type || "—"}</td></tr>
+                      <tr><th>Status</th><td>{nppes.active ? <span className="v-ok">Active</span> : <span className="v-bad">Inactive</span>}</td></tr>
+                      <tr><th>Enumerated</th><td className="mono">{fechaNppes(nppes.enumerationDate) || "—"}</td></tr>
+                      <tr><th>Last Update</th><td className="mono">{fechaNppes(nppes.lastUpdated) || "—"}</td></tr>
+                    </>
+                  )}
+
+                  {tab === "addresses" && (
+                    <>
+                      <tr><th>Practice location</th><td>{nppes.address || "—"}</td></tr>
+                      <tr><th>Street</th><td>{nppes.addressLine || "—"}</td></tr>
+                      <tr><th>City / State</th><td>{nppes.city ? nppes.city + ", " + (nppes.state || "") : "—"}</td></tr>
+                      <tr><th>ZIP</th><td className="mono">{nppes.postalCode || "—"}</td></tr>
+                      <tr><th>Phone</th><td className="mono">{nppes.phone || "—"}</td></tr>
+                      <tr><th>Fax</th><td className="mono">{nppes.fax || "—"}</td></tr>
+                      <tr><th>Mailing address</th><td>{nppes.mailingAddress || "—"}</td></tr>
+                    </>
+                  )}
+
+                  {tab === "taxonomy" && (
+                    (nppes.taxonomies && nppes.taxonomies.length ? nppes.taxonomies : [])
+                      .map((t, i) => (
+                        <tr key={t.code || i}>
+                          <th>
+                            <span className="mono">{t.code || "—"}</span>
+                            {t.primary && <em className="lk-primary">primary</em>}
+                          </th>
+                          <td>
+                            {t.desc || "—"}
+                            {t.license ? <small className="lk-sub">License {t.license}{t.state ? " (" + t.state + ")" : ""}</small> : null}
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                  {tab === "taxonomy" && (!nppes.taxonomies || !nppes.taxonomies.length) && (
+                    <tr><td className="lk-none" colSpan={2}>No taxonomies declared in NPPES.</td></tr>
+                  )}
+
+                  {tab === "ids" && (
+                    <>
+                      <tr><th>State license</th><td className="mono">{nppes.license ? nppes.license + (nppes.licenseState ? " (" + nppes.licenseState + ")" : "") : "—"}</td></tr>
+                      {/* Lo de abajo es de TU base, no de NPPES; por eso va rotulado. */}
+                      <tr><th>License on file<small className="lk-sub">your records</small></th><td className="mono">{localDoctor && localDoctor.license ? localDoctor.license : "—"}</td></tr>
+                      <tr><th>CAQH<small className="lk-sub">your records</small></th><td className="mono">{localDoctor && localDoctor.caqh ? localDoctor.caqh : "—"}</td></tr>
+                      <tr><th>Medicaid ID<small className="lk-sub">your records</small></th><td className="mono">{localDoctor && localDoctor.medicaid ? localDoctor.medicaid : "—"}</td></tr>
+                      <tr><th>Medicare ID<small className="lk-sub">your records</small></th><td className="mono">{localDoctor && localDoctor.medicare ? localDoctor.medicare : "—"}</td></tr>
+                      <tr><th>DEA<small className="lk-sub">your records</small></th><td className="mono">{localDoctor && localDoctor.dea ? localDoctor.dea : "—"}</td></tr>
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </>
+          )}
 
           {addMsg === "ok" && (
             <div className="verify-box"><span className="v-ok">✓ Added to your providers. It now appears in Doctors and in the matrix. The dates you entered drive the status colors and the email alert.</span></div>
@@ -473,10 +578,10 @@ export default function ProviderLookup() {
 
           {addOpen && addForm && (
             <div className="verify-box">
-              <h4 className="form-section" style={{ marginTop: 0 }}>Agregar proveedor a tus doctores</h4>
+              <h4 className="form-section" style={{ marginTop: 0 }}>Add provider to your records</h4>
               <p className="guide-note" style={{ marginTop: 0 }}>Enter the expiration dates so the status colors and the email alert can warn you before they lapse.</p>
               <div className="grid grid-cols-2 gap-2">
-                <input className="p-2 rounded ks-field" placeholder="Nombre" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} />
+                <input className="p-2 rounded ks-field" placeholder="Full name" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} />
                 <input className="p-2 rounded ks-field" placeholder="NPI" value={addForm.npi} onChange={(e) => setAddForm({ ...addForm, npi: e.target.value })} />
                 <input className="p-2 rounded ks-field" placeholder="License #" value={addForm.license} onChange={(e) => setAddForm({ ...addForm, license: e.target.value })} />
                 <input className="p-2 rounded ks-field" placeholder="Taxonomy" value={addForm.taxonomy} onChange={(e) => setAddForm({ ...addForm, taxonomy: e.target.value })} />
@@ -501,7 +606,7 @@ export default function ProviderLookup() {
                 <label className="form-date"><span>Medicare revalidation</span><input type="date" className="p-2 rounded ks-field" value={addForm.medicareRevalidation} onChange={(e) => setAddForm({ ...addForm, medicareRevalidation: e.target.value })} /></label>
               </div>
               <div className="mt-4 flex justify-end gap-2">
-                <button className="btn-cancel" onClick={() => setAddOpen(false)}>Cancelar</button>
+                <button className="btn-cancel" onClick={() => setAddOpen(false)}>Cancel</button>
                 <button className="btn-red" onClick={saveNewDoctor} disabled={adding}>{adding ? "Saving…" : "Save doctor"}</button>
               </div>
             </div>
@@ -554,12 +659,12 @@ export default function ProviderLookup() {
                 )}
               </div>
               <p className="guide-note" style={{ marginTop: 4 }}>
-                Estado real publicado por cada aseguradora para este NPI — todas las que existen,
-                esté o no el proveedor en tu sistema. La columna <strong>How they publish it</strong> muestra la
-                dirección, la taxonomía, el grupo y el teléfono tal como los publica cada aseguradora, y los
-                compara con NPPES: <span className="v-ok">✓ igual</span> /{" "}
-                <span className="v-bad">⚠ distinta</span>. Una dirección o taxonomía que no coincide es la
-                causa más común de denials por <em>provider not found</em>.
+                What each payer actually publishes for this NPI — every payer, whether or not the
+                provider is in your system. <strong>How they publish it</strong> shows the address,
+                taxonomy, group and phone exactly as that payer lists them, compared against NPPES:{" "}
+                <span className="v-ok">✓ same</span> / <span className="v-bad">⚠ different</span>.
+                An address or taxonomy that does not match is the most common cause of{" "}
+                <em>provider not found</em> denials.
               </p>
 
               {dirMsg === "ok" && <div className="v-ok" style={{ marginBottom: 6 }}>✓ Added to your system. It now appears in the insurance list.</div>}
@@ -782,17 +887,17 @@ export default function ProviderLookup() {
 
           {/* Resumen de red */}
           <div className="ins-summary" style={{ marginTop: 12 }}>
-            <div className="sum-tile"><span className="sum-num">{docInsurances.length}</span><span className="sum-lbl">Seguros</span></div>
+            <div className="sum-tile"><span className="sum-num">{docInsurances.length}</span><span className="sum-lbl">Payers</span></div>
             <div className="sum-tile t-active"><span className="sum-num">{stats.active}</span><span className="sum-lbl">In Network</span></div>
             <div className="sum-tile t-nodate"><span className="sum-num">{stats.out}</span><span className="sum-lbl">Out of Network</span></div>
-            <div className="sum-tile t-30"><span className="sum-num">{stats.soon}</span><span className="sum-lbl">Por vencer</span></div>
-            <div className="sum-tile t-expired"><span className="sum-num">{stats.expired}</span><span className="sum-lbl">Vencidos</span></div>
+            <div className="sum-tile t-30"><span className="sum-num">{stats.soon}</span><span className="sum-lbl">Expiring</span></div>
+            <div className="sum-tile t-expired"><span className="sum-num">{stats.expired}</span><span className="sum-lbl">Expired</span></div>
           </div>
 
           {/* Credenciales (solo si es doctor de tu sistema) */}
           {localDoctor && (
             <>
-              <h4 className="form-section">Credenciales del doctor</h4>
+              <h4 className="form-section">Provider credentials</h4>
               <div className="cred-pills" style={{ marginBottom: 6 }}>
                 {creds.map((c) => (
                   <span key={c.key} className={`sem-pill ${STATUS_META[c.status].cls}`}

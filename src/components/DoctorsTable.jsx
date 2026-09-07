@@ -8,7 +8,23 @@ import {
 } from "../utils/credStatus";
 import { deaCheck, DEA_STATE_META } from "../utils/dea";
 import ProviderRecord from "./ProviderRecord.jsx";
-import CredentialHorizon from "./CredentialHorizon.jsx";
+import { PageHead } from "./Shell.jsx";
+import "./styles/providers.css";
+
+const iniciales = (n) =>
+  String(n || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+
+// Color del avatar derivado del nombre. Es identidad, no estado: ayuda a
+// reencontrar a la misma persona al recorrer la lista, y por eso NO usa los
+// colores del semáforo — esos significan vencimiento y no se prestan.
+const TONOS = ["av-a", "av-b", "av-c", "av-d", "av-e", "av-f"];
+const tonoDe = (n) => {
+  let h = 0;
+  for (let i = 0; i < String(n || "").length; i++) h = (h * 31 + n.charCodeAt(i)) % 997;
+  return TONOS[h % TONOS.length];
+};
+
+const POR_PAGINA = [8, 15, 25, 50];
 
 export default function DoctorsTable() {
   const empty = () => ({
@@ -40,6 +56,12 @@ export default function DoctorsTable() {
 
   const [search, setSearch] = useState("");
   const [fExp, setFExp] = useState(""); // "", expired, d30, d60, nodate
+  const [fEsp, setFEsp] = useState("all");
+  const [fRed, setFRed] = useState("all");
+  const [seguros, setSeguros] = useState([]);
+  const [pagina, setPagina] = useState(1);
+  const [porPag, setPorPag] = useState(8);
+  const [ficha, setFicha] = useState(null); // doctor abierto en la ficha completa
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState(null);
 
@@ -56,6 +78,10 @@ export default function DoctorsTable() {
 
   useEffect(() => {
     loadDoctors();
+    fetch("/api/get-insurances")
+      .then((r) => r.json())
+      .then((d) => setSeguros(d && d.ok ? d.data || [] : []))
+      .catch(() => {});
   }, []);
 
   async function refreshFromNppes() {
@@ -203,110 +229,231 @@ export default function DoctorsTable() {
     if (!picked && ordenados.length) setPicked(ordenados[0].d);
   }, [ordenados, picked]);
 
-  const anyFilter = search || fExp;
+  // Red por proveedor: dentro de red si tiene al menos un contrato dentro.
+  const redPorDoctor = useMemo(() => {
+    const m = new Map();
+    seguros.forEach((s) => {
+      const k = (s.doctorName || "").trim();
+      if (!k) return;
+      const dentro = !String(s.network || "").toLowerCase().includes("out");
+      m.set(k, (m.get(k) || false) || dentro);
+    });
+    return m;
+  }, [seguros]);
+
+  const especialidades = useMemo(
+    () => Array.from(new Set(list.map((d) => (d.taxonomy || "").trim()).filter(Boolean))).sort(),
+    [list]
+  );
+
+  const visibles = useMemo(() => {
+    return ordenados.filter(({ d }) => {
+      if (fEsp !== "all" && (d.taxonomy || "").trim() !== fEsp) return false;
+      if (fRed !== "all") {
+        const dentro = redPorDoctor.get((d.name || "").trim()) === true;
+        if (fRed === "in" && !dentro) return false;
+        if (fRed === "out" && dentro) return false;
+      }
+      return true;
+    });
+  }, [ordenados, fEsp, fRed, redPorDoctor]);
+
+  const resumenRed = useMemo(() => {
+    let dentro = 0;
+    list.forEach((d) => { if (redPorDoctor.get((d.name || "").trim()) === true) dentro += 1; });
+    return { dentro, fuera: list.length - dentro };
+  }, [list, redPorDoctor]);
+
+  // Paginar sin perder la página al filtrar es peor que reiniciarla: si filtro
+  // y quedo en la página 5 de 2, la pantalla se ve vacía y parece un error.
+  const paginas = Math.max(1, Math.ceil(visibles.length / porPag));
+  const pagActual = Math.min(pagina, paginas);
+  useEffect(() => { setPagina(1); }, [search, fExp, fEsp, fRed, porPag]);
+  const enPagina = visibles.slice((pagActual - 1) * porPag, pagActual * porPag);
+  const desde = visibles.length === 0 ? 0 : (pagActual - 1) * porPag + 1;
+  const hasta = Math.min(pagActual * porPag, visibles.length);
+
+  // Números de página con elipsis: 1 … 4 5 6 … 19. Mostrarlas todas con
+  // muchos proveedores llena la fila y deja de servir para saltar.
+  const numeros = useMemo(() => {
+    const out = [];
+    const cerca = (n) => n === 1 || n === paginas || Math.abs(n - pagActual) <= 1;
+    for (let n = 1; n <= paginas; n++) {
+      if (cerca(n)) out.push(n);
+      else if (out[out.length - 1] !== "…") out.push("…");
+    }
+    return out;
+  }, [paginas, pagActual]);
+
+  const anyFilter = search || fExp || fEsp !== "all" || fRed !== "all";
 
   return (
-    <div className="ks-card rounded p-4">
-      <h2 className="ks-accent font-semibold mb-2">Doctors</h2>
-
-      {/* Tarjetas resumen */}
-      <div className="ins-summary">
-        <button className={`sum-tile ${fExp === "" ? "active" : ""}`} onClick={() => setFExp("")}>
-          <span className="sum-num">{summary.total}</span><span className="sum-lbl">Providers</span>
+    <div>
+      <PageHead icono="doctors" titulo="Providers" sub="View and manage all providers">
+        <button className="btn-pri" onClick={openAddModal}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+          Add Provider
         </button>
-        <button className={`sum-tile t-expired ${fExp === "expired" ? "active" : ""}`} onClick={() => setFExp(fExp === "expired" ? "" : "expired")}>
-          <span className="sum-num">{summary.expired}</span><span className="sum-lbl">Expired</span>
-        </button>
-        <button className={`sum-tile t-30 ${fExp === "d30" ? "active" : ""}`} onClick={() => setFExp(fExp === "d30" ? "" : "d30")}>
-          <span className="sum-num">{summary.d30}</span><span className="sum-lbl">≤ 30 days</span>
-        </button>
-        <button className={`sum-tile t-60 ${fExp === "d60" ? "active" : ""}`} onClick={() => setFExp(fExp === "d60" ? "" : "d60")}>
-          <span className="sum-num">{summary.d60}</span><span className="sum-lbl">31–60 days</span>
-        </button>
-        <button className={`sum-tile t-nodate ${fExp === "nodate" ? "active" : ""}`} onClick={() => setFExp(fExp === "nodate" ? "" : "nodate")}>
-          <span className="sum-num">{summary.nodate}</span><span className="sum-lbl">Incomplete data</span>
-        </button>
-      </div>
+      </PageHead>
 
-      <CredentialHorizon
-        doctors={list}
-        selectedId={seleccionado?.id}
-        onPick={(d) => setPicked(d)}
-      />
-
-      {/* Filtros */}
-      <div className="ins-filters">
-        <input
-          className="flt-search"
-          placeholder="🔎 Search (name, NPI, license, CAQH…)"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        {anyFilter && (
-          <button className="flt-clear" onClick={() => { setSearch(""); setFExp(""); }}>✕ Clear</button>
-        )}
-        <div style={{ flex: 1 }} />
-        <button className="btn-red" onClick={refreshFromNppes} disabled={refreshing} title="Consulta el registro nacional NPPES y refresca todos los doctores">
-          {refreshing ? "Actualizando…" : "🔄 Refresh from NPPES"}
-        </button>
-      </div>
-
-      <p className="ks-muted text-xs mb-2">
-        Showing {ordenados.length} of {list.length} providers · sorted by what comes due first
-      </p>
-
-      {refreshMsg && (refreshMsg.error ? (
-        <p className="v-bad text-xs mb-2">No se pudo actualizar desde NPPES.</p>
-      ) : (
-        <p className="v-ok text-xs mb-2">
-          ✓ Actualizados {refreshMsg.actualizado}/{refreshMsg.total} · no encontrados {refreshMsg.noEncontrado} · sin NPI {refreshMsg.sinNpi}{refreshMsg.error ? ` · errores ${refreshMsg.error}` : ""}
-        </p>
-      ))}
-
-      <div className="dt-split">
-        <aside className="dt-queue">
-          <div className="dt-queue-head">
-            <span className="dt-eyebrow">By urgency</span>
-            <span>{ordenados.length} of {list.length}</span>
-          </div>
-          {ordenados.map(({ d, next }) => {
-            const dd = next && next.days !== null && next.days !== undefined ? next.days : null;
-            const t = dd === null ? "none" : dd <= 30 ? "hot" : dd <= 90 ? "mid" : "ok";
-            const activo = seleccionado && String(seleccionado.id) === String(d.id);
-            return (
-              <button key={d.id} type="button" className="dt-qitem" aria-current={activo} onClick={() => setPicked(d)}>
-                <span className={`dt-qdays c-${t}`}>
-                  {dd === null ? "\u2014" : dd}
-                  <small>{dd === null ? "no date" : "days"}</small>
-                </span>
-                <span className="dt-qname">
-                  <b>{d.name}</b>
-                  <small>{d.taxonomy || "No taxonomy"}</small>
-                </span>
-              </button>
-            );
-          })}
-          {ordenados.length === 0 && <p className="dt-empty">No provider matches the filter</p>}
-        </aside>
-
-        <div className="dt-record">
-          {seleccionado ? (
-            <>
-              <ProviderRecord inline doctor={seleccionado} onEdit={(d) => openEditModal(d)} />
-              <div className="dt-actions">
-                <button className="flt-clear" onClick={() => openEditModal(seleccionado)}>Edit</button>
-                <button className="flt-clear dt-del" onClick={() => remove(seleccionado.id)}>Delete</button>
-              </div>
-            </>
-          ) : (
-            <p className="dt-empty">Select a provider to open their record.</p>
-          )}
+      <div className="filterbar">
+        <div className="flex flex-col gap-1">
+          <label>Search</label>
+          <input className="p-2 rounded ks-field text-sm" placeholder="Name, NPI, license, CAQH…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label>Specialty</label>
+          <select className="p-2 rounded ks-field text-sm" value={fEsp} onChange={(e) => setFEsp(e.target.value)}>
+            <option value="all">All</option>
+            {especialidades.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label>Credential status</label>
+          <select className="p-2 rounded ks-field text-sm" value={fExp} onChange={(e) => setFExp(e.target.value)}>
+            <option value="">All</option>
+            <option value="expired">Expired</option>
+            <option value="d30">Expiring ≤ 30 days</option>
+            <option value="d60">Expiring 31–60 days</option>
+            <option value="nodate">Missing dates</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label>Network</label>
+          <select className="p-2 rounded ks-field text-sm" value={fRed} onChange={(e) => setFRed(e.target.value)}>
+            <option value="all">All</option>
+            <option value="in">In Network</option>
+            <option value="out">Out of Network</option>
+          </select>
         </div>
       </div>
 
-      <div className="mt-3">
-        <button onClick={openAddModal} className="ks-accent hover:underline text-sm">+ Add Doctor</button>
+      {/* Las tarjetas son botones: además de contar, filtran. Un número que
+          no lleva a la lista que lo produjo obliga a rearmar el filtro a mano. */}
+      <div className="kpi-row">
+        <button type="button" className={"kpi kpi-btn" + (!anyFilter ? " on" : "")} onClick={() => { setSearch(""); setFExp(""); setFEsp("all"); setFRed("all"); }}>
+          <span className="kpi-ic acc"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-8 9a8 8 0 0 1 16 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg></span>
+          <span className="kpi-txt"><small>Total</small><b className="acc">{list.length}</b></span>
+        </button>
+        <button type="button" className={"kpi kpi-btn" + (fRed === "in" ? " on" : "")} onClick={() => setFRed(fRed === "in" ? "all" : "in")}>
+          <span className="kpi-ic ok"><svg viewBox="0 0 24 24"><path d="M4 12.5l5.2 5L20 6.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+          <span className="kpi-txt"><small>In network</small><b className="ok">{resumenRed.dentro}</b></span>
+        </button>
+        <button type="button" className={"kpi kpi-btn" + (fRed === "out" ? " on" : "")} onClick={() => setFRed(fRed === "out" ? "all" : "out")}>
+          <span className="kpi-ic hot"><svg viewBox="0 0 24 24"><path d="M12 4l9 16H3zM12 10v4M12 17h.01" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+          <span className="kpi-txt"><small>Out of network</small><b className="hot">{resumenRed.fuera}</b></span>
+        </button>
+        <button type="button" className={"kpi kpi-btn" + (fExp === "d60" ? " on" : "")} onClick={() => setFExp(fExp === "d60" ? "" : "d60")}>
+          <span className="kpi-ic mid"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg></span>
+          <span className="kpi-txt">
+            <small>Expiring ≤ 60 days</small>
+            <b className={summary.d30 + summary.d60 ? "mid" : ""}>{summary.d30 + summary.d60}</b>
+            {summary.expired > 0 && <em>{summary.expired} expired</em>}
+          </span>
+        </button>
       </div>
+
+      {refreshMsg && (refreshMsg.error ? (
+        <p className="v-bad text-xs mb-2">Could not refresh from NPPES.</p>
+      ) : (
+        <p className="v-ok text-xs mb-2">
+          ✓ Updated {refreshMsg.actualizado}/{refreshMsg.total} · not found {refreshMsg.noEncontrado} · without NPI {refreshMsg.sinNpi}
+        </p>
+      ))}
+
+      <div className="panel">
+        <div className="overflow-auto">
+          <table className="prov-table">
+            <thead>
+              <tr>
+                <th>Provider</th><th>NPI</th><th>Specialty</th><th>Network</th>
+                <th>Next expiration</th><th className="num">Days left</th><th className="act">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {enPagina.map(({ d, next }) => {
+                const dd = next && next.days !== null && next.days !== undefined ? next.days : null;
+                const st = next ? next.status : "nodate";
+                const cls = st === "expired" || st === "d30" ? "d-hot" : st === "d60" || st === "d90" ? "d-mid" : st === "ok" ? "d-ok" : "";
+                const dentro = redPorDoctor.get((d.name || "").trim()) === true;
+                return (
+                  <tr key={d.id}>
+                    <td>
+                      <button type="button" className="prov-who" onClick={() => setFicha(d)} title="Open full record">
+                        <span className={"prov-av " + tonoDe(d.name)}>{iniciales(d.name)}</span>
+                        <span className="prov-nm">{d.name}{(!d.npi || !d.license) && <small>{!d.npi ? "no NPI on file" : "no license on file"}</small>}</span>
+                      </button>
+                    </td>
+                    <td className="mono">{d.npi || "—"}</td>
+                    <td className="q">{d.taxonomy || "—"}</td>
+                    <td>{dentro ? <span className="badge-in">In Network</span> : <span className="badge-out">Out of Network</span>}</td>
+                    <td className="mono">{next && next.date ? new Date(String(next.date).slice(0, 10) + "T00:00:00").toLocaleDateString() : "—"}</td>
+                    <td className={"num mono " + cls}>{dd === null ? "—" : dd}</td>
+                    <td className="act">
+                      <button type="button" className="ic-btn" title="Open record" onClick={() => setFicha(d)}>
+                        <svg viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" fill="none" stroke="currentColor" strokeWidth="1.7" /><circle cx="12" cy="12" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.7" /></svg>
+                      </button>
+                      <button type="button" className="ic-btn" title="Edit" onClick={() => openEditModal(d)}>
+                        <svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM14.5 5.5l4 4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </button>
+                      <button type="button" className="ic-btn del" title="Delete" onClick={() => remove(d.id)}>
+                        <svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M6.5 7l1 12h9l1-12M10 10.5v5M14 10.5v5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {enPagina.length === 0 && (
+                <tr><td colSpan={7} className="prov-none">No provider matches the current filters.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="pager">
+          <span className="pager-txt">
+            Showing {desde}–{hasta} of {visibles.length} provider{visibles.length === 1 ? "" : "s"}
+          </span>
+          <div className="pager-nums">
+            <button type="button" className="pg-btn" disabled={pagActual === 1} onClick={() => setPagina(pagActual - 1)} aria-label="Previous page">‹</button>
+            {numeros.map((n, i) =>
+              n === "…" ? (
+                <span key={"e" + i} className="pg-gap">…</span>
+              ) : (
+                <button key={n} type="button" className={"pg-btn" + (n === pagActual ? " on" : "")} aria-current={n === pagActual} onClick={() => setPagina(n)}>{n}</button>
+              )
+            )}
+            <button type="button" className="pg-btn" disabled={pagActual === paginas} onClick={() => setPagina(pagActual + 1)} aria-label="Next page">›</button>
+          </div>
+          <label className="pager-size">
+            <select className="ks-field text-sm" value={porPag} onChange={(e) => setPorPag(Number(e.target.value))}>
+              {POR_PAGINA.map((n) => <option key={n} value={n}>{n} per page</option>)}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div className="prov-tools">
+        <button className="flt-clear" onClick={refreshFromNppes} disabled={refreshing} title="Query the national NPPES registry and refresh every provider">
+          {refreshing ? "Refreshing…" : "Refresh from NPPES"}
+        </button>
+        {anyFilter && <button className="flt-clear" onClick={() => { setSearch(""); setFExp(""); setFEsp("all"); setFRed("all"); }}>Clear filters</button>}
+      </div>
+
+      {/* Ficha completa del proveedor, sobre la tabla. La lista sigue detrás,
+          así que cerrar devuelve a la misma página y el mismo filtro. */}
+      {ficha && (
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setFicha(null); }}>
+          <div className="modal modal-record" role="dialog" aria-label={`Record for ${ficha.name}`}>
+            <button type="button" className="modal-x" onClick={() => setFicha(null)} aria-label="Close">×</button>
+            <ProviderRecord inline doctor={ficha} onEdit={(d) => { setFicha(null); openEditModal(d); }} />
+            <div className="dt-actions">
+              <button className="flt-clear" onClick={() => { setFicha(null); openEditModal(ficha); }}>Edit</button>
+              <button className="flt-clear dt-del" onClick={() => { remove(ficha.id); setFicha(null); }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Add/Edit */}
       {showModal && (
