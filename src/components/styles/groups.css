@@ -56,3 +56,46 @@
 .kpi-txt b.acc{ color:var(--accent) } .kpi-txt b.ok{ color:var(--ok) }
 .kpi-txt b.hot{ color:var(--hot) }   .kpi-txt b.mid{ color:var(--mid) }
 .kpi-txt em{ display:block; font-style:normal; font-size:11px; color:var(--hot); margin-top:1px }
+
+/* ---- Donas y paneles del dashboard ---- */
+.dash-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; margin-bottom:18px }
+.panel{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow) }
+.panel > h3{ margin:0; padding:13px 16px; border-bottom:1px solid var(--line2); font-size:13.5px; font-weight:600 }
+.panel-body{ padding:14px 16px }
+
+.dn{ display:flex; align-items:center; gap:18px; flex-wrap:wrap }
+.dn-num{ font-family:"IBM Plex Mono",monospace; font-size:23px; font-weight:600; fill:var(--ink) }
+.dn-lbl{ font-size:9px; letter-spacing:.1em; text-transform:uppercase; fill:var(--muted) }
+.dn-leg{ list-style:none; margin:0; padding:0; flex:1; min-width:150px; display:grid; gap:7px }
+.dn-leg li{ display:grid; grid-template-columns:10px minmax(0,1fr) auto auto; gap:8px; align-items:baseline; font-size:12.5px }
+.dn-leg i{ width:10px; height:10px; border-radius:2px; display:block }
+.dn-name{ color:var(--ink2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.dn-leg b{ font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:12.5px }
+.dn-leg small{ color:var(--muted); font-size:11px; width:34px; text-align:right }
+
+/* Vencimientos por tramo */
+.buckets{ width:100%; border-collapse:collapse; font-size:13px }
+.buckets th{ text-align:left; padding:6px 16px; font-size:9.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); font-weight:700; border-bottom:1px solid var(--line2) }
+.buckets td{ padding:9px 16px; border-bottom:1px solid var(--line2) }
+.buckets tr:last-child td{ border-bottom:0 }
+.buckets .dot{ width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:8px }
+.buckets .num{ text-align:right; font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums }
+.b-hot{ background:var(--hot) } .b-mid{ background:var(--mid) } .b-ok{ background:var(--ok) } .b-idle{ background:var(--idle) }
+
+.gapline{ display:grid; grid-template-columns:minmax(0,1fr) 74px auto; gap:10px; align-items:center;
+  padding:9px 16px; border-bottom:1px solid var(--line2); font-size:13px }
+.gapline:last-child{ border-bottom:0 }
+.gapline .bar{ height:5px; background:var(--ok-bg); border-radius:3px; overflow:hidden }
+.gapline .bar i{ display:block; height:100%; background:var(--hot) }
+.gapline b{ font-family:"IBM Plex Mono",monospace; font-size:12.5px; color:var(--hot) }
+.gapline .none{ color:var(--ok); font-size:12px }
+.kpi-txt em.q{ color:var(--muted); font-weight:400 }
+
+/* Barra de filtros propia, encima del tablero: filtra las tarjetas, las
+   donas y las tablas a la vez, así que no vive dentro de ningún panel. */
+.filterbar{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px;
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+  box-shadow:var(--shadow); padding:14px 16px; margin-bottom:16px;
+}
+.filterbar label{ font-size:10px; font-weight:700; letter-spacing:.11em; text-transform:uppercase; color:var(--muted) }

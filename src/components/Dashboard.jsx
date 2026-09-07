@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { agruparPorAseguradora } from "../utils/coverage";
+import Donut, { CATEGORICA } from "./Donut";
 import "./styles/groups.css";
 
 export default function Dashboard() {
@@ -137,18 +138,68 @@ export default function Dashboard() {
   const [cerrados, setCerrados] = useState({});
   const alternar = (n) => setCerrados((p) => ({ ...p, [n]: !p[n] }));
 
+  // Dona 1: contratos por aseguradora. Solo las cuatro primeras familias
+  // reciben color propio; el resto se pliega en "Other". No se generan
+  // colores nuevos para una quinta o sexta aseguradora — una paleta
+  // categórica sirve para identificar, y a partir de cinco hues nadie
+  // distingue cuál es cuál.
+  const donaAseguradoras = useMemo(() => {
+    const top = grupos.slice().sort((a, b) => b.total - a.total);
+    const cabeza = top.slice(0, CATEGORICA.length).map((g) => ({ nombre: g.nombre, valor: g.total }));
+    const resto = top.slice(CATEGORICA.length).reduce((a, g) => a + g.total, 0);
+    if (resto > 0) cabeza.push({ nombre: "Other", valor: resto, color: "var(--idle)" });
+    return cabeza;
+  }, [grupos]);
+
+  // Dona 2: estado de red. Acá sí van los colores del semáforo, porque
+  // "fuera de red" es un estado, no una categoría cualquiera.
+  const donaRed = useMemo(() => {
+    const sin = stats.total - stats.inNetwork - stats.outNetwork;
+    const d = [
+      { nombre: "In network", valor: stats.inNetwork, color: "var(--ok)" },
+      { nombre: "Out of network", valor: stats.outNetwork, color: "var(--hot)" },
+    ];
+    if (sin > 0) d.push({ nombre: "Not set", valor: sin, color: "var(--idle)" });
+    return d.filter((x) => x.valor > 0);
+  }, [stats]);
+
+  // Vencimientos por tramo, con los mismos cortes que usa el resto del
+  // sistema (30 / 60 / 90) para que una fecha no salga roja en un lado y
+  // verde en el otro.
+  const tramos = useMemo(() => {
+    const t = { venc: 0, d30: 0, d60: 0, d90: 0, ok: 0, sin: 0 };
+    filtered.forEach((i) => {
+      const d = i._daysLeft;
+      if (typeof d !== "number" || isNaN(d)) t.sin++;
+      else if (d < 0) t.venc++;
+      else if (d <= 30) t.d30++;
+      else if (d <= 60) t.d60++;
+      else if (d <= 90) t.d90++;
+      else t.ok++;
+    });
+    return t;
+  }, [filtered]);
+
+  // En lugar de un registro de actividad —que no existe en los datos y no
+  // voy a inventar— este panel muestra dónde están los huecos reales:
+  // aseguradoras con contratos fuera de red.
+  const huecos = useMemo(
+    () => grupos.filter((g) => g.fuera > 0).slice(0, 6),
+    [grupos]
+  );
+
+  const pct = (n) => (stats.total ? Math.round((n / stats.total) * 100) : 0);
+
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
-    <div className="ks-card rounded p-4">
-      <h2 className="ks-accent font-semibold mb-4">
-        Insurance Expiration Summary
-      </h2>
-
-      {/* Filtros */}
-      <div className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+    <div className="dash-page">
+      {/* Los filtros van en su propia barra, arriba de todo: filtran el
+          tablero entero —tarjetas, donas y tabla— así que no pertenecen
+          dentro de ninguno de los paneles. */}
+      <div className="filterbar">
         {/* Filtro por texto (insurance) */}
         <div className="flex flex-col gap-1">
           <label className="text-xs ks-muted">Insurance</label>
@@ -225,13 +276,13 @@ export default function Dashboard() {
               <span className="kpi-ic ok">
                 <svg viewBox="0 0 24 24"><path d="M4 12.5l5.2 5L20 6.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </span>
-              <span className="kpi-txt"><small>In network</small><b className="ok">{stats.inNetwork}</b></span>
+              <span className="kpi-txt"><small>In network</small><b className="ok">{stats.inNetwork}</b><em className="q">{pct(stats.inNetwork)}% of contracts</em></span>
             </div>
             <div className="kpi">
               <span className="kpi-ic hot">
                 <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>
               </span>
-              <span className="kpi-txt"><small>Out of network</small><b className="hot">{stats.outNetwork}</b></span>
+              <span className="kpi-txt"><small>Out of network</small><b className="hot">{stats.outNetwork}</b><em>{pct(stats.outNetwork)}% of contracts</em></span>
             </div>
             <div className="kpi">
               <span className="kpi-ic mid">
@@ -243,6 +294,66 @@ export default function Dashboard() {
                 {stats.expired > 0 && <em>{stats.expired} expired</em>}
               </span>
             </div>
+          </div>
+
+          <div className="dash-grid">
+            <section className="panel">
+              <h3>Contracts by insurer</h3>
+              <div className="panel-body">
+                <Donut datos={donaAseguradoras} etiquetaCentro="contracts" />
+              </div>
+            </section>
+
+            <section className="panel">
+              <h3>Network status</h3>
+              <div className="panel-body">
+                <Donut datos={donaRed} etiquetaCentro="contracts" />
+              </div>
+            </section>
+          </div>
+
+          <div className="dash-grid">
+            <section className="panel">
+              <h3>Upcoming expirations</h3>
+              <table className="buckets">
+                <thead>
+                  <tr><th>Window</th><th className="num">Contracts</th><th className="num">Share</th></tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Already expired", tramos.venc, "b-hot"],
+                    ["Within 30 days", tramos.d30, "b-hot"],
+                    ["31 – 60 days", tramos.d60, "b-mid"],
+                    ["61 – 90 days", tramos.d90, "b-mid"],
+                    ["More than 90 days", tramos.ok, "b-ok"],
+                    ["No date on file", tramos.sin, "b-idle"],
+                  ].map(([etq, n, cls]) => (
+                    <tr key={etq}>
+                      <td><span className={`dot ${cls}`} />{etq}</td>
+                      <td className="num">{n}</td>
+                      <td className="num">{pct(n)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+
+            <section className="panel">
+              <h3>Where the gaps are</h3>
+              {huecos.length === 0 ? (
+                <p className="pg-empty">Every contract on file is in network.</p>
+              ) : (
+                huecos.map((g) => (
+                  <div className="gapline" key={g.nombre}>
+                    <span>{g.nombre}</span>
+                    <span className="bar" title={`${g.fuera} of ${g.total} out of network`}>
+                      <i style={{ width: Math.round((g.fuera / g.total) * 100) + "%" }} />
+                    </span>
+                    <b>{g.fuera}/{g.total} out</b>
+                  </div>
+                ))
+              )}
+            </section>
           </div>
 
           {/* Contratos agrupados por aseguradora, no una lista plana:
