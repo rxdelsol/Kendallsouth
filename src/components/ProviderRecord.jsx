@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { daysUntil, doctorCredentials } from "../utils/credStatus";
+import { daysUntil, doctorCredentials, statusOf } from "../utils/credStatus";
 import { resumenCobertura, LINEAS } from "../utils/coverage";
 import { applyLinkFor, PAYER_APPLY } from "../data/payerApply";
 import { deaCheck, DEA_STATE_META } from "../utils/dea";
@@ -9,11 +9,19 @@ import "./styles/record.css";
 // seguros aceptados por línea de negocio y dónde solicitar los que faltan.
 // Un clic en el doctor y está todo acá, sin ir a tres pantallas.
 
-const tier = (d) => (d === null ? "none" : d <= 180 ? "hot" : d <= 365 ? "mid" : "ok");
+// Misma escala que el resto de la app (30/60/90). Con una propia, el sello
+// pintaba en rojo lo que la lista de al lado pintaba en verde.
+const tier = (iso) => {
+  const s = statusOf(iso);
+  if (s === "expired" || s === "d30") return "hot";
+  if (s === "d60" || s === "d90") return "mid";
+  if (s === "ok") return "ok";
+  return "none";
+};
 const fmt = (iso) =>
   iso ? new Date(String(iso).slice(0, 10) + "T00:00:00").toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }) : null;
 
-export default function ProviderRecord({ doctor, insurances, onClose, onEdit }) {
+export default function ProviderRecord({ doctor, insurances, onClose, onEdit, inline = false }) {
   const [rows, setRows] = useState(insurances || null);
 
   // Si el padre no los pasó, los pedimos: la ficha tiene que servir sola.
@@ -50,13 +58,12 @@ export default function ProviderRecord({ doctor, insurances, onClose, onEdit }) 
   }, [rows, doctor]);
 
   const licDays = doctor?.licenseExp ? daysUntil(doctor.licenseExp) : null;
-  const t = tier(licDays);
+  const t = tier(doctor?.licenseExp);
   const dc = deaCheck(doctor?.dea, doctor?.name);
   const dcMeta = DEA_STATE_META[dc.state];
 
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="rec" onClick={(e) => e.stopPropagation()}>
+  const cuerpo = (
+      <div className={inline ? "rec rec-inline" : "rec"} onClick={(e) => e.stopPropagation()}>
         <div className="rec-top">
           <div style={{ minWidth: 0 }}>
             <span className="eyebrow">Provider record</span>
@@ -74,7 +81,7 @@ export default function ProviderRecord({ doctor, insurances, onClose, onEdit }) 
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
-            <button className="rec-close" onClick={onClose}>Close</button>
+            {inline ? null : <button className="rec-close" onClick={onClose}>Close</button>}
             <div className={`rec-stamp s-${t}`}>
               <span className="n">{licDays === null ? "—" : licDays}</span>
               <span className="u">{licDays === null ? "no license on file" : "days of license"}</span>
@@ -89,7 +96,7 @@ export default function ProviderRecord({ doctor, insurances, onClose, onEdit }) 
           </div>
           <div className="rec-ledger">
             {creds.map((c) => {
-              const tt = tier(c.days);
+              const tt = tier(c.date);
               const pct = c.days === null ? 0 : Math.max(3, Math.min(100, Math.round((c.days / 730) * 100)));
               return (
                 <div className="rec-row" key={c.key}>
@@ -170,9 +177,11 @@ export default function ProviderRecord({ doctor, insurances, onClose, onEdit }) 
 
         <div className="rec-foot">
           <span>License verified against the Florida MQA registry · contracts from your system</span>
-          <button onClick={() => { onClose(); onEdit && onEdit(doctor); }}>Edit dates</button>
+          <button onClick={() => { if (!inline && onClose) onClose(); onEdit && onEdit(doctor); }}>Edit dates</button>
         </div>
       </div>
-    </div>
   );
+
+  if (inline) return cuerpo;
+  return <div className="modal-backdrop" onClick={onClose}>{cuerpo}</div>;
 }

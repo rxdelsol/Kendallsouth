@@ -34,7 +34,9 @@ export default function DoctorsTable() {
   const [doctor, setDoctor] = useState(empty());
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [detailFor, setDetailFor] = useState(null);
+  // La pantalla abre con alguien seleccionado: un panel vacío no muestra nada
+  // de lo que la pantalla sabe hacer.
+  const [picked, setPicked] = useState(null);
 
   const [search, setSearch] = useState("");
   const [fExp, setFExp] = useState(""); // "", expired, d30, d60, nodate
@@ -184,6 +186,11 @@ export default function DoctorsTable() {
 
   // Por urgencia: lo que vence antes va arriba. Sin fecha, al final —
   // no es urgente, es un dato que falta, y ya lo dice el horizonte.
+  const seleccionado = useMemo(
+    () => (picked ? list.find((d) => String(d.id) === String(picked.id)) || null : null),
+    [picked, list]
+  );
+
   const ordenados = useMemo(() => {
     const dias = (x) => {
       const v = x.creds.map((c) => c.days).filter((n) => n !== null && n !== undefined);
@@ -191,6 +198,10 @@ export default function DoctorsTable() {
     };
     return [...filtered].sort((a, b) => dias(a) - dias(b));
   }, [filtered]);
+
+  useEffect(() => {
+    if (!picked && ordenados.length) setPicked(ordenados[0].d);
+  }, [ordenados, picked]);
 
   const anyFilter = search || fExp;
 
@@ -219,8 +230,8 @@ export default function DoctorsTable() {
 
       <CredentialHorizon
         doctors={list}
-        selectedId={detailFor?.id}
-        onPick={(d) => setDetailFor(d)}
+        selectedId={seleccionado?.id}
+        onPick={(d) => setPicked(d)}
       />
 
       {/* Filtros */}
@@ -252,78 +263,50 @@ export default function DoctorsTable() {
         </p>
       ))}
 
-      <div className="overflow-auto mb-4">
-        <table className="min-w-full text-sm">
-          <thead className="ks-ink2">
-            <tr>
-              <th className="p-2">Name</th>
-              <th className="p-2">NPI</th>
-              <th className="p-2">License</th>
-              <th className="p-2">CAQH</th>
-              <th className="p-2">Credential status</th>
-              <th className="p-2">Next due</th>
-              <th className="p-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="ks-ink">
-            {ordenados.map(({ d, creds, next }) => (
-              <tr key={d.id} className="border-t border-slate-800">
-                <td className="p-2">{d.name}</td>
-                <td className="p-2 mono">{d.npi}</td>
-                <td className="p-2 mono">{d.license}</td>
-                <td className="p-2 mono">{d.caqh}</td>
-                <td className="p-2">
-                  <div className="cred-pills">
-                    {creds.map((c) => (
-                      <span
-                        key={c.key}
-                        className={`sem-pill sem-mini ${STATUS_META[c.status].cls}`}
-                        title={`${c.label}: ${c.date ? new Date(c.date).toLocaleDateString() + " · " + STATUS_META[c.status].label : "sin fecha"}`}
-                      >
-                        {abbr[c.key]}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-                <td className="p-2 whitespace-nowrap">
-                  {next ? (
-                    <span className={`sem-pill ${STATUS_META[next.status].cls}`} title={next.label}>
-                      {abbr[next.key]} {next.days}d
-                    </span>
-                  ) : (
-                    <span className="ks-muted text-xs">—</span>
-                  )}
-                </td>
-                <td className="p-2 space-x-3 whitespace-nowrap">
-                  <button className="ks-ok hover:underline" onClick={() => setDetailFor(d)}>Record</button>
-                  <button className="ks-accent hover:underline" onClick={() => openEditModal(d)}>Edit</button>
-                  <button className="text-red-500 hover:underline" onClick={() => remove(d.id)}>Delete</button>
-                </td>
-              </tr>
-            ))}
-            {ordenados.length === 0 && (
-              <tr>
-                <td colSpan={7} className="p-4 ks-muted">
-                  {list.length === 0 ? "No doctors added yet" : "No provider matches the filter"}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="dt-split">
+        <aside className="dt-queue">
+          <div className="dt-queue-head">
+            <span className="dt-eyebrow">By urgency</span>
+            <span>{ordenados.length} of {list.length}</span>
+          </div>
+          {ordenados.map(({ d, next }) => {
+            const dd = next && next.days !== null && next.days !== undefined ? next.days : null;
+            const t = dd === null ? "none" : dd <= 30 ? "hot" : dd <= 90 ? "mid" : "ok";
+            const activo = seleccionado && String(seleccionado.id) === String(d.id);
+            return (
+              <button key={d.id} type="button" className="dt-qitem" aria-current={activo} onClick={() => setPicked(d)}>
+                <span className={`dt-qdays c-${t}`}>
+                  {dd === null ? "\u2014" : dd}
+                  <small>{dd === null ? "no date" : "days"}</small>
+                </span>
+                <span className="dt-qname">
+                  <b>{d.name}</b>
+                  <small>{d.taxonomy || "No taxonomy"}</small>
+                </span>
+              </button>
+            );
+          })}
+          {ordenados.length === 0 && <p className="dt-empty">No provider matches the filter</p>}
+        </aside>
+
+        <div className="dt-record">
+          {seleccionado ? (
+            <>
+              <ProviderRecord inline doctor={seleccionado} onEdit={(d) => openEditModal(d)} />
+              <div className="dt-actions">
+                <button className="flt-clear" onClick={() => openEditModal(seleccionado)}>Edit</button>
+                <button className="flt-clear dt-del" onClick={() => remove(seleccionado.id)}>Delete</button>
+              </div>
+            </>
+          ) : (
+            <p className="dt-empty">Select a provider to open their record.</p>
+          )}
+        </div>
       </div>
 
-      <div className="mt-2 text-left">
+      <div className="mt-3">
         <button onClick={openAddModal} className="ks-accent hover:underline text-sm">+ Add Doctor</button>
       </div>
-
-      {/* Ficha completa del proveedor */}
-      {detailFor && (
-        <ProviderRecord
-          doctor={detailFor}
-          onClose={() => setDetailFor(null)}
-          onEdit={(d) => openEditModal(d)}
-        />
-      )}
 
       {/* Modal Add/Edit */}
       {showModal && (
