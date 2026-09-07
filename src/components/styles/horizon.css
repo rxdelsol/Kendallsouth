@@ -1,0 +1,52 @@
+/* src/components/styles/horizon.css
+   Horizonte de vencimientos. El color mide tiempo y nada más. */
+.hz{ margin:4px 0 16px }
+.hz-cap{ display:flex; align-items:baseline; justify-content:space-between; gap:14px; margin-bottom:8px; flex-wrap:wrap }
+.hz-cap h3{ margin:0; font-size:14px; font-weight:600; color:var(--ink) }
+.hz-cap p{ margin:0; font-size:12px; color:var(--muted) }
+
+.hz-band{
+  position:relative; background:var(--surface); border:1px solid var(--line);
+  border-radius:3px; padding:30px 16px 24px; overflow:hidden;
+}
+.hz-grid{ position:absolute; inset:0; pointer-events:none }
+.hz-line{ position:absolute; top:0; bottom:0; width:1px; background:var(--line2) }
+.hz-line.year{ background:var(--line) }
+.hz-label{
+  position:absolute; bottom:5px; font-size:9.5px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--muted); white-space:nowrap;
+}
+.hz-now{ position:absolute; top:0; bottom:0; width:2px; background:var(--ink) }
+.hz-now::after{
+  content:"today"; position:absolute; top:-1px; left:5px; font-size:9.5px;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--ink); font-weight:600;
+}
+
+.hz-ticks{ position:relative }
+.hz-tick{
+  position:absolute; transform:translateX(-50%); border:0; padding:0; background:none;
+  cursor:pointer; display:grid; gap:3px; justify-items:center;
+}
+.hz-bead{ width:11px; height:11px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 0 0 1px currentColor }
+.hz-who{
+  font-size:9.5px; color:var(--muted); white-space:nowrap;
+  max-width:92px; overflow:hidden; text-overflow:ellipsis;
+}
+.hz-tick:hover .hz-who, .hz-tick[aria-current="true"] .hz-who{ color:var(--ink); font-weight:600 }
+.hz-tick[aria-current="true"] .hz-bead{ width:14px; height:14px; box-shadow:0 0 0 1px currentColor, 0 0 0 5px var(--alt) }
+.hz-tick:focus-visible{ outline:2px solid var(--ink); outline-offset:3px; border-radius:3px }
+.hz-tick.c-ok{ color:var(--ok) }   .hz-tick.c-ok .hz-bead{ background:var(--ok) }
+.hz-tick.c-mid{ color:var(--mid) } .hz-tick.c-mid .hz-bead{ background:var(--mid) }
+.hz-tick.c-hot{ color:var(--hot) } .hz-tick.c-hot .hz-bead{ background:var(--hot) }
+
+.hz-nodate{
+  display:flex; gap:7px; align-items:center; flex-wrap:wrap;
+  margin-top:9px; padding-top:9px; border-top:1px dashed var(--line);
+  font-size:11.5px; color:var(--muted);
+}
+.hz-nodate b{ color:var(--idle); font-weight:600 }
+.hz-nodate button{
+  font:inherit; font-size:11.5px; border:1px solid var(--line); background:var(--idle-bg);
+  color:var(--ink2); border-radius:2px; padding:1px 7px; cursor:pointer;
+}
+.hz-nodate button:hover{ border-color:var(--muted); color:var(--ink) }

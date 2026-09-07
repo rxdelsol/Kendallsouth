@@ -8,6 +8,7 @@ import {
 } from "../utils/credStatus";
 import { deaCheck, DEA_STATE_META } from "../utils/dea";
 import ProviderRecord from "./ProviderRecord.jsx";
+import CredentialHorizon from "./CredentialHorizon.jsx";
 
 export default function DoctorsTable() {
   const empty = () => ({
@@ -181,6 +182,16 @@ export default function DoctorsTable() {
     });
   }, [withStatus, search, fExp]);
 
+  // Por urgencia: lo que vence antes va arriba. Sin fecha, al final —
+  // no es urgente, es un dato que falta, y ya lo dice el horizonte.
+  const ordenados = useMemo(() => {
+    const dias = (x) => {
+      const v = x.creds.map((c) => c.days).filter((n) => n !== null && n !== undefined);
+      return v.length ? Math.min(...v) : Infinity;
+    };
+    return [...filtered].sort((a, b) => dias(a) - dias(b));
+  }, [filtered]);
+
   const anyFilter = search || fExp;
 
   return (
@@ -206,16 +217,22 @@ export default function DoctorsTable() {
         </button>
       </div>
 
+      <CredentialHorizon
+        doctors={list}
+        selectedId={detailFor?.id}
+        onPick={(d) => setDetailFor(d)}
+      />
+
       {/* Filtros */}
       <div className="ins-filters">
         <input
           className="flt-search"
-          placeholder="🔎 Buscar (nombre, NPI, licencia, CAQH…)"
+          placeholder="🔎 Search (name, NPI, license, CAQH…)"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         {anyFilter && (
-          <button className="flt-clear" onClick={() => { setSearch(""); setFExp(""); }}>✕ Limpiar</button>
+          <button className="flt-clear" onClick={() => { setSearch(""); setFExp(""); }}>✕ Clear</button>
         )}
         <div style={{ flex: 1 }} />
         <button className="btn-red" onClick={refreshFromNppes} disabled={refreshing} title="Consulta el registro nacional NPPES y refresca todos los doctores">
@@ -224,7 +241,7 @@ export default function DoctorsTable() {
       </div>
 
       <p className="ks-muted text-xs mb-2">
-        Mostrando {filtered.length} de {list.length} doctores
+        Showing {ordenados.length} of {list.length} providers · sorted by what comes due first
       </p>
 
       {refreshMsg && (refreshMsg.error ? (
@@ -249,12 +266,12 @@ export default function DoctorsTable() {
             </tr>
           </thead>
           <tbody className="ks-ink">
-            {filtered.map(({ d, creds, next }) => (
+            {ordenados.map(({ d, creds, next }) => (
               <tr key={d.id} className="border-t border-slate-800">
                 <td className="p-2">{d.name}</td>
-                <td className="p-2">{d.npi}</td>
-                <td className="p-2">{d.license}</td>
-                <td className="p-2">{d.caqh}</td>
+                <td className="p-2 mono">{d.npi}</td>
+                <td className="p-2 mono">{d.license}</td>
+                <td className="p-2 mono">{d.caqh}</td>
                 <td className="p-2">
                   <div className="cred-pills">
                     {creds.map((c) => (
@@ -278,13 +295,13 @@ export default function DoctorsTable() {
                   )}
                 </td>
                 <td className="p-2 space-x-3 whitespace-nowrap">
-                  <button className="ks-ok hover:underline" onClick={() => setDetailFor(d)}>Detalle</button>
+                  <button className="ks-ok hover:underline" onClick={() => setDetailFor(d)}>Record</button>
                   <button className="ks-accent hover:underline" onClick={() => openEditModal(d)}>Edit</button>
                   <button className="text-red-500 hover:underline" onClick={() => remove(d.id)}>Delete</button>
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {ordenados.length === 0 && (
               <tr>
                 <td colSpan={7} className="p-4 ks-muted">
                   {list.length === 0 ? "No doctors added yet" : "No provider matches the filter"}

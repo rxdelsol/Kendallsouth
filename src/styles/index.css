@@ -19,7 +19,10 @@
   --hot:#A63A2C; --hot-bg:#F6E2DE;
   --idle:#8695A0; --idle-bg:#E7EBEC;
 }
-body{ background:var(--page); color:var(--ink); }
+body{ background:var(--page); color:var(--ink);
+  font-family:"Archivo", ui-sans-serif, system-ui, "Segoe UI", sans-serif; }
+.mono{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; font-size:12.5px }
+h1,h2,h3{ letter-spacing:-.01em }
 
 .ks-page{ background:var(--page) !important; }
 .ks-card{ background:var(--surface) !important; border:1px solid var(--line); }
