@@ -2,3 +2,4 @@
 api/save-provider.js
 api/export-database.js
 api/import-database.js
+api/trial-search.js
