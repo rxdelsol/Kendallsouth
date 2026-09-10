@@ -94,6 +94,128 @@ function paginaLogin(mensaje, estado = 401) {
   });
 }
 
+// ── Búsqueda de ensayos en ClinicalTrials.gov ───────────────────────────────
+//
+// Esto vive acá y no en /api/trial-search.js por la misma razón que /logout: el
+// plan Hobby de Vercel no admite más de 12 funciones serverless por despliegue y
+// las doce ya están ocupadas. El middleware corre en el edge y no cuenta contra
+// ese tope. De regalo, la búsqueda queda detrás de la misma sesión que el resto
+// del sitio, en vez de ser un endpoint abierto.
+//
+// La API de ClinicalTrials.gov es pública y no lleva clave.
+
+const CT_BASE = "https://clinicaltrials.gov/api/v2/studies";
+
+const CT_CAMPOS = [
+  "protocolSection.identificationModule",
+  "protocolSection.statusModule",
+  "protocolSection.sponsorCollaboratorsModule",
+  "protocolSection.conditionsModule",
+  "protocolSection.designModule",
+  "protocolSection.contactsLocationsModule",
+].join(",");
+
+// Un estudio con cientos de sitios ya repartidos rara vez abre más. No se
+// esconde, se marca: aplicar a ése suele ser gastar una tarde en un
+// cuestionario.
+const MUCHOS_SITIOS = 120;
+
+function limpiarEstudio(s) {
+  const p = s?.protocolSection || {};
+  const id = p.identificationModule || {};
+  const st = p.statusModule || {};
+  const sp = p.sponsorCollaboratorsModule || {};
+  const co = p.conditionsModule || {};
+  const de = p.designModule || {};
+  const cl = p.contactsLocationsModule || {};
+
+  const sitios = Array.isArray(cl.locations) ? cl.locations : [];
+  const enFlorida = sitios.filter((l) => /florida/i.test(String(l.state || "")) || String(l.state || "") === "FL");
+
+  return {
+    nct: id.nctId || "",
+    title: id.briefTitle || "",
+    sponsor: sp.leadSponsor?.name || "",
+    collaborators: (sp.collaborators || []).map((c) => c.name).slice(0, 4),
+    status: st.overallStatus || "",
+    lastUpdate: st.lastUpdatePostDateStruct?.date || "",
+    conditions: (co.conditions || []).slice(0, 6),
+    phases: (de.phases || []).map((f) => f.replace("PHASE", "Phase ").replace("NA", "N/A")),
+    enrollment: de.enrollmentInfo?.count ?? null,
+    siteCount: sitios.length,
+    floridaSites: enFlorida.map((l) => [l.facility, l.city].filter(Boolean).join(" · ")).slice(0, 6),
+    crowded: sitios.length >= MUCHOS_SITIOS,
+    // El contacto central es el camino real para pedir ser sitio. Si no hay,
+    // se dice que no hay, en vez de inventar un correo del patrocinador.
+    contacts: (cl.centralContacts || []).map((c) => ({
+      name: c.name || "", role: c.role || "", phone: c.phone || "", email: c.email || "",
+    })),
+    url: id.nctId ? `https://clinicaltrials.gov/study/${id.nctId}` : "",
+  };
+}
+
+const json = (obj, status = 200) =>
+  new Response(JSON.stringify(obj), {
+    status,
+    headers: { "content-type": "application/json", "cache-control": "no-store" },
+  });
+
+async function buscarEnsayos(url) {
+  try {
+    const p = url.searchParams;
+    const q = p.get("q") || "";
+    const fase = p.get("phase") || "";
+    const estado = p.get("status") || "RECRUITING";
+    const estadoGeo = p.get("state") || "Florida";
+    const pagina = p.get("page") || "";
+
+    const u = new URL(CT_BASE);
+    u.searchParams.set("format", "json");
+    u.searchParams.set("pageSize", "40");
+    u.searchParams.set("countTotal", "true");
+    u.searchParams.set("fields", CT_CAMPOS);
+    u.searchParams.set("query.locn", estadoGeo);
+    u.searchParams.set("filter.overallStatus", estado);
+    // Lo actualizado hace poco primero: un registro tocado la semana pasada es
+    // un estudio vivo; uno intacto desde hace dos años suele ser un registro
+    // que nadie mantiene.
+    u.searchParams.set("sort", "LastUpdatePostDate:desc");
+    if (q) u.searchParams.set("query.term", q);
+    if (fase) u.searchParams.set("filter.advanced", `AREA[Phase]${fase}`);
+    if (pagina) u.searchParams.set("pageToken", pagina);
+
+    // Si el registro rechaza la consulta suele ser por el filtro de fase o por
+    // el orden. Se reintenta sin ellos antes de rendirse: una búsqueda sin
+    // ordenar sirve; una pantalla en blanco porque cambió el nombre de un
+    // parámetro, no.
+    let r = await fetch(u.toString(), { headers: { accept: "application/json" } });
+    let degradada = false;
+    if (!r.ok && (u.searchParams.has("filter.advanced") || u.searchParams.has("sort"))) {
+      u.searchParams.delete("filter.advanced");
+      u.searchParams.delete("sort");
+      r = await fetch(u.toString(), { headers: { accept: "application/json" } });
+      degradada = r.ok;
+    }
+    if (!r.ok) {
+      const cuerpo = await r.text().catch(() => "");
+      return json({ ok: false, error: `ClinicalTrials.gov respondió ${r.status}`, detail: cuerpo.slice(0, 300) }, 502);
+    }
+
+    const data = await r.json();
+    return json({
+      ok: true,
+      // En true, el filtro de fase no se aplicó. La pantalla lo dice en vez de
+      // enseñar todas las fases como si fueran las pedidas.
+      degraded: degradada,
+      total: data.totalCount ?? null,
+      nextPage: data.nextPageToken || null,
+      studies: (data.studies || []).map(limpiarEstudio),
+    });
+  } catch (e) {
+    return json({ ok: false, error: String(e?.message || e) }, 500);
+  }
+}
+
 export default async function middleware(req) {
   // robots.txt se responde sin sesión y de verdad: devolver la página de
   // acceso en su lugar deja a los rastreadores sin instrucciones y rompe a
@@ -162,7 +284,10 @@ export default async function middleware(req) {
     .find((c) => c.startsWith(COOKIE + "="));
   const valor = cookie ? cookie.slice(COOKIE.length + 1) : null;
 
-  if (await cookieValida(valor, secreto)) return;
+  if (await cookieValida(valor, secreto)) {
+    if (url.pathname === "/api/trial-search") return buscarEnsayos(url);
+    return;
+  }
 
   // Sin sesión: a las APIs se les responde JSON, no una página de login.
   if (url.pathname.startsWith("/api/")) {
