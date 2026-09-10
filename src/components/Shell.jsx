@@ -175,7 +175,6 @@ export default function Shell({ route, onNav, children }) {
         <header className="sh-top" ref={caja}>
           <div className="sh-org">
             <strong>Kendall South Medical Center</strong>
-            <span>Provider Credential Tracker</span>
           </div>
 
           <div className="sh-search">

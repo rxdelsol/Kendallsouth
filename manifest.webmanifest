@@ -1,6 +1,6 @@
 {
-  "name": "Kendall South Medical Center \u2014 Provider Credential Tracker",
-  "short_name": "PCT Website",
+  "name": "Kendall South Medical Center",
+  "short_name": "Kendall South",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b1020",

@@ -7,7 +7,6 @@ export default function Header({ onNav }){
           <img src="https://kendallsouthcredentialing.vercel.app/Picture1.png" alt="logo" className="h-10" />
           <div>
             <div className="text-xl font-bold">Kendall South Medical Center</div>
-            <div className="text-sm ks-ink2">— Provider Credential Tracker</div>
           </div>
         </div>
         <nav className="flex gap-3">

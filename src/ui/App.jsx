@@ -35,7 +35,7 @@ export default function App(){
       <div className="brand">
         <img src={LOGO} alt="Kendall South Medical Center logo"/>
         <div>
-          <h1>Kendall South Medical Center — Provider Credential Tracker</h1>
+          <h1>Kendall South Medical Center</h1>
           <div className="muted" style={{fontSize:12}}>Installable PWA — Website only (no backend)</div>
         </div>
       </div>
