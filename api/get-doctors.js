@@ -36,6 +36,10 @@ export default async function handler(req, res) {
       caqhAttested: row.caqh_attested ?? null,
       malpracticeExp: row.malpractice_exp ?? null,
       medicareRevalidation: row.medicare_revalidation ?? null,
+      // Credenciales adicionales (permisos, entrenamientos, mantenimiento).
+      // Si la columna todavía no existe, queda como lista vacía y la ficha
+      // simplemente muestra las cinco de siempre.
+      extraCreds: Array.isArray(row.extra_creds) ? row.extra_creds : [],
       // Fecha de alta, para el panel de actividad reciente del Dashboard.
       // Si la tabla todavía no tiene la columna, queda en null y el panel
       // simplemente no muestra la hora — no inventa una.

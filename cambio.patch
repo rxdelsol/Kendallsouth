@@ -1,0 +1,282 @@
+diff --git a/api/cron-check-expirations.js b/api/cron-check-expirations.js
+index 0b09e3d..ee05817 100644
+--- a/api/cron-check-expirations.js
++++ b/api/cron-check-expirations.js
+@@ -96,12 +96,20 @@ export default async function handler(req, res) {
+ 
+     const credItems = [];
+     (docRows || []).forEach((d) => {
++      // Credenciales adicionales del registro (permisos, entrenamientos,
++      // mantenimiento). Entran al aviso con la misma ventana que las fijas —
++      // un permiso vencido cierra la operación igual que una licencia.
++      const extras = (Array.isArray(d.extra_creds) ? d.extra_creds : [])
++        .filter((c) => c && String(c.label || '').trim() && c.date)
++        .map((c) => ({ label: String(c.label).trim(), date: c.date }));
++
+       const creds = [
+         { label: 'Licencia FL', date: d.license_exp },
+         { label: 'DEA', date: d.dea_exp },
+         { label: 'CAQH (re-atestar)', date: d.caqh_attested ? addDays(d.caqh_attested, CAQH_ATTEST_DAYS) : null },
+         { label: 'Malpractice', date: d.malpractice_exp },
+         { label: 'Medicare (revalidación)', date: d.medicare_revalidation },
++        ...extras,
+       ];
+       creds.forEach((c) => {
+         const days = daysUntil(c.date);
+diff --git a/api/get-doctors.js b/api/get-doctors.js
+index 129f823..40d3292 100644
+--- a/api/get-doctors.js
++++ b/api/get-doctors.js
+@@ -36,6 +36,10 @@ export default async function handler(req, res) {
+       caqhAttested: row.caqh_attested ?? null,
+       malpracticeExp: row.malpractice_exp ?? null,
+       medicareRevalidation: row.medicare_revalidation ?? null,
++      // Credenciales adicionales (permisos, entrenamientos, mantenimiento).
++      // Si la columna todavía no existe, queda como lista vacía y la ficha
++      // simplemente muestra las cinco de siempre.
++      extraCreds: Array.isArray(row.extra_creds) ? row.extra_creds : [],
+       // Fecha de alta, para el panel de actividad reciente del Dashboard.
+       // Si la tabla todavía no tiene la columna, queda en null y el panel
+       // simplemente no muestra la hora — no inventa una.
+diff --git a/api/save-doctor.js b/api/save-doctor.js
+index b7a634a..d8805ce 100644
+--- a/api/save-doctor.js
++++ b/api/save-doctor.js
+@@ -48,6 +48,18 @@ export default async function handler(req, res) {
+     caqh_attested: body.caqhAttested || null,
+     malpractice_exp: body.malpracticeExp || null,
+     medicare_revalidation: body.medicareRevalidation || null,
++    // Credenciales adicionales. Se limpian acá y no en el cliente: cualquiera
++    // puede llamar la API, y una etiqueta vacía dejaría una fila fantasma en la
++    // ficha que nadie sabría de dónde salió.
++    extra_creds: Array.isArray(body.extraCreds)
++      ? body.extraCreds
++          .filter((c) => c && String(c.label || '').trim())
++          .map((c) => ({
++            label: String(c.label).trim().slice(0, 80),
++            date: c.date ? String(c.date).slice(0, 10) : null,
++            action: String(c.action || '').trim().slice(0, 240) || null,
++          }))
++      : [],
+   };
+ 
+   async function upsert(payload) {
+diff --git a/src/components/DoctorsTable.jsx b/src/components/DoctorsTable.jsx
+index 458892d..1dfa335 100644
+--- a/src/components/DoctorsTable.jsx
++++ b/src/components/DoctorsTable.jsx
+@@ -5,6 +5,7 @@ import {
+   STATUS_META,
+   worseStatus,
+   doctorCredentials,
++  EXTRA_CRED_PRESETS,
+ } from "../utils/credStatus";
+ import { deaCheck, DEA_STATE_META } from "../utils/dea";
+ import ProviderRecord from "./ProviderRecord.jsx";
+@@ -44,6 +45,8 @@ export default function DoctorsTable() {
+     caqhAttested: "",
+     malpracticeExp: "",
+     medicareRevalidation: "",
++    // permisos, entrenamientos y mantenimiento
++    extraCreds: [],
+   });
+ 
+   const [list, setList] = useState([]);
+@@ -161,11 +164,32 @@ export default function DoctorsTable() {
+       caqhAttested: item.caqhAttested ? item.caqhAttested.slice(0, 10) : "",
+       malpracticeExp: item.malpracticeExp ? item.malpracticeExp.slice(0, 10) : "",
+       medicareRevalidation: item.medicareRevalidation ? item.medicareRevalidation.slice(0, 10) : "",
++      extraCreds: (Array.isArray(item.extraCreds) ? item.extraCreds : []).map((c) => ({
++        label: c?.label || "",
++        date: c?.date ? String(c.date).slice(0, 10) : "",
++        action: c?.action || "",
++      })),
+     });
+     setIsEditing(true);
+     setShowModal(true);
+   };
+ 
++  // --- credenciales adicionales del formulario -----------------------------
++  const addExtra = (c) =>
++    setDoctor((d) => ({ ...d, extraCreds: [...(d.extraCreds || []), c] }));
++  const setExtra = (i, patch) =>
++    setDoctor((d) => {
++      const xs = [...(d.extraCreds || [])];
++      xs[i] = { ...xs[i], ...patch };
++      return { ...d, extraCreds: xs };
++    });
++  const delExtra = (i) =>
++    setDoctor((d) => ({ ...d, extraCreds: (d.extraCreds || []).filter((_, j) => j !== i) }));
++  const addPreset = (label) => {
++    const p = EXTRA_CRED_PRESETS.find((x) => x.label === label);
++    if (p) addExtra({ label: p.label, date: "", action: p.action });
++  };
++
+   const abbr = { license: "Lic", dea: "DEA", caqh: "CAQH", malpractice: "Malp", medicare: "Mcr" };
+ 
+   // Estado agregado por doctor + próxima credencial a vencer
+@@ -512,6 +536,67 @@ export default function DoctorsTable() {
+               </label>
+             </div>
+ 
++            {/* Permisos, entrenamientos y mantenimiento. Las cinco de arriba son
++                del clínico; estas son de la operación y antes no cabían en
++                ningún lado, así que vivían en una hoja aparte que nadie miraba.
++                Se guardan como lista, no como columnas fijas: el día que
++                aparezca bomberos o rayos X se agrega sin tocar la base. */}
++            <h4 className="form-section">Otras credenciales</h4>
++            <p className="form-hint">
++              Permisos del local, entrenamientos anuales y mantenimiento de equipos.
++              Salen en la ficha con el mismo semáforo y entran en el aviso por correo.
++            </p>
++            <div className="xc-list">
++              {(doctor.extraCreds || []).map((c, i) => (
++                <div className="xc-row" key={i}>
++                  <input
++                    className="p-2 rounded ks-field"
++                    placeholder="Nombre — ej. Permiso de residuos biomédicos"
++                    value={c.label || ""}
++                    onChange={(e) => setExtra(i, { label: e.target.value })}
++                  />
++                  <input
++                    type="date"
++                    className="p-2 rounded ks-field"
++                    value={c.date || ""}
++                    onChange={(e) => setExtra(i, { date: e.target.value })}
++                  />
++                  <button
++                    type="button"
++                    className="xc-del"
++                    onClick={() => delExtra(i)}
++                    aria-label={`Quitar ${c.label || "credencial"}`}
++                    title="Quitar"
++                  >×</button>
++                  <input
++                    className="p-2 rounded ks-field xc-act"
++                    placeholder="Qué hay que hacer para renovarla"
++                    value={c.action || ""}
++                    onChange={(e) => setExtra(i, { action: e.target.value })}
++                  />
++                </div>
++              ))}
++              {(doctor.extraCreds || []).length === 0 && (
++                <p className="xc-none">Ninguna todavía.</p>
++              )}
++            </div>
++            <div className="xc-add">
++              <select
++                className="ks-field text-sm"
++                value=""
++                onChange={(e) => { addPreset(e.target.value); e.target.value = ""; }}
++                aria-label="Agregar credencial de la lista"
++              >
++                <option value="">Agregar de la lista…</option>
++                {EXTRA_CRED_PRESETS.map((p) => (
++                  <option key={p.label} value={p.label}>{p.label}</option>
++                ))}
++              </select>
++              <button type="button" className="flt-clear" onClick={() => addExtra({ label: "", date: "", action: "" })}>
++                Agregar en blanco
++              </button>
++            </div>
++
+             <div className="mt-4 flex justify-end gap-2">
+               <button className="btn-cancel" onClick={() => { setShowModal(false); setIsEditing(false); setDoctor(empty()); }}>Cancel</button>
+               <button className="btn-red" onClick={saveDoctor}>{isEditing ? "Save Changes" : "Save Doctor"}</button>
+diff --git a/src/styles/index.css b/src/styles/index.css
+index 9607a4f..0052fe1 100644
+--- a/src/styles/index.css
++++ b/src/styles/index.css
+@@ -119,6 +119,18 @@ select{ background-color:var(--field); color:var(--ink); border:1px solid var(--
+ .form-date{ display:flex; flex-direction:column; gap:2px; font-size:11px; color:var(--muted) }
+ .form-date input{ color-scheme:dark }
+ 
++/* Otras credenciales: permisos, entrenamientos, mantenimiento */
++.form-hint{ margin:4px 0 10px; font-size:11.5px; line-height:1.5; color:var(--muted); max-width:62ch }
++.xc-list{ display:flex; flex-direction:column; gap:12px }
++.xc-row{ display:grid; grid-template-columns:minmax(0,1fr) 148px 30px; gap:8px; align-items:center }
++.xc-row .xc-act{ grid-column:1 / -1; font-size:12px }
++.xc-del{ width:30px; height:30px; line-height:1; font-size:17px; border-radius:8px; cursor:pointer;
++  background:transparent; color:var(--muted); border:1px solid var(--line) }
++.xc-del:hover{ color:#c0392b; border-color:#c0392b }
++.xc-none{ font-size:12px; color:var(--muted); margin:0 }
++.xc-add{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px }
++@media (max-width:560px){ .xc-row{ grid-template-columns:minmax(0,1fr) 30px } .xc-row input[type="date"]{ grid-column:1 } }
++
+ /* Buscar por NPI */
+ .sum-tile.t-active .sum-num{ color:#4ade80 }
+ .npi-matches{ display:flex; flex-direction:column; gap:6px; margin:8px 0 }
+diff --git a/src/utils/credStatus.js b/src/utils/credStatus.js
+index e75618d..0310ce3 100644
+--- a/src/utils/credStatus.js
++++ b/src/utils/credStatus.js
+@@ -47,15 +47,51 @@ export function worseStatus(a, b) {
+ 
+ export const CAQH_ATTEST_DAYS = 120; // CAQH exige re-atestar cada 120 días
+ 
++// Credenciales que no son del clínico sino de la operación: permisos del local,
++// entrenamientos anuales, mantenimiento de equipos. Son sugerencias para llenar
++// el formulario de un clic; el usuario puede escribir cualquier otra.
++export const EXTRA_CRED_PRESETS = [
++  { label: "Permiso de residuos biomédicos", action: "Pagar en MyFloridaEHPermit.com y enviar la solicitud de renovación y el reporte anual al DOH del condado. El pago por sí solo no renueva el permiso." },
++  { label: "Calibración y mantenimiento de equipos", action: "Agendar la visita anual del proveedor de servicio y archivar el reporte firmado." },
++  { label: "Capacitación OSHA", action: "Repetir el curso anual: patógenos sanguíneos, HazCom y 64E-16 FAC." },
++  { label: "Capacitación HIPAA / HITECH", action: "Repetir el curso anual y actualizar el Security Risk Analysis." },
++  { label: "CLIA", action: "Renovar el certificado con CMS antes del vencimiento." },
++  { label: "Licencia AHCA de la clínica", action: "Renovar con AHCA. Empieza 90 días antes." },
++  { label: "Business tax receipt", action: "Renovar con el condado y con el municipio. En Florida vence el 30 de septiembre." },
++  { label: "Certificate of Use", action: "Renovar con el municipio." },
++  { label: "Inspección de bomberos", action: "Agendar la inspección anual." },
++  { label: "Revalidación de Medicaid", action: "Revalidar con AHCA (cada 5 años)." },
++  { label: "Registro de equipos de rayos X", action: "Renovar con el DOH Bureau of Radiation Control." },
++];
++
++// Normaliza la lista de credenciales adicionales guardada en el registro.
++// Descarta las que no tienen etiqueta: una fila sin nombre no se puede leer
++// en la ficha ni explicar en el correo de aviso.
++export function extraCredentials(d = {}) {
++  const xs = Array.isArray(d.extraCreds) ? d.extraCreds : [];
++  return xs
++    .filter((c) => c && String(c.label || "").trim())
++    .map((c, i) => ({
++      key: "x" + i + "-" + String(c.label).toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40),
++      label: String(c.label).trim(),
++      date: c.date ? String(c.date).slice(0, 10) : null,
++      action: String(c.action || "").trim(),
++      extra: true,
++    }));
++}
++
+ // Construye la lista de credenciales con fecha de un doctor.
+ // CAQH usa fecha de última atestación → vence a los 120 días.
++// Las adicionales van al final y se pintan igual que las fijas: mismo
++// semáforo, misma barra, mismos días, y entran en el correo de aviso.
+ export function doctorCredentials(d = {}) {
+   const caqhDue = d.caqhAttested ? addDays(d.caqhAttested, CAQH_ATTEST_DAYS) : null;
+-  return [
++  const fijas = [
+     { key: "license", label: "Florida license", date: d.licenseExp || null, action: "Renew with the Florida MQA board and upload to CAQH." },
+     { key: "dea", label: "DEA registration", date: d.deaExp || null, action: "Renew at deadiversion.usdoj.gov before it expires." },
+     { key: "caqh", label: "CAQH re-attestation", date: caqhDue, action: "Re-attest at proview.caqh.org (every 120 days).", base: d.caqhAttested || null },
+     { key: "malpractice", label: "Malpractice / COI", date: d.malpracticeExp || null, action: "Renew the policy and upload the declarations page to CAQH and payers." },
+     { key: "medicare", label: "Medicare revalidation", date: d.medicareRevalidation || null, action: "Revalidate in PECOS (pecos.cms.hhs.gov) before the deadline (every 5 years)." },
+   ];
++  return fijas.concat(extraCredentials(d));
+ }
+diff --git a/supabase-migration.sql b/supabase-migration.sql
+index aff3eb3..f1f7834 100644
+--- a/supabase-migration.sql
++++ b/supabase-migration.sql
+@@ -8,3 +8,12 @@ alter table doctors add column if not exists dea_exp date;                -- ven
+ alter table doctors add column if not exists caqh_attested date;          -- fecha de última atestación CAQH (vence a los 120 días)
+ alter table doctors add column if not exists malpractice_exp date;        -- vencimiento de malpractice/COI
+ alter table doctors add column if not exists medicare_revalidation date;  -- fecha de revalidación de Medicare (cada 5 años)
++
++-- ---------------------------------------------------------------------------
++-- Credenciales adicionales: permisos y trámites que no son del clínico sino de
++-- la operación — residuos biomédicos, calibración de equipos, OSHA, HIPAA,
++-- CLIA, business tax, bomberos. Una sola columna JSON en vez de una columna por
++-- tipo: agregar un tipo nuevo mañana no necesita otra migración.
++--
++-- Forma de cada elemento:  { "label": "...", "date": "YYYY-MM-DD", "action": "..." }
++alter table doctors add column if not exists extra_creds jsonb not null default '[]'::jsonb;

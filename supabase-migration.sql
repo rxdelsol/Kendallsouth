@@ -8,3 +8,12 @@ alter table doctors add column if not exists dea_exp date;                -- ven
 alter table doctors add column if not exists caqh_attested date;          -- fecha de última atestación CAQH (vence a los 120 días)
 alter table doctors add column if not exists malpractice_exp date;        -- vencimiento de malpractice/COI
 alter table doctors add column if not exists medicare_revalidation date;  -- fecha de revalidación de Medicare (cada 5 años)
+
+-- ---------------------------------------------------------------------------
+-- Credenciales adicionales: permisos y trámites que no son del clínico sino de
+-- la operación — residuos biomédicos, calibración de equipos, OSHA, HIPAA,
+-- CLIA, business tax, bomberos. Una sola columna JSON en vez de una columna por
+-- tipo: agregar un tipo nuevo mañana no necesita otra migración.
+--
+-- Forma de cada elemento:  { "label": "...", "date": "YYYY-MM-DD", "action": "..." }
+alter table doctors add column if not exists extra_creds jsonb not null default '[]'::jsonb;

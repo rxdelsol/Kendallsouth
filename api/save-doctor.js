@@ -48,6 +48,18 @@ export default async function handler(req, res) {
     caqh_attested: body.caqhAttested || null,
     malpractice_exp: body.malpracticeExp || null,
     medicare_revalidation: body.medicareRevalidation || null,
+    // Credenciales adicionales. Se limpian acá y no en el cliente: cualquiera
+    // puede llamar la API, y una etiqueta vacía dejaría una fila fantasma en la
+    // ficha que nadie sabría de dónde salió.
+    extra_creds: Array.isArray(body.extraCreds)
+      ? body.extraCreds
+          .filter((c) => c && String(c.label || '').trim())
+          .map((c) => ({
+            label: String(c.label).trim().slice(0, 80),
+            date: c.date ? String(c.date).slice(0, 10) : null,
+            action: String(c.action || '').trim().slice(0, 240) || null,
+          }))
+      : [],
   };
 
   async function upsert(payload) {

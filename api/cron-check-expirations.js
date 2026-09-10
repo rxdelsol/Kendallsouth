@@ -96,12 +96,20 @@ export default async function handler(req, res) {
 
     const credItems = [];
     (docRows || []).forEach((d) => {
+      // Credenciales adicionales del registro (permisos, entrenamientos,
+      // mantenimiento). Entran al aviso con la misma ventana que las fijas —
+      // un permiso vencido cierra la operación igual que una licencia.
+      const extras = (Array.isArray(d.extra_creds) ? d.extra_creds : [])
+        .filter((c) => c && String(c.label || '').trim() && c.date)
+        .map((c) => ({ label: String(c.label).trim(), date: c.date }));
+
       const creds = [
         { label: 'Licencia FL', date: d.license_exp },
         { label: 'DEA', date: d.dea_exp },
         { label: 'CAQH (re-atestar)', date: d.caqh_attested ? addDays(d.caqh_attested, CAQH_ATTEST_DAYS) : null },
         { label: 'Malpractice', date: d.malpractice_exp },
         { label: 'Medicare (revalidación)', date: d.medicare_revalidation },
+        ...extras,
       ];
       creds.forEach((c) => {
         const days = daysUntil(c.date);

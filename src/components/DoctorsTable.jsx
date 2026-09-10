@@ -5,6 +5,7 @@ import {
   STATUS_META,
   worseStatus,
   doctorCredentials,
+  EXTRA_CRED_PRESETS,
 } from "../utils/credStatus";
 import { deaCheck, DEA_STATE_META } from "../utils/dea";
 import ProviderRecord from "./ProviderRecord.jsx";
@@ -44,6 +45,8 @@ export default function DoctorsTable() {
     caqhAttested: "",
     malpracticeExp: "",
     medicareRevalidation: "",
+    // permisos, entrenamientos y mantenimiento
+    extraCreds: [],
   });
 
   const [list, setList] = useState([]);
@@ -161,9 +164,30 @@ export default function DoctorsTable() {
       caqhAttested: item.caqhAttested ? item.caqhAttested.slice(0, 10) : "",
       malpracticeExp: item.malpracticeExp ? item.malpracticeExp.slice(0, 10) : "",
       medicareRevalidation: item.medicareRevalidation ? item.medicareRevalidation.slice(0, 10) : "",
+      extraCreds: (Array.isArray(item.extraCreds) ? item.extraCreds : []).map((c) => ({
+        label: c?.label || "",
+        date: c?.date ? String(c.date).slice(0, 10) : "",
+        action: c?.action || "",
+      })),
     });
     setIsEditing(true);
     setShowModal(true);
+  };
+
+  // --- credenciales adicionales del formulario -----------------------------
+  const addExtra = (c) =>
+    setDoctor((d) => ({ ...d, extraCreds: [...(d.extraCreds || []), c] }));
+  const setExtra = (i, patch) =>
+    setDoctor((d) => {
+      const xs = [...(d.extraCreds || [])];
+      xs[i] = { ...xs[i], ...patch };
+      return { ...d, extraCreds: xs };
+    });
+  const delExtra = (i) =>
+    setDoctor((d) => ({ ...d, extraCreds: (d.extraCreds || []).filter((_, j) => j !== i) }));
+  const addPreset = (label) => {
+    const p = EXTRA_CRED_PRESETS.find((x) => x.label === label);
+    if (p) addExtra({ label: p.label, date: "", action: p.action });
   };
 
   const abbr = { license: "Lic", dea: "DEA", caqh: "CAQH", malpractice: "Malp", medicare: "Mcr" };
@@ -510,6 +534,67 @@ export default function DoctorsTable() {
               <label className="form-date"><span>Medicare revalidation</span>
                 <input type="date" value={doctor.medicareRevalidation || ""} onChange={(e) => setDoctor({ ...doctor, medicareRevalidation: e.target.value })} className="p-2 rounded ks-field" />
               </label>
+            </div>
+
+            {/* Permisos, entrenamientos y mantenimiento. Las cinco de arriba son
+                del clínico; estas son de la operación y antes no cabían en
+                ningún lado, así que vivían en una hoja aparte que nadie miraba.
+                Se guardan como lista, no como columnas fijas: el día que
+                aparezca bomberos o rayos X se agrega sin tocar la base. */}
+            <h4 className="form-section">Otras credenciales</h4>
+            <p className="form-hint">
+              Permisos del local, entrenamientos anuales y mantenimiento de equipos.
+              Salen en la ficha con el mismo semáforo y entran en el aviso por correo.
+            </p>
+            <div className="xc-list">
+              {(doctor.extraCreds || []).map((c, i) => (
+                <div className="xc-row" key={i}>
+                  <input
+                    className="p-2 rounded ks-field"
+                    placeholder="Nombre — ej. Permiso de residuos biomédicos"
+                    value={c.label || ""}
+                    onChange={(e) => setExtra(i, { label: e.target.value })}
+                  />
+                  <input
+                    type="date"
+                    className="p-2 rounded ks-field"
+                    value={c.date || ""}
+                    onChange={(e) => setExtra(i, { date: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className="xc-del"
+                    onClick={() => delExtra(i)}
+                    aria-label={`Quitar ${c.label || "credencial"}`}
+                    title="Quitar"
+                  >×</button>
+                  <input
+                    className="p-2 rounded ks-field xc-act"
+                    placeholder="Qué hay que hacer para renovarla"
+                    value={c.action || ""}
+                    onChange={(e) => setExtra(i, { action: e.target.value })}
+                  />
+                </div>
+              ))}
+              {(doctor.extraCreds || []).length === 0 && (
+                <p className="xc-none">Ninguna todavía.</p>
+              )}
+            </div>
+            <div className="xc-add">
+              <select
+                className="ks-field text-sm"
+                value=""
+                onChange={(e) => { addPreset(e.target.value); e.target.value = ""; }}
+                aria-label="Agregar credencial de la lista"
+              >
+                <option value="">Agregar de la lista…</option>
+                {EXTRA_CRED_PRESETS.map((p) => (
+                  <option key={p.label} value={p.label}>{p.label}</option>
+                ))}
+              </select>
+              <button type="button" className="flt-clear" onClick={() => addExtra({ label: "", date: "", action: "" })}>
+                Agregar en blanco
+              </button>
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
