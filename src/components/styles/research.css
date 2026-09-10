@@ -1,0 +1,157 @@
+/* src/components/styles/research.css
+   Sección Research. Reusa los tokens de la app (--ink, --line, --accent) para
+   que no parezca una pantalla pegada de otro producto, y reusa .sem-pill del
+   semáforo: un vencimiento se lee igual acá que en Providers, que es la única
+   forma de que la persona no tenga que aprender dos códigos de color. */
+
+.rs{ display:flex; flex-direction:column; gap:14px }
+
+/* Identificación del sitio */
+.rs-idcard{
+  display:flex; flex-wrap:wrap; gap:18px; justify-content:space-between; align-items:flex-start;
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+  box-shadow:var(--shadow); padding:16px 18px;
+}
+.rs-idcard h3{ margin:0 0 4px; font-size:18px; font-weight:600; color:var(--ink) }
+.rs-addr{ margin:0; font-size:13px; color:var(--ink2) }
+.rs-type{ margin:6px 0 0; font-size:12px; color:var(--muted) }
+.rs-ids{ display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:10px 22px; min-width:0 }
+.rs-ids > div{ display:flex; flex-direction:column; gap:2px; min-width:0 }
+.rs-k{ font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted) }
+.rs-ids .mono{ font-size:13px; color:var(--ink); overflow-wrap:anywhere }
+
+.sum-tile.quiet .sum-num{ color:var(--muted) }
+
+/* Pestañas */
+.rs-tabs{ display:flex; gap:4px; flex-wrap:wrap; border-bottom:1px solid var(--line) }
+.rs-tab{
+  background:none; border:0; border-bottom:2px solid transparent; margin-bottom:-1px;
+  padding:9px 14px; font:inherit; font-size:13px; color:var(--ink2); cursor:pointer; border-radius:6px 6px 0 0;
+}
+.rs-tab:hover{ color:var(--accent); background:var(--alt) }
+.rs-tab.on{ color:var(--accent); border-bottom-color:var(--accent); font-weight:600 }
+
+.rs-card{ padding:16px 18px }
+.rs-h{ margin:0 0 4px; font-size:14px; font-weight:600; color:var(--ink) }
+.rs-count{ font-size:12px; color:var(--muted); font-weight:400; margin-left:6px }
+.rs-sub{ margin:0 0 12px; font-size:12px; color:var(--muted); max-width:70ch; line-height:1.55 }
+
+.rs-tools{ display:flex; gap:9px; flex-wrap:wrap; align-items:center; margin-bottom:12px }
+.rs-tools .flt-search{ flex:1; min-width:230px }
+.rs-hint{ font-size:11.5px; color:var(--muted); max-width:56ch; line-height:1.5 }
+
+/* Tablas: en pantallas chicas la tabla se desliza dentro de su caja en vez de
+   empujar la página entera hacia los lados. */
+.rs-scroll{ overflow-x:auto; margin:0 -18px; padding:0 18px }
+.rs-table{ width:100%; border-collapse:collapse; font-size:13px; min-width:720px }
+.rs-table th{
+  text-align:left; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--muted); font-weight:600; padding:0 10px 7px; border-bottom:1px solid var(--line);
+}
+.rs-table td{ padding:10px; border-bottom:1px solid var(--line2); vertical-align:top; color:var(--ink) }
+.rs-table tbody tr:hover{ background:var(--alt) }
+.rs-table td small{ display:block; font-size:11px; color:var(--muted); margin-top:2px }
+.rs-table a{ color:var(--accent); text-decoration:none }
+.rs-table a:hover{ text-decoration:underline }
+
+.rs-role{ color:var(--ink2); font-size:12.5px; max-width:230px }
+.rs-when{ white-space:nowrap; font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px }
+.rs-when .sem-pill{ margin-left:6px }
+.rs-src{ font-size:11px; color:var(--muted); line-height:1.5; max-width:340px }
+.rs-src span{ display:block }
+.rs-warn{ color:var(--hot) !important; font-weight:500; max-width:300px; line-height:1.45 }
+.rs-ran{ white-space:nowrap; font-size:11.5px; color:var(--ink2) }
+.rs-title{ font-size:12.5px; color:var(--ink2); max-width:420px; line-height:1.45 }
+.rs-phase{
+  display:inline-block; padding:2px 8px; border-radius:999px; font-size:11.5px;
+  background:var(--accent-soft); color:var(--accent-2); white-space:nowrap;
+}
+
+/* Chips de áreas y fases */
+.rs-chips{ display:flex; flex-wrap:wrap; gap:5px }
+.rs-chip{
+  display:inline-block; font-size:11.5px; padding:3px 9px; border-radius:3px;
+  background:var(--alt); color:var(--ink2); border:1px solid var(--line2);
+}
+.rs-chip.on{ background:var(--accent-soft); color:var(--accent-2); border-color:var(--accent-soft); font-weight:600 }
+.rs-area{ margin-top:14px }
+.rs-areahd{
+  display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  font-size:12.5px; font-weight:600; color:var(--ink); margin-bottom:6px;
+  padding-bottom:4px; border-bottom:1px solid var(--line2);
+}
+.rs-areahd .mono{ font-size:11.5px; color:var(--muted); font-weight:400 }
+
+/* Arranque de estudio */
+.rs-startup{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px }
+.rs-metric{ border:1px solid var(--line); border-radius:8px; padding:12px 14px; background:var(--alt) }
+.rs-metric .n{ display:block; font-family:"IBM Plex Mono",monospace; font-size:20px; font-weight:600; color:var(--accent-2) }
+.rs-metric .u{ display:block; font-size:12px; color:var(--ink); margin-top:2px }
+.rs-metric .d{ display:block; font-size:11.5px; color:var(--muted); margin-top:5px; line-height:1.5 }
+
+/* Capacidades */
+.rs-caps{ display:flex; flex-wrap:wrap; gap:5px }
+.rs-cap{
+  font-size:11.5px; padding:3px 9px; border-radius:3px;
+  background:var(--surface); border:1px solid var(--line); color:var(--ink2);
+}
+
+/* Población */
+.rs-diversity{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:22px }
+.rs-diversity h5{ margin:0 0 9px; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted) }
+.rs-bar{ display:grid; grid-template-columns:minmax(0,1fr) 96px 40px; gap:9px; align-items:center; margin-bottom:7px }
+.rs-barlbl{ font-size:12px; color:var(--ink2); overflow-wrap:anywhere }
+.rs-bartrack{ height:6px; background:var(--line2); border-radius:999px; position:relative; overflow:hidden }
+.rs-bartrack i{ position:absolute; inset:0 auto 0 0; background:var(--accent); border-radius:999px }
+.rs-barpct{ text-align:right; font-size:12px; color:var(--ink) }
+
+/* Documentos del sitio */
+.rs-docs{ display:grid; grid-template-columns:repeat(auto-fit,minmax(268px,1fr)); gap:12px }
+.rs-doc{ border:1px solid var(--line); border-radius:8px; padding:12px 14px; background:var(--surface) }
+.rs-dochd{ display:flex; align-items:center; justify-content:space-between; gap:9px; margin-bottom:5px }
+.rs-dochd b{ font-size:13px; color:var(--ink) }
+.rs-onfile{ font-size:11px; color:var(--muted); white-space:nowrap }
+.rs-docid{ display:block; font-size:11.5px; color:var(--ink2) }
+.rs-docdate{ display:block; font-size:11.5px; color:var(--ink2); margin-top:2px }
+.rs-doc p{ margin:7px 0 0; font-size:11.5px; color:var(--muted); line-height:1.55 }
+.rs-doc a{ display:inline-block; margin-top:8px; font-size:11.5px; color:var(--accent); text-decoration:none }
+.rs-doc a:hover{ text-decoration:underline }
+
+@media (max-width:640px){
+  .rs-bar{ grid-template-columns:minmax(0,1fr) 62px 36px }
+  .rs-tools .flt-search{ min-width:0 }
+}
+
+/* Altas y bajas del delegation log. Al inactivo se le baja el contraste pero no
+   se le esconde: sus documentos siguen existiendo y un monitor puede pedirlos
+   por un estudio ya cerrado. */
+.rs-toggle{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink2); cursor:pointer; white-space:nowrap }
+.rs-toggle input{ accent-color:var(--accent); width:14px; height:14px; cursor:pointer }
+.rs-table tr.rs-off td{ opacity:.55 }
+.rs-table tr.rs-off:hover td{ opacity:1 }
+.rs-tag{
+  display:inline-block !important; margin-top:3px; padding:1px 7px; border-radius:999px;
+  background:var(--idle-bg); color:var(--idle); font-size:10.5px; letter-spacing:.04em;
+}
+
+/* Estudios abiertos. La fila incompleta se marca en vez de disimularse: un
+   protocolo sin sponsor ni fase es trabajo pendiente, no un dato neutral. */
+.rs-open{ display:flex; flex-direction:column; gap:10px }
+.rs-openrow{ border:1px solid var(--line); border-left:3px solid var(--ok); border-radius:8px; padding:12px 14px; background:var(--surface) }
+.rs-openrow.gap{ border-left-color:var(--mid); background:var(--mid-bg) }
+.rs-openhd{ display:flex; flex-wrap:wrap; align-items:center; gap:9px; margin-bottom:3px }
+.rs-openhd b{ font-size:14px; color:var(--ink) }
+.rs-openhd a{ font-size:11.5px; color:var(--accent); text-decoration:none }
+.rs-openhd a:hover{ text-decoration:underline }
+.rs-phase.gapped{ background:var(--mid-bg); color:var(--mid); border:1px solid var(--mid) }
+.rs-sponsor{ display:block; font-size:12px; color:var(--ink2) }
+.rs-otitle{ margin:6px 0 0; font-size:12.5px; color:var(--ink); line-height:1.5; max-width:88ch }
+.rs-onote{ margin:6px 0 0; font-size:11.5px; color:var(--muted); line-height:1.5; max-width:88ch }
+.rs-osrc{ display:block; margin-top:6px; font-size:11px; color:var(--muted) }
+
+/* Investigador y versión de protocolo por estudio. El hueco se ve como hueco:
+   es lo primero que pide un monitor y no se disimula con un guion. */
+.rs-ometa{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px 20px; margin-top:10px; padding-top:10px; border-top:1px solid var(--line2) }
+.rs-meta{ display:flex; flex-direction:column; gap:2px; min-width:0 }
+.rs-meta > span:last-child{ font-size:12.5px; color:var(--ink); overflow-wrap:anywhere }
+.rs-todo{ color:var(--mid) !important; font-size:11.5px !important; font-style:italic }

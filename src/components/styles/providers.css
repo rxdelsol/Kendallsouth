@@ -80,7 +80,14 @@
 .prov-tools{ display:flex; gap:9px; flex-wrap:wrap; margin-top:12px }
 
 /* Ficha completa sobre la tabla: al cerrar se vuelve a la misma página. */
-.modal-record{ max-width:900px; width:min(900px, 94vw); max-height:88vh; overflow:auto; position:relative }
+/* Two class names, not one. The base .modal rule (width:520px) lives in
+   src/styles/index.css, which main.jsx imports last, so a single-class
+   .modal-record loses the cascade and the record renders at 520px — that is
+   what was clipping the NPI. .modal.modal-record outranks it. */
+.modal.modal-record{
+  width:min(1180px, 96vw); max-width:none; max-height:92vh;
+  overflow:auto; position:relative; padding:16px;
+}
 .modal-x{
   position:absolute; top:10px; right:12px; width:30px; height:30px; border-radius:8px;
   border:1px solid var(--line); background:var(--surface); color:var(--ink2);

@@ -17,6 +17,12 @@ const ICONOS = {
   insurances: "M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6z",
   provider: "M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm10 17l-5.2-5.2",
   matrix: "M4 6h7v5H4zm9 0h7v5h-7zM4 13h7v5H4zm9 0h7v5h-7z",
+  // Matraz: la sección de investigación clínica, no la de credenciales.
+  research: "M9 3h6M10 3v6.2L4.8 18a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3L14 9.2V3M7.6 14h8.8",
+  // Carpeta con una flecha hacia abajo: el binder del que se descarga.
+  files: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 10v5m0 0l-2-2m2 2l2-2",
+  // Diana: las oportunidades a las que el sitio apunta.
+  opps: "M12 3a9 9 0 1 0 9 9M12 7.5a4.5 4.5 0 1 0 4.5 4.5M12 12l8-8m0 0V2.6m0 1.4h1.4",
   reports: "M7 3h7l4 4v14H7zM14 3v4h4M10 13h6M10 17h6",
   data: "M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zm0 0v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7",
   settings: "M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm8.5 3l1.6 1.2-1.6 3-1.9-.6-1.7 1-.4 2h-3.4l-.4-2-1.7-1-1.9.6-1.6-3L7.1 12l-1.6-1.2 1.6-3 1.9.6 1.7-1 .4-2h3.4l.4 2 1.7 1 1.9-.6 1.6 3z",
@@ -28,6 +34,9 @@ const SECCIONES = [
   { id: "insurances", label: "Insurances" },
   { id: "provider", label: "NPI Lookup" },
   { id: "matrix", label: "Provider × Payer" },
+  { id: "research", label: "Research" },
+  { id: "files", label: "Study Files" },
+  { id: "opps", label: "Opportunities" },
   { id: "reports", label: "Reports" },
   { id: "data", label: "Data Management" },
   { id: "settings", label: "Settings" },

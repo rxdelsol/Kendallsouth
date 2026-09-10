@@ -110,5 +110,11 @@ export function doctorCredentials(d = {}) {
     { key: "malpractice", label: "Malpractice / COI", date: d.malpracticeExp || null, action: "Renew the policy and upload the declarations page to CAQH and payers.", url: "" },
     { key: "medicare", label: "Medicare revalidation", date: d.medicareRevalidation || null, action: "Revalidate in PECOS (pecos.cms.hhs.gov) before the deadline (every 5 years).", url: "https://pecos.cms.hhs.gov/" },
   ];
-  return fixed.concat(extraCredentials(d));
+  // No DEA number on file means this record doesn't prescribe controlled
+  // substances — a physical therapist, a counselor, the clinic entity itself.
+  // Showing them a DEA line that will never carry a date is noise, and it makes
+  // the "missing dates" filter accuse them of a gap they can't close.
+  return fixed
+    .filter((c) => (c.key === "dea" ? Boolean(d.dea || d.deaExp) : true))
+    .concat(extraCredentials(d));
 }

@@ -1,0 +1,62 @@
+/* src/components/styles/opps.css
+   Opportunities: buscar en Florida y llevar el pipeline de aplicaciones.
+   Se apoya en research.css y files.css (.rs-table, .rs-scroll, .fx-form,
+   .fx-aviso) — una tabla más no debería traer un lenguaje visual nuevo. */
+
+.op{ display:flex; flex-direction:column; gap:14px }
+.op-card{ padding:16px 18px }
+.op-new{ margin-left:auto }
+
+/* Atajos por área terapéutica */
+.op-areas{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:12px;
+  padding-top:12px; border-top:1px solid var(--line2) }
+.op-areahint{ font-size:11.5px; color:var(--muted); margin-right:4px }
+.op-areachip{ cursor:pointer; font-family:inherit }
+.op-areachip:hover{ border-color:var(--accent); color:var(--accent) }
+
+.op-count{ margin:0 0 12px; font-size:12.5px; color:var(--ink2) }
+
+/* Resultados */
+.op-results{ display:flex; flex-direction:column; gap:11px }
+.op-hit{ border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:8px;
+  padding:12px 14px; background:var(--surface) }
+/* Un estudio con cientos de sitios ya abiertos se pinta distinto: no se
+   esconde, pero tampoco se le da el mismo peso visual que a uno donde el sitio
+   tiene una posibilidad real. */
+.op-hit.crowded{ border-left-color:var(--mid) }
+.op-hithd{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:5px }
+.op-hithd a{ font-size:12px; color:var(--accent); text-decoration:none }
+.op-hithd a:hover{ text-decoration:underline }
+.op-status{ font-size:11px; padding:2px 8px; border-radius:999px; white-space:nowrap }
+.st-recruiting{ background:var(--ok-bg); color:var(--ok) }
+.st-not_yet_recruiting{ background:var(--idle-bg); color:var(--idle) }
+.op-already{ font-size:11px; padding:2px 8px; border-radius:999px; background:var(--accent-soft); color:var(--accent-2) }
+
+.op-title{ margin:0 0 3px; font-size:13.5px; color:var(--ink); line-height:1.45; max-width:96ch }
+.op-sponsor{ display:block; font-size:12px; color:var(--ink2) }
+.op-facts{ display:flex; flex-wrap:wrap; gap:4px 16px; margin-top:7px; font-size:11.5px; color:var(--muted) }
+.op-warn{ margin:8px 0 0; font-size:11.5px; color:var(--mid); line-height:1.5; max-width:88ch }
+.op-contacts{ margin:8px 0 0; font-size:11.5px; color:var(--ink2); line-height:1.55; max-width:96ch }
+.op-contacts b{ color:var(--ink) }
+.op-contacts a{ color:var(--accent); text-decoration:none }
+.op-contacts a:hover{ text-decoration:underline }
+.op-contacts.none{ color:var(--muted); font-style:italic }
+.op-hitacts{ display:flex; flex-wrap:wrap; gap:8px; margin-top:11px }
+.op-more{ display:flex; justify-content:center; margin-top:14px }
+
+/* Pipeline */
+.op-stage{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:11.5px; white-space:nowrap }
+.s-interested{ background:var(--idle-bg); color:var(--idle) }
+.s-feasibility_sent{ background:var(--accent-soft); color:var(--accent-2) }
+.s-cda_signed{ background:var(--accent-soft); color:var(--accent-2) }
+.s-site_selected{ background:var(--ok-bg); color:var(--ok) }
+.s-startup{ background:var(--ok-bg); color:var(--ok) }
+.s-not_selected{ background:var(--hot-bg); color:var(--hot) }
+.s-declined{ background:var(--idle-bg); color:var(--idle) }
+.s-closed{ background:var(--idle-bg); color:var(--idle) }
+.op-silent{ color:var(--mid) !important; font-weight:500 }
+.op-next{ font-size:12.5px; color:var(--ink) }
+.op-contact{ color:var(--muted) !important; max-width:300px; overflow-wrap:anywhere }
+
+.op textarea.ks-field{ font:inherit; font-size:13px; padding:8px 11px; resize:vertical }
+.op-degraded{ color:var(--mid) }

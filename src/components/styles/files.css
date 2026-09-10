@@ -1,0 +1,82 @@
+/* src/components/styles/files.css
+   Study Files. Reusa .rs-table, .rs-scroll y .rs-toggle de research.css para
+   que una tabla de documentos se lea igual que una de credenciales. */
+
+.fx{ display:flex; flex-direction:column; gap:14px }
+.fx-card{ padding:16px 18px }
+.fx-h{ margin:0 0 12px; font-size:14px; font-weight:600; color:var(--ink) }
+
+.fx-who{ display:inline-flex; align-items:center; gap:9px; font-size:12px; color:var(--muted) }
+.fx-who b{ color:var(--accent-2) }
+
+/* Avisos: verde cuando algo se guardó, rojo cuando no. Nada de "listo" cuando
+   la fila no entró — un aviso que miente una vez se ignora para siempre. */
+.fx-aviso{ padding:10px 14px; border-radius:8px; font-size:13px; cursor:pointer; border:1px solid transparent }
+.fx-aviso.bien{ background:var(--ok-bg); color:var(--ok); border-color:var(--ok-bg) }
+.fx-aviso.mal{ background:var(--hot-bg); color:var(--hot); border-color:var(--hot-bg) }
+
+.fx-warn{
+  padding:10px 14px; border-radius:8px; font-size:12px; line-height:1.55;
+  background:var(--mid-bg); color:var(--mid); border:1px solid var(--mid-bg); max-width:100ch;
+}
+
+/* Un cuadro por estudio, con cuántos documentos vigentes tiene. */
+.fx-tiles{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:9px }
+.fx-tile{
+  display:flex; flex-direction:column; align-items:flex-start; gap:2px; text-align:left;
+  padding:10px 13px; border:1px solid var(--line); border-radius:var(--r);
+  background:var(--surface); cursor:pointer; box-shadow:var(--shadow); min-width:0;
+}
+.fx-tile:hover{ border-color:var(--accent) }
+.fx-tile.on{ outline:2px solid var(--accent); border-color:var(--accent) }
+.fx-tile .n{ font-size:19px; font-weight:700; line-height:1; color:var(--accent-2) }
+.fx-tile .p{ font-size:12.5px; color:var(--ink); overflow-wrap:anywhere }
+.fx-tile .s{ font-size:11px; color:var(--muted); overflow-wrap:anywhere }
+
+/* Formulario de subida */
+.fx-form{ display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px }
+.fx-form label{ display:flex; flex-direction:column; gap:4px; min-width:0 }
+.fx-form label.wide{ grid-column:1 / -1 }
+.fx-form label > span{ font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted) }
+.fx-form input, .fx-form select{ width:100%; padding:8px 11px; font-size:13px }
+.fx-form input[type="file"]{ padding:7px 9px; font-size:12.5px }
+.fx-submit{ grid-column:1 / -1; display:flex; justify-content:flex-end }
+
+.fx-tools{ display:flex; gap:9px; flex-wrap:wrap; align-items:center; margin-bottom:12px }
+.fx-tools .flt-search{ flex:1; min-width:220px }
+
+.fx-none{ margin:0; font-size:12.5px; color:var(--muted); line-height:1.6; max-width:72ch }
+.fx-table td:first-child{ max-width:320px }
+.fx-cat{ font-size:12px; color:var(--ink2) }
+.fx-file{ font-size:11.5px; color:var(--ink2); max-width:280px; overflow-wrap:anywhere }
+.fx-acts{ display:flex; flex-wrap:wrap; gap:7px; align-items:center; white-space:nowrap }
+.fx-del{ color:var(--hot) !important }
+
+.fx-loghd{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px }
+.fx-loghd .fx-h{ margin:0 }
+.fx-act{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; text-transform:uppercase; letter-spacing:.05em }
+.a-upload{ background:var(--ok-bg); color:var(--ok) }
+.a-download{ background:var(--accent-soft); color:var(--accent-2) }
+.a-delete{ background:var(--hot-bg); color:var(--hot) }
+.a-supersede{ background:var(--mid-bg); color:var(--mid) }
+
+/* Entrada y estados vacíos */
+.fx-login, .fx-empty{ padding:22px 24px; max-width:560px }
+.fx-login h4, .fx-empty h4{ margin:0 0 6px; font-size:15px; color:var(--ink) }
+.fx-login p, .fx-empty p{ margin:0 0 14px; font-size:12.5px; color:var(--muted); line-height:1.6 }
+.fx-login form{ display:flex; flex-direction:column; gap:12px }
+.fx-login label{ display:flex; flex-direction:column; gap:4px }
+.fx-login label > span{ font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted) }
+.fx-login input{ padding:9px 11px; font-size:14px }
+.fx-login .btn-red{ align-self:flex-start }
+.fx-fine{ margin:16px 0 0 !important; font-size:11.5px !important; border-top:1px solid var(--line2); padding-top:12px }
+.fx-empty pre{
+  background:var(--alt); border:1px solid var(--line); border-radius:8px; padding:11px 13px;
+  font-size:11.5px; overflow-x:auto; color:var(--ink); margin:0 0 14px;
+}
+.fx-empty code, .fx-login code{ background:var(--alt); padding:1px 5px; border-radius:4px; font-size:11.5px }
+
+@media (max-width:560px){
+  .fx-form{ grid-template-columns:1fr }
+  .fx-tools .flt-search{ min-width:0 }
+}
