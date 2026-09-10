@@ -47,26 +47,42 @@ export function worseStatus(a, b) {
 
 export const CAQH_ATTEST_DAYS = 120; // CAQH exige re-atestar cada 120 días
 
-// Credenciales que no son del clínico sino de la operación: permisos del local,
-// entrenamientos anuales, mantenimiento de equipos. Son sugerencias para llenar
-// el formulario de un clic; el usuario puede escribir cualquier otra.
+// Only http(s) links are allowed through. A credential row renders its URL as a
+// clickable link, so a javascript: or data: value here would be an XSS hole.
+export function safeUrl(u) {
+  const s = String(u || "").trim();
+  if (!s) return "";
+  try {
+    const parsed = new URL(s.includes("://") ? s : "https://" + s);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : "";
+  } catch {
+    return "";
+  }
+}
+
+// Credentials that belong to the practice rather than to the clinician: site
+// permits, annual training, equipment service. These are one-click starters for
+// the form — any other label can be typed by hand.
+// Only URLs printed on the actual renewal notice or already named by the app are
+// filled in. The rest are left blank on purpose: a wrong renewal link is worse
+// than no link.
 export const EXTRA_CRED_PRESETS = [
-  { label: "Permiso de residuos biomédicos", action: "Pagar en MyFloridaEHPermit.com y enviar la solicitud de renovación y el reporte anual al DOH del condado. El pago por sí solo no renueva el permiso." },
-  { label: "Calibración y mantenimiento de equipos", action: "Agendar la visita anual del proveedor de servicio y archivar el reporte firmado." },
-  { label: "Capacitación OSHA", action: "Repetir el curso anual: patógenos sanguíneos, HazCom y 64E-16 FAC." },
-  { label: "Capacitación HIPAA / HITECH", action: "Repetir el curso anual y actualizar el Security Risk Analysis." },
-  { label: "CLIA", action: "Renovar el certificado con CMS antes del vencimiento." },
-  { label: "Licencia AHCA de la clínica", action: "Renovar con AHCA. Empieza 90 días antes." },
-  { label: "Business tax receipt", action: "Renovar con el condado y con el municipio. En Florida vence el 30 de septiembre." },
-  { label: "Certificate of Use", action: "Renovar con el municipio." },
-  { label: "Inspección de bomberos", action: "Agendar la inspección anual." },
-  { label: "Revalidación de Medicaid", action: "Revalidar con AHCA (cada 5 años)." },
-  { label: "Registro de equipos de rayos X", action: "Renovar con el DOH Bureau of Radiation Control." },
+  { label: "Biomedical waste permit", action: "Pay the fee, then email the renewal application and the annual report to the county DOH. Paying alone does not renew the permit.", url: "https://www.myfloridaehpermit.com/" },
+  { label: "Equipment calibration and service", action: "Book the annual vendor visit and file the signed report.", url: "" },
+  { label: "OSHA training", action: "Repeat the annual course: bloodborne pathogens, HazCom and 64E-16 FAC.", url: "" },
+  { label: "HIPAA / HITECH training", action: "Repeat the annual course and update the Security Risk Analysis.", url: "" },
+  { label: "CLIA certificate", action: "Renew the certificate with CMS before it expires.", url: "" },
+  { label: "AHCA clinic license", action: "Renew with AHCA. Start 90 days out.", url: "https://ahca.myflorida.com/provider/licensure.html" },
+  { label: "Business tax receipt", action: "Renew with the county and the city. In Florida it lapses September 30.", url: "" },
+  { label: "Certificate of Use", action: "Renew with the city.", url: "" },
+  { label: "Fire inspection", action: "Book the annual inspection.", url: "" },
+  { label: "Medicaid revalidation", action: "Revalidate with AHCA (every 5 years).", url: "" },
+  { label: "X-ray equipment registration", action: "Renew with the DOH Bureau of Radiation Control.", url: "" },
 ];
 
-// Normaliza la lista de credenciales adicionales guardada en el registro.
-// Descarta las que no tienen etiqueta: una fila sin nombre no se puede leer
-// en la ficha ni explicar en el correo de aviso.
+// Normalizes the extra credentials stored on a record. Rows without a label are
+// dropped: a nameless row can't be read in the record or explained in the alert
+// email.
 export function extraCredentials(d = {}) {
   const xs = Array.isArray(d.extraCreds) ? d.extraCreds : [];
   return xs
@@ -76,22 +92,23 @@ export function extraCredentials(d = {}) {
       label: String(c.label).trim(),
       date: c.date ? String(c.date).slice(0, 10) : null,
       action: String(c.action || "").trim(),
+      url: safeUrl(c.url),
       extra: true,
     }));
 }
 
-// Construye la lista de credenciales con fecha de un doctor.
-// CAQH usa fecha de última atestación → vence a los 120 días.
-// Las adicionales van al final y se pintan igual que las fijas: mismo
-// semáforo, misma barra, mismos días, y entran en el correo de aviso.
+// Builds the dated credential list for a provider.
+// CAQH is stored as the last attestation date → it comes due 120 days later.
+// Extras go last and render exactly like the fixed five: same traffic light,
+// same bar, same day count, and they reach the alert email.
 export function doctorCredentials(d = {}) {
   const caqhDue = d.caqhAttested ? addDays(d.caqhAttested, CAQH_ATTEST_DAYS) : null;
-  const fijas = [
-    { key: "license", label: "Florida license", date: d.licenseExp || null, action: "Renew with the Florida MQA board and upload to CAQH." },
-    { key: "dea", label: "DEA registration", date: d.deaExp || null, action: "Renew at deadiversion.usdoj.gov before it expires." },
-    { key: "caqh", label: "CAQH re-attestation", date: caqhDue, action: "Re-attest at proview.caqh.org (every 120 days).", base: d.caqhAttested || null },
-    { key: "malpractice", label: "Malpractice / COI", date: d.malpracticeExp || null, action: "Renew the policy and upload the declarations page to CAQH and payers." },
-    { key: "medicare", label: "Medicare revalidation", date: d.medicareRevalidation || null, action: "Revalidate in PECOS (pecos.cms.hhs.gov) before the deadline (every 5 years)." },
+  const fixed = [
+    { key: "license", label: "Florida license", date: d.licenseExp || null, action: "Renew with the Florida MQA board and upload to CAQH.", url: "https://www.flhealthsource.gov/" },
+    { key: "dea", label: "DEA registration", date: d.deaExp || null, action: "Renew at deadiversion.usdoj.gov before it expires.", url: "https://www.deadiversion.usdoj.gov/drugreg/index.html" },
+    { key: "caqh", label: "CAQH re-attestation", date: caqhDue, action: "Re-attest at proview.caqh.org (every 120 days).", base: d.caqhAttested || null, url: "https://proview.caqh.org/" },
+    { key: "malpractice", label: "Malpractice / COI", date: d.malpracticeExp || null, action: "Renew the policy and upload the declarations page to CAQH and payers.", url: "" },
+    { key: "medicare", label: "Medicare revalidation", date: d.medicareRevalidation || null, action: "Revalidate in PECOS (pecos.cms.hhs.gov) before the deadline (every 5 years).", url: "https://pecos.cms.hhs.gov/" },
   ];
-  return fijas.concat(extraCredentials(d));
+  return fixed.concat(extraCredentials(d));
 }

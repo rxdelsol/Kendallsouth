@@ -6,6 +6,20 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE
 );
 
+// Sólo pasan http y https. La ficha pinta esto como enlace, así que un
+// javascript: guardado acá sería un XSS con la firma de la clínica encima.
+function cleanUrl(u) {
+  const s = String(u || '').trim();
+  if (!s) return null;
+  try {
+    const parsed = new URL(s.includes('://') ? s : 'https://' + s);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed.href.slice(0, 300);
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
@@ -58,6 +72,9 @@ export default async function handler(req, res) {
             label: String(c.label).trim().slice(0, 80),
             date: c.date ? String(c.date).slice(0, 10) : null,
             action: String(c.action || '').trim().slice(0, 240) || null,
+            // The record renders this as a link, so anything that isn't
+            // plain http(s) is dropped rather than stored.
+            url: cleanUrl(c.url),
           }))
       : [],
   };

@@ -100,7 +100,15 @@ export default function ProviderRecord({ doctor, insurances, onClose, onEdit, in
               const pct = c.days === null ? 0 : Math.max(3, Math.min(100, Math.round((c.days / 730) * 100)));
               return (
                 <div className="rec-row" key={c.key}>
-                  <div className="k">{c.label}<small>{c.action}</small></div>
+                  <div className="k">
+                    {c.label}
+                    {c.url ? (
+                      <a className="rec-renew" href={c.url} target="_blank" rel="noopener noreferrer">
+                        Renew ↗
+                      </a>
+                    ) : null}
+                    <small>{c.action}</small>
+                  </div>
                   <div className="rec-meter">{c.days === null ? null : <i className={`i-${tt}`} style={{ width: pct + "%" }} />}</div>
                   {c.days === null
                     ? <div className="rec-when none">not on file yet</div>

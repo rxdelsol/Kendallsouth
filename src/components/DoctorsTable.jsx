@@ -168,6 +168,7 @@ export default function DoctorsTable() {
         label: c?.label || "",
         date: c?.date ? String(c.date).slice(0, 10) : "",
         action: c?.action || "",
+        url: c?.url || "",
       })),
     });
     setIsEditing(true);
@@ -187,7 +188,7 @@ export default function DoctorsTable() {
     setDoctor((d) => ({ ...d, extraCreds: (d.extraCreds || []).filter((_, j) => j !== i) }));
   const addPreset = (label) => {
     const p = EXTRA_CRED_PRESETS.find((x) => x.label === label);
-    if (p) addExtra({ label: p.label, date: "", action: p.action });
+    if (p) addExtra({ label: p.label, date: "", action: p.action, url: p.url || "" });
   };
 
   const abbr = { license: "Lic", dea: "DEA", caqh: "CAQH", malpractice: "Malp", medicare: "Mcr" };
@@ -499,9 +500,9 @@ export default function DoctorsTable() {
               </label>
             </div>
 
-            <h4 className="form-section">Vencimientos de credenciales</h4>
+            <h4 className="form-section">Credential expirations</h4>
             <div className="grid grid-cols-2 gap-2 mt-1">
-              <label className="form-date"><span>Licencia FL vence</span>
+              <label className="form-date"><span>Florida license expires</span>
                 <input type="date" value={doctor.licenseExp || ""} onChange={(e) => setDoctor({ ...doctor, licenseExp: e.target.value })} className="p-2 rounded ks-field" />
               </label>
               <div>
@@ -536,22 +537,22 @@ export default function DoctorsTable() {
               </label>
             </div>
 
-            {/* Permisos, entrenamientos y mantenimiento. Las cinco de arriba son
-                del clínico; estas son de la operación y antes no cabían en
-                ningún lado, así que vivían en una hoja aparte que nadie miraba.
-                Se guardan como lista, no como columnas fijas: el día que
-                aparezca bomberos o rayos X se agrega sin tocar la base. */}
-            <h4 className="form-section">Otras credenciales</h4>
+            {/* Permits, training and equipment service. The five above belong to
+                the clinician; these belong to the practice and had nowhere to
+                live, so they sat on a side sheet nobody opened. Stored as a
+                list, not as fixed columns: adding fire inspection or x-ray
+                tomorrow needs no migration. */}
+            <h4 className="form-section">Other credentials</h4>
             <p className="form-hint">
-              Permisos del local, entrenamientos anuales y mantenimiento de equipos.
-              Salen en la ficha con el mismo semáforo y entran en el aviso por correo.
+              Site permits, annual training and equipment service. They show up in the
+              record with the same traffic light and reach the alert email.
             </p>
             <div className="xc-list">
               {(doctor.extraCreds || []).map((c, i) => (
                 <div className="xc-row" key={i}>
                   <input
                     className="p-2 rounded ks-field"
-                    placeholder="Nombre — ej. Permiso de residuos biomédicos"
+                    placeholder="Name — e.g. Biomedical waste permit"
                     value={c.label || ""}
                     onChange={(e) => setExtra(i, { label: e.target.value })}
                   />
@@ -565,19 +566,27 @@ export default function DoctorsTable() {
                     type="button"
                     className="xc-del"
                     onClick={() => delExtra(i)}
-                    aria-label={`Quitar ${c.label || "credencial"}`}
-                    title="Quitar"
+                    aria-label={`Remove ${c.label || "credential"}`}
+                    title="Remove"
                   >×</button>
                   <input
                     className="p-2 rounded ks-field xc-act"
-                    placeholder="Qué hay que hacer para renovarla"
+                    placeholder="What it takes to renew it"
                     value={c.action || ""}
                     onChange={(e) => setExtra(i, { action: e.target.value })}
+                  />
+                  <input
+                    type="url"
+                    inputMode="url"
+                    className="p-2 rounded ks-field xc-url"
+                    placeholder="Renewal link — https://…"
+                    value={c.url || ""}
+                    onChange={(e) => setExtra(i, { url: e.target.value })}
                   />
                 </div>
               ))}
               {(doctor.extraCreds || []).length === 0 && (
-                <p className="xc-none">Ninguna todavía.</p>
+                <p className="xc-none">None yet.</p>
               )}
             </div>
             <div className="xc-add">
@@ -585,15 +594,15 @@ export default function DoctorsTable() {
                 className="ks-field text-sm"
                 value=""
                 onChange={(e) => { addPreset(e.target.value); e.target.value = ""; }}
-                aria-label="Agregar credencial de la lista"
+                aria-label="Add a credential from the list"
               >
-                <option value="">Agregar de la lista…</option>
+                <option value="">Add from the list…</option>
                 {EXTRA_CRED_PRESETS.map((p) => (
                   <option key={p.label} value={p.label}>{p.label}</option>
                 ))}
               </select>
-              <button type="button" className="flt-clear" onClick={() => addExtra({ label: "", date: "", action: "" })}>
-                Agregar en blanco
+              <button type="button" className="flt-clear" onClick={() => addExtra({ label: "", date: "", action: "", url: "" })}>
+                Add a blank one
               </button>
             </div>
 

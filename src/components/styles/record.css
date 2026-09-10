@@ -96,3 +96,13 @@
 
 /* Embebida en la pantalla de Doctors: sin ancho de modal ni scroll propio. */
 .rec.rec-inline{ width:auto; max-height:none; overflow:visible; border:1px solid var(--line); }
+
+/* Link de renovación al lado del nombre de la credencial. Va inline y en
+   minúsculas para que no compita con la etiqueta: es un atajo, no un título. */
+.rec-row .k .rec-renew{
+  margin-left:8px; font-size:11px; font-weight:600; letter-spacing:.02em;
+  color:var(--accent, #0E6A73); text-decoration:none; white-space:nowrap;
+  border-bottom:1px solid transparent;
+}
+.rec-row .k .rec-renew:hover{ border-bottom-color:currentColor }
+.rec-row .k .rec-renew:focus-visible{ outline:2px solid currentColor; outline-offset:2px; border-radius:2px }
